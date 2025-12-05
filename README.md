@@ -1,1 +1,1 @@
-# hammerpath-video-portal
+# Welcome to your Hammerpath Video Generator Portal
