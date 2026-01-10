@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, LogOut, Video, Users, FileText, Wand2, Sparkles } from "lucide-react";
+import { LayoutDashboard, Plus, LogOut, Video, Users, FileText, Wand2, Sparkles, Zap, Film, Layers, Shuffle } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -29,7 +29,11 @@ const Sidebar = () => {
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
     // { to: "/new-request", icon: Plus, label: "New Request" },
     { to: "/video-generator", icon: Wand2, label: "AI Video (Veo)" },
-    // { to: "/templates", icon: FileText, label: "Templates" },
+    // { to: "/sora-storyboard-generator", icon: Sparkles, label: "Sora 2 Pro", premium: true },
+    // { to: "/sora2-latest", icon: Zap, label: "Sora 2 Latest", premium: true },
+    { to: "/bulk-video", icon: Layers, label: "Bulk Video", premium: true },
+    { to: "/smart-bulk", icon: Shuffle, label: "Smart Bulk", premium: true },
+    // { to: "/runway-extend", icon: Film, label: "Runway Extend", premium: true }
   ];
 
   const adminNavItems = [

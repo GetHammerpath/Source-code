@@ -14,6 +14,114 @@ export type Database = {
   }
   public: {
     Tables: {
+      bulk_batch_generations: {
+        Row: {
+          batch_id: string
+          created_at: string | null
+          generation_id: string
+          id: string
+          variable_values: Json
+          variation_index: number
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string | null
+          generation_id: string
+          id?: string
+          variable_values?: Json
+          variation_index?: number
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string | null
+          generation_id?: string
+          id?: string
+          variable_values?: Json
+          variation_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_batch_generations_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "bulk_video_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bulk_batch_generations_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "kie_video_generations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bulk_video_batches: {
+        Row: {
+          aspect_ratio: string | null
+          base_city: string
+          base_image_url: string | null
+          base_industry: string
+          base_story_idea: string | null
+          completed_variations: number
+          created_at: string | null
+          failed_variations: number
+          generation_mode: string | null
+          generation_type: string | null
+          id: string
+          model: string | null
+          name: string
+          number_of_scenes: number | null
+          status: string
+          total_variations: number
+          updated_at: string | null
+          user_id: string
+          variables: Json
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          base_city: string
+          base_image_url?: string | null
+          base_industry: string
+          base_story_idea?: string | null
+          completed_variations?: number
+          created_at?: string | null
+          failed_variations?: number
+          generation_mode?: string | null
+          generation_type?: string | null
+          id?: string
+          model?: string | null
+          name: string
+          number_of_scenes?: number | null
+          status?: string
+          total_variations?: number
+          updated_at?: string | null
+          user_id: string
+          variables?: Json
+        }
+        Update: {
+          aspect_ratio?: string | null
+          base_city?: string
+          base_image_url?: string | null
+          base_industry?: string
+          base_story_idea?: string | null
+          completed_variations?: number
+          created_at?: string | null
+          failed_variations?: number
+          generation_mode?: string | null
+          generation_type?: string | null
+          id?: string
+          model?: string | null
+          name?: string
+          number_of_scenes?: number | null
+          status?: string
+          total_variations?: number
+          updated_at?: string | null
+          user_id?: string
+          variables?: Json
+        }
+        Relationships: []
+      }
       jobsite_photos: {
         Row: {
           file_name: string
@@ -54,6 +162,7 @@ export type Database = {
           ai_prompt: string | null
           aspect_ratio: string | null
           audio_enabled: boolean | null
+          avatar_identity_prefix: string | null
           avatar_name: string
           city: string
           created_at: string | null
@@ -98,6 +207,7 @@ export type Database = {
           ai_prompt?: string | null
           aspect_ratio?: string | null
           audio_enabled?: boolean | null
+          avatar_identity_prefix?: string | null
           avatar_name: string
           city: string
           created_at?: string | null
@@ -142,6 +252,7 @@ export type Database = {
           ai_prompt?: string | null
           aspect_ratio?: string | null
           audio_enabled?: boolean | null
+          avatar_identity_prefix?: string | null
           avatar_name?: string
           city?: string
           created_at?: string | null
@@ -316,6 +427,111 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           visual_style?: Database["public"]["Enums"]["visual_style"] | null
+        }
+        Relationships: []
+      }
+      runway_extend_generations: {
+        Row: {
+          aspect_ratio: string | null
+          avatar_identity_prefix: string | null
+          avatar_name: string
+          city: string
+          created_at: string | null
+          current_scene: number | null
+          duration_per_scene: number | null
+          extended_completed_at: string | null
+          extended_error: string | null
+          extended_status: string | null
+          extended_task_id: string | null
+          extended_video_url: string | null
+          final_video_completed_at: string | null
+          final_video_error: string | null
+          final_video_status: string | null
+          final_video_url: string | null
+          id: string
+          image_analysis: Json | null
+          image_url: string
+          industry: string
+          initial_completed_at: string | null
+          initial_error: string | null
+          initial_status: string | null
+          initial_task_id: string | null
+          initial_video_url: string | null
+          number_of_scenes: number | null
+          resolution: string | null
+          scene_prompts: Json | null
+          story_idea: string | null
+          updated_at: string | null
+          user_id: string
+          video_segments: Json | null
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          avatar_identity_prefix?: string | null
+          avatar_name: string
+          city: string
+          created_at?: string | null
+          current_scene?: number | null
+          duration_per_scene?: number | null
+          extended_completed_at?: string | null
+          extended_error?: string | null
+          extended_status?: string | null
+          extended_task_id?: string | null
+          extended_video_url?: string | null
+          final_video_completed_at?: string | null
+          final_video_error?: string | null
+          final_video_status?: string | null
+          final_video_url?: string | null
+          id?: string
+          image_analysis?: Json | null
+          image_url: string
+          industry: string
+          initial_completed_at?: string | null
+          initial_error?: string | null
+          initial_status?: string | null
+          initial_task_id?: string | null
+          initial_video_url?: string | null
+          number_of_scenes?: number | null
+          resolution?: string | null
+          scene_prompts?: Json | null
+          story_idea?: string | null
+          updated_at?: string | null
+          user_id: string
+          video_segments?: Json | null
+        }
+        Update: {
+          aspect_ratio?: string | null
+          avatar_identity_prefix?: string | null
+          avatar_name?: string
+          city?: string
+          created_at?: string | null
+          current_scene?: number | null
+          duration_per_scene?: number | null
+          extended_completed_at?: string | null
+          extended_error?: string | null
+          extended_status?: string | null
+          extended_task_id?: string | null
+          extended_video_url?: string | null
+          final_video_completed_at?: string | null
+          final_video_error?: string | null
+          final_video_status?: string | null
+          final_video_url?: string | null
+          id?: string
+          image_analysis?: Json | null
+          image_url?: string
+          industry?: string
+          initial_completed_at?: string | null
+          initial_error?: string | null
+          initial_status?: string | null
+          initial_task_id?: string | null
+          initial_video_url?: string | null
+          number_of_scenes?: number | null
+          resolution?: string | null
+          scene_prompts?: Json | null
+          story_idea?: string | null
+          updated_at?: string | null
+          user_id?: string
+          video_segments?: Json | null
         }
         Relationships: []
       }

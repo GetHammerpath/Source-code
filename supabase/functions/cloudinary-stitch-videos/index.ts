@@ -1,0 +1,204 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  let generation_id: string | null = null;
+
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const body = await req.json();
+    generation_id = body.generation_id;
+    const trim = body.trim ?? false;
+    const trimSeconds = body.trim_seconds ?? 1;
+
+    // Validate trim_seconds is within reasonable range
+    if (trim && (trimSeconds < 0.1 || trimSeconds > 5)) {
+      throw new Error('Trim duration must be between 0.1 and 5 seconds');
+    }
+
+    console.log('🎬 Cloudinary stitch request for generation:', generation_id);
+    console.log('🎬 Trim mode:', trim);
+    console.log('🎬 Trim seconds:', trimSeconds);
+
+    // Get generation record
+    const { data: generation, error: fetchError } = await supabase
+      .from('kie_video_generations')
+      .select('*')
+      .eq('id', generation_id)
+      .single();
+
+    if (fetchError || !generation) {
+      throw new Error('Generation not found');
+    }
+
+    // Validate segments
+    const segments = generation.video_segments || [];
+    if (segments.length < 2) {
+      throw new Error('Need at least 2 video segments to stitch');
+    }
+
+    // Validate all segments have URLs
+    const invalidSegment = segments.find((seg: any) => !seg.url);
+    if (invalidSegment) {
+      throw new Error('All segments must have valid URLs');
+    }
+
+    // Get Cloudinary credentials
+    const CLOUDINARY_CLOUD_NAME = Deno.env.get('CLOUDINARY_CLOUD_NAME');
+    const CLOUDINARY_API_KEY = Deno.env.get('CLOUDINARY_API_KEY');
+    const CLOUDINARY_API_SECRET = Deno.env.get('CLOUDINARY_API_SECRET');
+
+    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+      throw new Error('Cloudinary credentials not configured');
+    }
+
+    console.log(`📤 Uploading ${segments.length} video segments to Cloudinary...`);
+
+    // Upload all segments to Cloudinary in parallel using SIGNED uploads
+    const uploadPromises = segments.map(async (segment: any, index: number) => {
+      const timestamp = Math.round(Date.now() / 1000);
+      const publicId = `video_${generation_id}_segment_${index}`;
+      
+      // Create signature for signed upload
+      const params = `public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
+      const encoder = new TextEncoder();
+      const data = encoder.encode(params);
+      const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const uploadData = new FormData();
+      uploadData.append('file', segment.url);
+      uploadData.append('public_id', publicId);
+      uploadData.append('timestamp', timestamp.toString());
+      uploadData.append('api_key', CLOUDINARY_API_KEY);
+      uploadData.append('signature', signature);
+      uploadData.append('resource_type', 'video');
+
+      const uploadResponse = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`,
+        {
+          method: 'POST',
+          body: uploadData,
+        }
+      );
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error(`Failed to upload segment ${index}: ${errorText}`);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      console.log(`✅ Uploaded segment ${index}: ${uploadResult.public_id}`);
+      
+      return {
+        public_id: uploadResult.public_id,
+        index: index
+      };
+    });
+
+    const uploadedSegments = await Promise.all(uploadPromises);
+    console.log('✅ All segments uploaded to Cloudinary');
+
+    // Build Cloudinary transformation URL for video concatenation
+    console.log('🔗 Building transformation URL for concatenation...');
+
+    // Start with the first segment as base
+    const baseSegment = uploadedSegments[0].public_id;
+    
+    // Build transformation layers for additional segments
+    const transformations: string[] = [];
+    
+    for (let i = 1; i < uploadedSegments.length; i++) {
+      const segmentId = uploadedSegments[i].public_id;
+      
+      // Build transformation: fl_splice,l_video:segment_id,so_{trimSeconds}/fl_layer_apply
+      const parts = ['fl_splice', `l_video:${segmentId}`];
+      
+      // Apply start_offset for trimming if enabled
+      if (trim) {
+        parts.push(`so_${trimSeconds}`);
+      }
+      
+      transformations.push(parts.join(','));
+      transformations.push('fl_layer_apply');
+    }
+    
+    // Construct the full transformation URL
+    const transformationString = transformations.join('/');
+    const finalVideoUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/${transformationString}/${baseSegment}.mp4`;
+
+    console.log('🎥 Final video URL:', finalVideoUrl);
+
+    // Update database with final video URL
+    const { error: updateError } = await supabase
+      .from('kie_video_generations')
+      .update({
+        final_video_url: finalVideoUrl,
+        final_video_status: 'completed',
+        final_video_completed_at: new Date().toISOString(),
+        is_final: true
+      })
+      .eq('id', generation_id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    console.log('✅ Video stitching completed successfully');
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Videos combined successfully',
+      video_url: finalVideoUrl
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
+    });
+
+  } catch (error) {
+    console.error('❌ Error in cloudinary-stitch-videos:', error);
+    
+    // Update database with error using generation_id from outer scope
+    if (generation_id) {
+      try {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+        
+        await supabase
+          .from('kie_video_generations')
+          .update({
+            final_video_status: 'failed',
+            final_video_error: error instanceof Error ? error.message : 'Stitching failed'
+          })
+          .eq('id', generation_id);
+      } catch (dbError) {
+        console.error('Failed to update error in database:', dbError);
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: false,
+      error: error instanceof Error ? error.message : 'Stitching failed'
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});

@@ -1,0 +1,76 @@
+project_id = "cpfsthischimiwxwuhow"
+
+[functions.analyze-image-for-request]
+verify_jwt = false
+
+[functions.handle-n8n-callback]
+verify_jwt = false
+
+[functions.analyze-image-kie]
+verify_jwt = false
+
+[functions.kie-generate-video]
+verify_jwt = true
+
+[functions.kie-callback]
+verify_jwt = false
+
+[functions.kie-extend-video]
+verify_jwt = false
+
+[functions.kie-check-status]
+verify_jwt = true
+
+[functions.kie-extend-next]
+verify_jwt = false
+
+[functions.fal-stitch-videos]
+verify_jwt = false
+
+[functions.fal-stitch-callback]
+verify_jwt = true
+
+[functions.kie-retry-generation]
+verify_jwt = false
+
+[functions.cloudinary-stitch-videos]
+verify_jwt = false
+
+[functions.analyze-image-sora]
+verify_jwt = true
+
+[functions.sora-generate-video]
+verify_jwt = true
+
+[functions.sora-callback]
+verify_jwt = false
+
+[functions.sora-extend-next]
+verify_jwt = false
+
+[functions.sora2-generate-video]
+verify_jwt = true
+
+[functions.sora2-callback]
+verify_jwt = false
+
+[functions.sora2-extend-next]
+verify_jwt = false
+
+[functions.runway-extend-analyze]
+verify_jwt = true
+
+[functions.runway-extend-generate]
+verify_jwt = true
+
+[functions.runway-extend-callback]
+verify_jwt = false
+
+[functions.runway-extend-next]
+verify_jwt = false
+
+[functions.bulk-generate-videos]
+verify_jwt = true
+
+[functions.smart-bulk-generate]
+verify_jwt = true

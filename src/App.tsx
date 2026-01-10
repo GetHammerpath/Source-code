@@ -12,6 +12,10 @@ import AdminUsers from "./pages/AdminUsers";
 import Templates from "./pages/Templates";
 import VideoGenerator from "./pages/VideoGenerator";
 import SoraStoryboardGenerator from "./pages/SoraStoryboardGenerator";
+import Sora2LatestGenerator from "./pages/Sora2LatestGenerator";
+import RunwayExtendGenerator from "./pages/RunwayExtendGenerator";
+import BulkVideoGenerator from "./pages/BulkVideoGenerator";
+import SmartBulkGenerator from "./pages/SmartBulkGenerator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +34,10 @@ const App = () => (
           <Route path="/templates" element={<Templates />} />
           <Route path="/video-generator" element={<VideoGenerator />} />
           <Route path="/sora-storyboard-generator" element={<SoraStoryboardGenerator />} />
+          <Route path="/sora2-latest" element={<Sora2LatestGenerator />} />
+          <Route path="/runway-extend" element={<RunwayExtendGenerator />} />
+          <Route path="/bulk-video" element={<BulkVideoGenerator />} />
+          <Route path="/smart-bulk" element={<SmartBulkGenerator />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

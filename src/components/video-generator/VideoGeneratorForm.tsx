@@ -5,10 +5,13 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles, Video, Wand2 } from "lucide-react";
+import { Loader2, Sparkles, Video, Wand2, Image, FileText, ArrowRight, ArrowLeft, Check, Type } from "lucide-react";
 import SinglePhotoSelector from "@/components/forms/SinglePhotoSelector";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
+import ProgressSteps from "./ProgressSteps";
+import FormTips from "./FormTips";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface VideoGeneratorFormProps {
   userId: string;
@@ -32,12 +35,13 @@ const getErrorTitle = (errorType?: string) => {
 const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
   const { toast } = useToast();
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
+  const [generationMode, setGenerationMode] = useState<'image' | 'text'>('image');
   const [formData, setFormData] = useState({
     industry: "",
     avatarName: "",
     city: "",
     storyIdea: "",
-    model: "veo3_fast", // Only model supported for image-to-video
+    model: "veo3_fast",
     aspectRatio: "16:9",
     watermark: "",
     numberOfScenes: 3
@@ -47,12 +51,36 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
     prompt: string;
     script?: string;
   }>>([]);
-  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Calculate current step
+  const getCurrentStep = () => {
+    if (scenePrompts.length > 0) return 3;
+    if (generationMode === 'text') {
+      if (formData.industry && formData.avatarName && formData.city) return 2;
+      return 1;
+    }
+    if (selectedPhotoId && formData.industry && formData.avatarName && formData.city) return 2;
+    if (selectedPhotoId) return 1;
+    return 1;
+  };
+
+  // Handle mode change and reset aspect ratio if needed
+  const handleModeChange = (mode: 'image' | 'text') => {
+    setGenerationMode(mode);
+    if (mode === 'image' && formData.aspectRatio !== '16:9') {
+      setFormData({ ...formData, aspectRatio: '16:9' });
+    }
+    if (mode === 'text') {
+      setSelectedPhotoId(null);
+    }
+  };
+
+  const currentStep = getCurrentStep();
+
   const handleAnalyze = async () => {
-    if (!selectedPhotoId) {
+    if (generationMode === 'image' && !selectedPhotoId) {
       toast({
         title: "Image Required",
         description: "Please upload or select an image first.",
@@ -73,26 +101,30 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
     setIsAnalyzing(true);
 
     try {
-      // Get image URL
-      const { data: photoData, error: photoError } = await supabase
-        .from('jobsite_photos')
-        .select('file_url')
-        .eq('id', selectedPhotoId)
-        .single();
+      let imageUrl: string | null = null;
+      
+      if (generationMode === 'image' && selectedPhotoId) {
+        const { data: photoData, error: photoError } = await supabase
+          .from('jobsite_photos')
+          .select('file_url')
+          .eq('id', selectedPhotoId)
+          .single();
 
-      if (photoError || !photoData) {
-        throw new Error('Failed to get image URL');
+        if (photoError || !photoData) {
+          throw new Error('Failed to get image URL');
+        }
+        imageUrl = photoData.file_url;
       }
 
-      // Call edge function to analyze image
       const { data, error } = await supabase.functions.invoke('analyze-image-kie', {
         body: {
-          image_url: photoData.file_url,
+          image_url: imageUrl,
           industry: formData.industry,
           avatar_name: formData.avatarName,
           city: formData.city,
           story_idea: formData.storyIdea,
-          number_of_scenes: formData.numberOfScenes
+          number_of_scenes: formData.numberOfScenes,
+          generation_mode: generationMode
         }
       });
 
@@ -105,17 +137,15 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
         throw new Error(data?.error || 'AI analysis failed');
       }
 
-      // Handle multi-scene response
       if (data.scenes && Array.isArray(data.scenes)) {
         setScenePrompts(data.scenes);
       } else {
-        // Fallback for single prompt (backward compatibility)
         setScenePrompts([{ scene_number: 1, prompt: data.prompt }]);
       }
 
       toast({
-        title: "Prompts Generated!",
-        description: `AI has created ${formData.numberOfScenes} scene prompts. Review and edit if needed.`,
+        title: "✨ Prompts Generated!",
+        description: `AI created ${formData.numberOfScenes} scene prompts. Review and edit as needed.`,
       });
 
     } catch (error) {
@@ -134,7 +164,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
     if (!scenePrompts.length) {
       toast({
         title: "No Prompts",
-        description: "Please generate prompts first by analyzing an image.",
+        description: "Please generate prompts first.",
         variant: "destructive"
       });
       return;
@@ -143,37 +173,42 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
     setIsGenerating(true);
 
     try {
-      // Get image URL
-      const { data: photoData, error: photoError } = await supabase
-        .from('jobsite_photos')
-        .select('file_url')
-        .eq('id', selectedPhotoId)
-        .single();
+      let imageUrl: string | null = null;
+      
+      if (generationMode === 'image' && selectedPhotoId) {
+        const { data: photoData, error: photoError } = await supabase
+          .from('jobsite_photos')
+          .select('file_url')
+          .eq('id', selectedPhotoId)
+          .single();
 
-      if (photoError || !photoData) {
-        throw new Error('Failed to get image URL');
+        if (photoError || !photoData) {
+          throw new Error('Failed to get image URL');
+        }
+        imageUrl = photoData.file_url;
       }
 
       const isMultiScene = scenePrompts.length > 1;
+      const generationType = generationMode === 'image' ? 'REFERENCE_2_VIDEO' : 'TEXT_2_VIDEO';
 
-      // Create generation record with multi-scene support
       const { data: generation, error: insertError } = await supabase
         .from('kie_video_generations')
         .insert({
           user_id: userId,
-          image_url: photoData.file_url,
+          image_url: imageUrl || 'text-to-video',
           industry: formData.industry,
           avatar_name: formData.avatarName,
           city: formData.city,
           story_idea: formData.storyIdea,
-          ai_prompt: scenePrompts[0].prompt, // First scene prompt as main
+          ai_prompt: scenePrompts[0].prompt,
           model: formData.model,
           aspect_ratio: formData.aspectRatio,
           watermark: formData.watermark || null,
           number_of_scenes: scenePrompts.length,
           scene_prompts: scenePrompts,
           current_scene: 1,
-          is_multi_scene: isMultiScene
+          is_multi_scene: isMultiScene,
+          metadata: { generation_type: generationType }
         })
         .select()
         .single();
@@ -182,7 +217,6 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
         throw new Error('Failed to create generation record');
       }
 
-      // Combine visual prompt with script for complete instructions
       const firstScenePrompt = scenePrompts[0].prompt;
       const firstSceneScript = scenePrompts[0].script || '';
       
@@ -190,15 +224,15 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
         ? `${firstScenePrompt}\n\nAVATAR DIALOGUE: The person speaks these words: "${firstSceneScript}"`
         : firstScenePrompt;
 
-      // Trigger video generation with first scene prompt
       const { data: generateData, error: generateError } = await supabase.functions.invoke('kie-generate-video', {
         body: {
           generation_id: generation.id,
           prompt: enhancedPrompt,
-          image_url: photoData.file_url,
+          image_url: imageUrl,
           model: formData.model,
           aspect_ratio: formData.aspectRatio,
-          watermark: formData.watermark || ''
+          watermark: formData.watermark || '',
+          generation_type: generationType
         }
       });
 
@@ -223,10 +257,10 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
       }
 
       toast({
-        title: "Video Generation Started!",
+        title: "🎬 Video Generation Started!",
         description: isMultiScene 
-          ? `Generating ${scenePrompts.length} scenes. Check the 'My Videos' tab for progress.`
-          : "Your video is being generated. Check the 'My Videos' tab for progress.",
+          ? `Generating ${scenePrompts.length} scenes. Track progress on your Dashboard.`
+          : "Your video is being generated. Track progress on your Dashboard.",
       });
 
       // Reset form
@@ -242,7 +276,6 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
         numberOfScenes: 3
       });
       setScenePrompts([]);
-      setCurrentSceneIndex(0);
 
     } catch (error) {
       console.error('Error generating video:', error);
@@ -257,30 +290,82 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
   };
 
   return (
-    <div className="grid gap-6 max-w-4xl">
-      {/* Step 1: Input */}
-      <Card>
+    <div className="max-w-4xl space-y-6">
+      {/* Progress Steps */}
+      <ProgressSteps currentStep={currentStep} />
+
+      {/* Tips */}
+      <FormTips step={currentStep} />
+
+      {/* Step 1 & 2: Input Form */}
+      <Card className={scenePrompts.length > 0 ? "opacity-75" : ""}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Wand2 className="h-5 w-5 text-primary" />
-            Step 1: Provide Details
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Wand2 className="h-5 w-5 text-primary" />
+            </div>
+            Step 1 & 2: Upload Image & Provide Details
           </CardTitle>
           <CardDescription>
-            Upload an image and tell us about your business
+            Upload a high-quality image and tell us about your business
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Business Image *</Label>
-            <SinglePhotoSelector
-              selectedPhotoId={selectedPhotoId}
-              onPhotoSelect={setSelectedPhotoId}
-            />
+        <CardContent className="space-y-6">
+          {/* Generation Mode Selector */}
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">Generation Mode</Label>
+            <RadioGroup
+              value={generationMode}
+              onValueChange={(value) => handleModeChange(value as 'image' | 'text')}
+              className="grid grid-cols-2 gap-4"
+            >
+              <div className={`flex items-center space-x-3 border rounded-lg p-4 cursor-pointer transition-all ${generationMode === 'image' ? 'border-primary bg-primary/5' : 'border-muted hover:border-muted-foreground/50'}`}>
+                <RadioGroupItem value="image" id="mode-image" />
+                <Label htmlFor="mode-image" className="cursor-pointer flex items-center gap-2">
+                  <Image className="h-4 w-4" />
+                  <div>
+                    <div className="font-medium">Image Reference</div>
+                    <div className="text-xs text-muted-foreground">16:9 only</div>
+                  </div>
+                </Label>
+              </div>
+              <div className={`flex items-center space-x-3 border rounded-lg p-4 cursor-pointer transition-all ${generationMode === 'text' ? 'border-primary bg-primary/5' : 'border-muted hover:border-muted-foreground/50'}`}>
+                <RadioGroupItem value="text" id="mode-text" />
+                <Label htmlFor="mode-text" className="cursor-pointer flex items-center gap-2">
+                  <Type className="h-4 w-4" />
+                  <div>
+                    <div className="font-medium">Prompt Only</div>
+                    <div className="text-xs text-muted-foreground">16:9 or 9:16</div>
+                  </div>
+                </Label>
+              </div>
+            </RadioGroup>
           </div>
 
+          {/* Image Upload Section - Only show for image mode */}
+          {generationMode === 'image' && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Business Image *
+              </Label>
+              <SinglePhotoSelector
+                selectedPhotoId={selectedPhotoId}
+                onPhotoSelect={setSelectedPhotoId}
+              />
+              <p className="text-xs text-muted-foreground">
+                Use a high-resolution image with good lighting for best results
+              </p>
+            </div>
+          )}
+
+          {/* Business Details */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="industry">Industry *</Label>
+              <Label htmlFor="industry" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Industry *
+              </Label>
               <Input
                 id="industry"
                 value={formData.industry}
@@ -309,20 +394,6 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
               />
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="storyIdea">Marketing Story Idea *</Label>
-              <Textarea
-                id="storyIdea"
-                value={formData.storyIdea}
-                onChange={(e) => setFormData({ ...formData, storyIdea: e.target.value })}
-                placeholder="e.g., Show how our roofing service transforms old homes, highlighting quality, speed, and customer satisfaction"
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground">
-                Describe the marketing message or story you want to tell (e.g., problem → solution, before → after, customer journey)
-              </p>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="numberOfScenes">Number of Scenes</Label>
               <Select
@@ -338,13 +409,32 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
                   <SelectItem value="4">4 Scenes (32s total)</SelectItem>
                   <SelectItem value="5">5 Scenes (40s total)</SelectItem>
                   <SelectItem value="6">6 Scenes (48s total)</SelectItem>
+                  <SelectItem value="7">7 Scenes (56s total)</SelectItem>
+                  <SelectItem value="8">8 Scenes (64s total)</SelectItem>
+                  <SelectItem value="9">9 Scenes (72s total)</SelectItem>
+                  <SelectItem value="10">10 Scenes (80s total)</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Each scene is 8 seconds, creating a complete story
-              </p>
             </div>
+          </div>
 
+          {/* Story Idea - Full Width */}
+          <div className="space-y-2">
+            <Label htmlFor="storyIdea">Marketing Story Idea *</Label>
+            <Textarea
+              id="storyIdea"
+              value={formData.storyIdea}
+              onChange={(e) => setFormData({ ...formData, storyIdea: e.target.value })}
+              placeholder="e.g., Show how our roofing service transforms old homes, highlighting quality, speed, and customer satisfaction"
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">
+              Describe your marketing message (problem → solution, before → after, customer journey)
+            </p>
+          </div>
+
+          {/* Video Settings */}
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="model">Video Model</Label>
               <Select
@@ -365,16 +455,26 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
               <Select
                 value={formData.aspectRatio}
                 onValueChange={(value) => setFormData({ ...formData, aspectRatio: value })}
+                disabled={generationMode === 'image'}
               >
                 <SelectTrigger id="aspectRatio">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
-                  <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
-                  <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                  <SelectItem value="16:9">16:9 (Landscape - YouTube, TV)</SelectItem>
+                  {generationMode === 'text' && (
+                    <>
+                      <SelectItem value="9:16">9:16 (Portrait - TikTok, Reels)</SelectItem>
+                      <SelectItem value="Auto">Auto (Based on content)</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
+              {generationMode === 'image' && (
+                <p className="text-xs text-muted-foreground">
+                  Image-to-video only supports 16:9. Use "Prompt Only" mode for 9:16.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -390,7 +490,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
 
           <Button
             onClick={handleAnalyze}
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || scenePrompts.length > 0}
             className="w-full"
             size="lg"
           >
@@ -399,33 +499,48 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Analyzing with AI...
               </>
+            ) : scenePrompts.length > 0 ? (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Prompts Generated - Review Below
+              </>
             ) : (
               <>
                 <Sparkles className="mr-2 h-4 w-4" />
-                Generate AI Prompt
+                Generate AI Prompts
+                <ArrowRight className="ml-2 h-4 w-4" />
               </>
             )}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Step 2: Review Scene Prompts */}
+      {/* Step 3: Review Scene Prompts */}
       {scenePrompts.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Step 2: Review & Edit Scene Prompts</CardTitle>
+        <Card className="border-primary/50 shadow-lg">
+          <CardHeader className="bg-primary/5">
+            <CardTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+                <Video className="h-5 w-5" />
+              </div>
+              Step 3: Review & Edit Scene Prompts
+            </CardTitle>
             <CardDescription>
-              AI generated {scenePrompts.length} scene prompts for your story. Edit any scene before generating.
+              AI generated {scenePrompts.length} scene prompts. Edit any scene before generating.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-6">
+            {/* Scene Prompts */}
             {scenePrompts.map((scene, index) => (
-              <div key={scene.scene_number} className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <div key={scene.scene_number} className="space-y-3 p-4 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                 <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                    {scene.scene_number}
+                  </span>
                   <Label className="text-base font-semibold">
                     Scene {scene.scene_number} of {scenePrompts.length}
                   </Label>
-                  <span className="text-sm text-muted-foreground">8 seconds</span>
+                  <span className="text-sm text-muted-foreground ml-auto">~8 seconds</span>
                 </div>
                 
                 <div className="space-y-2">
@@ -466,10 +581,23 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
               </div>
             ))}
 
-            <div className="pt-2">
-              <p className="text-sm text-muted-foreground mb-4">
-                Total video duration: {scenePrompts.length * 8} seconds ({scenePrompts.length} scenes × 8s each)
-              </p>
+            {/* Summary & Generate */}
+            <div className="pt-4 border-t space-y-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Total video duration: <strong>{scenePrompts.length * 8} seconds</strong> ({scenePrompts.length} scenes × 8s)
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setScenePrompts([])}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Start Over
+                </Button>
+              </div>
+              
               <Button
                 onClick={handleGenerate}
                 disabled={isGenerating}
