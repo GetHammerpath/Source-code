@@ -3,15 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle2, XCircle, Clock, Plus, Download, Film, Video, Scissors, RefreshCw } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Clock, Plus, Download, Film, Video, Scissors, RefreshCw, Copy } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
 interface VideoGenerationsListProps {
   userId: string;
+  onDuplicate?: (generation: any) => void;
 }
 
-const VideoGenerationsList = ({ userId }: VideoGenerationsListProps) => {
+const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps) => {
   const [generations, setGenerations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [extending, setExtending] = useState<string | null>(null);
@@ -235,7 +236,7 @@ const VideoGenerationsList = ({ userId }: VideoGenerationsListProps) => {
   return (
     <div className="grid gap-4">
       {generations.map((gen) => (
-        <Card key={gen.id}>
+        <Card key={gen.id} className="relative">
           <CardContent className="p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
@@ -310,6 +311,19 @@ const VideoGenerationsList = ({ userId }: VideoGenerationsListProps) => {
 
               {/* Action Buttons */}
               <div className="flex gap-2 flex-wrap mb-4">
+                {/* Duplicate Button */}
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDuplicate?.(gen);
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Copy className="mr-2 h-3 w-3" />
+                  Duplicate
+                </Button>
+
                 {/* Extend Further Button */}
                 {!gen.is_final && 
                  gen.extended_status === 'completed' && 

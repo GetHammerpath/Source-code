@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface VideoGeneratorFormProps {
   userId: string;
+  duplicateData?: any;
+  onDuplicateConsumed?: () => void;
 }
 
 const getErrorTitle = (errorType?: string) => {
@@ -32,7 +34,7 @@ const getErrorTitle = (errorType?: string) => {
   }
 };
 
-const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
+const VideoGeneratorForm = ({ userId, duplicateData, onDuplicateConsumed }: VideoGeneratorFormProps) => {
   const { toast } = useToast();
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [generationMode, setGenerationMode] = useState<'image' | 'text'>('image');
@@ -53,6 +55,69 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
   }>>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Handle duplicate data pre-population
+  useEffect(() => {
+    if (duplicateData) {
+      console.log("Processing duplicate data:", duplicateData);
+      
+      // Determine generation mode
+      const isTextMode = duplicateData.metadata?.generation_type === 'TEXT_2_VIDEO' || 
+                         duplicateData.image_url === 'text-to-video';
+      setGenerationMode(isTextMode ? 'text' : 'image');
+      
+      // Populate form data
+      setFormData({
+        industry: duplicateData.industry || "",
+        avatarName: duplicateData.avatar_name || "",
+        city: duplicateData.city || "",
+        storyIdea: duplicateData.story_idea || "",
+        model: duplicateData.model || "veo3_fast",
+        aspectRatio: duplicateData.aspect_ratio || "16:9",
+        watermark: duplicateData.watermark || "",
+        numberOfScenes: duplicateData.number_of_scenes || 3
+      });
+      
+      // Populate scene prompts if available
+      if (duplicateData.scene_prompts && Array.isArray(duplicateData.scene_prompts) && duplicateData.scene_prompts.length > 0) {
+        setScenePrompts(duplicateData.scene_prompts);
+      }
+      
+      // Handle image lookup if image mode
+      if (!isTextMode && duplicateData.image_url && duplicateData.image_url !== 'text-to-video') {
+        lookupPhotoByUrl(duplicateData.image_url);
+      }
+      
+      toast({
+        title: "📋 Video Duplicated!",
+        description: "Settings copied. Edit as needed and generate a new video.",
+      });
+      
+      // Clear duplicate data after consuming
+      onDuplicateConsumed?.();
+    }
+  }, [duplicateData, onDuplicateConsumed, toast]);
+
+  const lookupPhotoByUrl = async (imageUrl: string) => {
+    try {
+      const { data } = await supabase
+        .from('jobsite_photos')
+        .select('id')
+        .eq('file_url', imageUrl)
+        .single();
+      
+      if (data) {
+        setSelectedPhotoId(data.id);
+      } else {
+        toast({
+          title: "Original Image Not Found",
+          description: "Please select or upload an image.",
+        });
+      }
+    } catch (error) {
+      console.error('Error looking up photo:', error);
+    }
+  };
 
   // Calculate current step
   const getCurrentStep = () => {

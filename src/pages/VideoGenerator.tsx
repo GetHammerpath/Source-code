@@ -11,8 +11,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const VideoGenerator = () => {
   const [userId, setUserId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("create");
+  const [duplicateData, setDuplicateData] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleDuplicate = (generation: any) => {
+    setDuplicateData(generation);
+    setActiveTab("create");
+  };
 
   useEffect(() => {
     checkAuth();
@@ -65,7 +72,7 @@ const VideoGenerator = () => {
           </div>
 
           {/* Tabs */}
-          <Tabs defaultValue="create" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
               <TabsTrigger value="create" className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4" />
@@ -78,11 +85,17 @@ const VideoGenerator = () => {
             </TabsList>
 
             <TabsContent value="create">
-              {userId && <VideoGeneratorForm userId={userId} />}
+              {userId && (
+                <VideoGeneratorForm 
+                  userId={userId} 
+                  duplicateData={duplicateData}
+                  onDuplicateConsumed={() => setDuplicateData(null)}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="history">
-              {userId && <VideoGenerationsList userId={userId} />}
+              {userId && <VideoGenerationsList userId={userId} onDuplicate={handleDuplicate} />}
             </TabsContent>
           </Tabs>
         </div>

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, CheckCircle2, XCircle, Clock, Plus, Download, Film, Video, ChevronDown, ChevronUp, Scissors, RefreshCw, AlertCircle, Edit } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Clock, Plus, Download, Film, Video, ChevronDown, ChevronUp, Scissors, RefreshCw, AlertCircle, Edit, Copy } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,9 +13,10 @@ import RetryEditModal from "./RetryEditModal";
 interface VideoGenerationCardProps {
   generation: any;
   onRefresh?: () => void;
+  onDuplicate?: (generation: any) => void;
 }
 
-const VideoGenerationCard = ({ generation, onRefresh }: VideoGenerationCardProps) => {
+const VideoGenerationCard = ({ generation, onRefresh, onDuplicate }: VideoGenerationCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [extending, setExtending] = useState(false);
   const [stitching, setStitching] = useState(false);
@@ -341,6 +342,18 @@ const VideoGenerationCard = ({ generation, onRefresh }: VideoGenerationCardProps
 
               {/* Action Buttons */}
               <div className="flex gap-2 flex-wrap">
+                {/* Duplicate Button - Always visible */}
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDuplicate?.(generation);
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Copy className="mr-2 h-3 w-3" />
+                  Duplicate
+                </Button>
                 {!generation.is_final && 
                  generation.extended_status === 'completed' && 
                  generation.video_segments?.length >= 2 && (
