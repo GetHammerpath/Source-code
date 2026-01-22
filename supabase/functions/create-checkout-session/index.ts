@@ -29,6 +29,7 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
+    // Use anon key for user authentication
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -43,17 +44,23 @@ serve(async (req) => {
     const body = await req.json();
     const { mode, planId, credits } = body;
 
+    // Use service role key for database operations (bypasses RLS)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     // Get user profile, create if doesn't exist
-    let { data: profile } = await supabase
+    let { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('id, email, stripe_customer_id')
       .eq('id', user.id)
       .single();
 
     if (!profile) {
-      // Profile doesn't exist, create it
+      // Profile doesn't exist, create it using admin client (bypasses RLS)
       console.log('Profile not found, creating profile for user:', user.id);
-      const { data: newProfile, error: createError } = await supabase
+      const { data: newProfile, error: createError } = await supabaseAdmin
         .from('profiles')
         .insert({
           id: user.id,
@@ -65,7 +72,7 @@ serve(async (req) => {
 
       if (createError || !newProfile) {
         console.error('Error creating profile:', createError);
-        throw new Error('Failed to create profile');
+        throw new Error(`Failed to create profile: ${createError?.message || 'Unknown error'}`);
       }
       profile = newProfile;
     }
@@ -82,8 +89,8 @@ serve(async (req) => {
       });
       customerId = customer.id;
 
-      // Update profile
-      await supabase
+      // Update profile using admin client
+      await supabaseAdmin
         .from('profiles')
         .update({ stripe_customer_id: customerId })
         .eq('id', user.id);
