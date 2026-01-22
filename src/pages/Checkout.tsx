@@ -39,64 +39,65 @@ const Checkout = () => {
   const handleCheckout = async () => {
     setLoading(true);
     try {
+      // Check authentication first
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("You must be logged in to checkout");
+      }
+
+      let response;
       if (mode === "access") {
         // Studio Access subscription
-        const response = await supabase.functions.invoke("create-checkout-session", {
+        response = await supabase.functions.invoke("create-checkout-session", {
           body: {
             mode: "subscription",
             planId: "studio_access",
           },
         });
-
-        console.log("Checkout response:", response);
-
-        if (response.error) {
-          console.error("Response error:", response.error);
-          throw response.error;
-        }
-
-        if (!response.data) {
-          throw new Error("No data returned from checkout session");
-        }
-
-        const { url } = response.data;
-        if (url) {
-          window.location.href = url;
-        } else {
-          throw new Error("No checkout URL returned");
-        }
       } else if (mode === "credits") {
         // Credit purchase
-        const response = await supabase.functions.invoke("create-checkout-session", {
+        response = await supabase.functions.invoke("create-checkout-session", {
           body: {
             mode: "credits",
             credits: creditAmount,
           },
         });
-
-        console.log("Checkout response:", response);
-
-        if (response.error) {
-          console.error("Response error:", response.error);
-          throw response.error;
-        }
-
-        if (!response.data) {
-          throw new Error("No data returned from checkout session");
-        }
-
-        const { url } = response.data;
-        if (url) {
-          window.location.href = url;
-        } else {
-          throw new Error("No checkout URL returned");
-        }
+      } else {
+        throw new Error("Invalid checkout mode");
       }
+
+      console.log("Checkout response:", response);
+
+      // Check for Supabase function invocation error
+      if (response.error) {
+        console.error("Response error:", response.error);
+        const errorMsg = response.error.message || JSON.stringify(response.error);
+        throw new Error(`Checkout failed: ${errorMsg}`);
+      }
+
+      // Check if data exists
+      if (!response.data) {
+        throw new Error("No data returned from checkout session. Check Edge Function logs.");
+      }
+
+      // Check if response.data has an error (from Edge Function)
+      if (response.data.error) {
+        throw new Error(response.data.error);
+      }
+
+      // Get the URL
+      const { url } = response.data;
+      if (!url) {
+        throw new Error("No checkout URL returned. Check STUDIO_ACCESS_PRICE_ID is set correctly.");
+      }
+
+      // Redirect to Stripe checkout
+      window.location.href = url;
     } catch (error: any) {
       console.error("Error creating checkout session:", error);
       const errorMessage = error?.message || error?.error?.message || "Unknown error";
       console.error("Full error details:", error);
-      alert(`Failed to start checkout: ${errorMessage}. Please check the console for details.`);
+      alert(`Failed to start checkout: ${errorMessage}\n\nCheck the browser console (F12) for more details.`);
       setLoading(false);
     }
   };
