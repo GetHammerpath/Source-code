@@ -43,15 +43,31 @@ serve(async (req) => {
     const body = await req.json();
     const { mode, planId, credits } = body;
 
-    // Get user profile
-    const { data: profile } = await supabase
+    // Get user profile, create if doesn't exist
+    let { data: profile } = await supabase
       .from('profiles')
       .select('id, email, stripe_customer_id')
       .eq('id', user.id)
       .single();
 
     if (!profile) {
-      throw new Error('Profile not found');
+      // Profile doesn't exist, create it
+      console.log('Profile not found, creating profile for user:', user.id);
+      const { data: newProfile, error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
+        })
+        .select('id, email, stripe_customer_id')
+        .single();
+
+      if (createError || !newProfile) {
+        console.error('Error creating profile:', createError);
+        throw new Error('Failed to create profile');
+      }
+      profile = newProfile;
     }
 
     let customerId = profile.stripe_customer_id;
