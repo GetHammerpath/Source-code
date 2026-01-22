@@ -48,11 +48,22 @@ const Checkout = () => {
           },
         });
 
-        if (response.error) throw response.error;
+        console.log("Checkout response:", response);
+
+        if (response.error) {
+          console.error("Response error:", response.error);
+          throw response.error;
+        }
+
+        if (!response.data) {
+          throw new Error("No data returned from checkout session");
+        }
 
         const { url } = response.data;
         if (url) {
           window.location.href = url;
+        } else {
+          throw new Error("No checkout URL returned");
         }
       } else if (mode === "credits") {
         // Credit purchase
@@ -63,16 +74,29 @@ const Checkout = () => {
           },
         });
 
-        if (response.error) throw response.error;
+        console.log("Checkout response:", response);
+
+        if (response.error) {
+          console.error("Response error:", response.error);
+          throw response.error;
+        }
+
+        if (!response.data) {
+          throw new Error("No data returned from checkout session");
+        }
 
         const { url } = response.data;
         if (url) {
           window.location.href = url;
+        } else {
+          throw new Error("No checkout URL returned");
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating checkout session:", error);
-      alert("Failed to start checkout. Please try again.");
+      const errorMessage = error?.message || error?.error?.message || "Unknown error";
+      console.error("Full error details:", error);
+      alert(`Failed to start checkout: ${errorMessage}. Please check the console for details.`);
       setLoading(false);
     }
   };
