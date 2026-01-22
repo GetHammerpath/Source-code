@@ -71,6 +71,9 @@ export default {
         "gradient-card": "var(--gradient-card)",
       },
       boxShadow: {
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
         elegant: "var(--shadow-elegant)",
       },
       transitionProperty: {

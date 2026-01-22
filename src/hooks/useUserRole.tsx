@@ -17,14 +17,17 @@ export const useUserRole = () => {
         return;
       }
 
-      const { data, error } = await supabase
+      // Get all roles for user (in case they have multiple)
+      const { data: rolesData, error } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", user.id)
-        .single();
+        .eq("user_id", user.id);
 
-      if (!error && data) {
-        setRole(data.role as UserRole);
+      if (!error && rolesData && rolesData.length > 0) {
+        // Prioritize admin role if it exists, otherwise use the first role
+        const adminRole = rolesData.find(r => r.role === "admin");
+        const roleToUse = adminRole || rolesData[0];
+        setRole(roleToUse.role as UserRole);
       }
       
       setLoading(false);

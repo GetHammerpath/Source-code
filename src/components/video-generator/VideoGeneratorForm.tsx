@@ -1,22 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles, Video, Wand2, Image, FileText, ArrowRight, ArrowLeft, Check, Type } from "lucide-react";
+import { Loader2, Sparkles, Video, Wand2, Image, FileText, ArrowRight, ArrowLeft, Check, Type, AlertCircle, CreditCard } from "lucide-react";
 import SinglePhotoSelector from "@/components/forms/SinglePhotoSelector";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import ProgressSteps from "./ProgressSteps";
 import FormTips from "./FormTips";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useCredits } from "@/hooks/useCredits";
+import { checkCredits, reserveCredits } from "@/lib/billing/credits";
+import { estimateCreditsForRenderedMinutes, PRICE_PER_CREDIT, calculateCreditPrice } from "@/lib/billing/pricing";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface VideoGeneratorFormProps {
   userId: string;
-  duplicateData?: any;
-  onDuplicateConsumed?: () => void;
 }
 
 const getErrorTitle = (errorType?: string) => {
@@ -34,8 +37,10 @@ const getErrorTitle = (errorType?: string) => {
   }
 };
 
-const VideoGeneratorForm = ({ userId, duplicateData, onDuplicateConsumed }: VideoGeneratorFormProps) => {
+const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { balance, hasCredits } = useCredits();
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [generationMode, setGenerationMode] = useState<'image' | 'text'>('image');
   const [formData, setFormData] = useState({
@@ -55,69 +60,6 @@ const VideoGeneratorForm = ({ userId, duplicateData, onDuplicateConsumed }: Vide
   }>>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-
-  // Handle duplicate data pre-population
-  useEffect(() => {
-    if (duplicateData) {
-      console.log("Processing duplicate data:", duplicateData);
-      
-      // Determine generation mode
-      const isTextMode = duplicateData.metadata?.generation_type === 'TEXT_2_VIDEO' || 
-                         duplicateData.image_url === 'text-to-video';
-      setGenerationMode(isTextMode ? 'text' : 'image');
-      
-      // Populate form data
-      setFormData({
-        industry: duplicateData.industry || "",
-        avatarName: duplicateData.avatar_name || "",
-        city: duplicateData.city || "",
-        storyIdea: duplicateData.story_idea || "",
-        model: duplicateData.model || "veo3_fast",
-        aspectRatio: duplicateData.aspect_ratio || "16:9",
-        watermark: duplicateData.watermark || "",
-        numberOfScenes: duplicateData.number_of_scenes || 3
-      });
-      
-      // Populate scene prompts if available
-      if (duplicateData.scene_prompts && Array.isArray(duplicateData.scene_prompts) && duplicateData.scene_prompts.length > 0) {
-        setScenePrompts(duplicateData.scene_prompts);
-      }
-      
-      // Handle image lookup if image mode
-      if (!isTextMode && duplicateData.image_url && duplicateData.image_url !== 'text-to-video') {
-        lookupPhotoByUrl(duplicateData.image_url);
-      }
-      
-      toast({
-        title: "📋 Video Duplicated!",
-        description: "Settings copied. Edit as needed and generate a new video.",
-      });
-      
-      // Clear duplicate data after consuming
-      onDuplicateConsumed?.();
-    }
-  }, [duplicateData, onDuplicateConsumed, toast]);
-
-  const lookupPhotoByUrl = async (imageUrl: string) => {
-    try {
-      const { data } = await supabase
-        .from('jobsite_photos')
-        .select('id')
-        .eq('file_url', imageUrl)
-        .single();
-      
-      if (data) {
-        setSelectedPhotoId(data.id);
-      } else {
-        toast({
-          title: "Original Image Not Found",
-          description: "Please select or upload an image.",
-        });
-      }
-    } catch (error) {
-      console.error('Error looking up photo:', error);
-    }
-  };
 
   // Calculate current step
   const getCurrentStep = () => {
@@ -235,6 +177,35 @@ const VideoGeneratorForm = ({ userId, duplicateData, onDuplicateConsumed }: Vide
       return;
     }
 
+    // Estimate rendered minutes: each scene is ~8 seconds
+    const estimatedRenderedMinutes = Math.ceil(scenePrompts.length * 8 / 60); // 8 seconds per scene
+    const requiredCredits = estimateCreditsForRenderedMinutes(estimatedRenderedMinutes);
+
+    // Check credits before starting
+    try {
+      const creditCheck = await checkCredits(estimatedRenderedMinutes);
+      
+      if (!creditCheck.hasCredits) {
+        const estimatedCost = calculateCreditPrice(requiredCredits);
+        toast({
+          title: "Insufficient Credits",
+          description: `You need ${requiredCredits} credits but only have ${creditCheck.currentBalance}. Please buy more credits to continue.`,
+          variant: "destructive",
+          duration: 8000,
+        });
+        navigate("/checkout?mode=credits");
+        return;
+      }
+    } catch (error) {
+      console.error("Error checking credits:", error);
+      toast({
+        title: "Error",
+        description: "Failed to check credit balance. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsGenerating(true);
 
     try {
@@ -280,6 +251,20 @@ const VideoGeneratorForm = ({ userId, duplicateData, onDuplicateConsumed }: Vide
 
       if (insertError || !generation) {
         throw new Error('Failed to create generation record');
+      }
+
+      // Reserve credits for this generation
+      const reserveResult = await reserveCredits(
+        generation.id,
+        'kie',
+        estimatedRenderedMinutes,
+        { scene_count: scenePrompts.length }
+      );
+
+      if (!reserveResult.success) {
+        // Delete generation record if credit reservation fails
+        await supabase.from('kie_video_generations').delete().eq('id', generation.id);
+        throw new Error(reserveResult.error || 'Failed to reserve credits');
       }
 
       const firstScenePrompt = scenePrompts[0].prompt;
@@ -662,10 +647,64 @@ const VideoGeneratorForm = ({ userId, duplicateData, onDuplicateConsumed }: Vide
                   Start Over
                 </Button>
               </div>
+
+              {/* Credit Info */}
+              {scenePrompts.length > 0 && (
+                <div className="space-y-2">
+                  {(() => {
+                    const estimatedRenderedMinutes = Math.ceil(scenePrompts.length * 8 / 60);
+                    const requiredCredits = estimateCreditsForRenderedMinutes(estimatedRenderedMinutes);
+                    const estimatedCost = calculateCreditPrice(requiredCredits);
+                    const hasEnough = balance && hasCredits(requiredCredits);
+                    
+                    return (
+                      <div className="p-4 bg-muted/50 rounded-[10px] space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Estimated rendered:</span>
+                          <span className="font-medium">{estimatedRenderedMinutes} minutes</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Estimated credits:</span>
+                          <span className={`font-semibold ${hasEnough ? 'text-foreground' : 'text-destructive'}`}>
+                            {requiredCredits} credits
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>Estimated cost:</span>
+                          <span>${estimatedCost.toFixed(2)}</span>
+                        </div>
+                        {balance && (
+                          <div className="flex items-center justify-between text-sm pt-2 border-t">
+                            <span className="text-muted-foreground">Your balance:</span>
+                            <span className="font-medium">{balance.credits.toLocaleString()} credits</span>
+                          </div>
+                        )}
+                        {!hasEnough && balance && (
+                          <Alert variant="destructive" className="mt-2">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Insufficient Credits</AlertTitle>
+                            <AlertDescription className="text-xs">
+                              You need {requiredCredits} credits but only have {balance.credits}. 
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 ml-1 text-xs underline"
+                                onClick={() => navigate("/checkout?mode=credits")}
+                              >
+                                Buy credits
+                              </Button>
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
               
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating}
+                disabled={isGenerating || (scenePrompts.length > 0 && balance && !hasCredits(estimateCreditsForRenderedMinutes(Math.ceil(scenePrompts.length * 8 / 60))))}
                 className="w-full"
                 size="lg"
               >

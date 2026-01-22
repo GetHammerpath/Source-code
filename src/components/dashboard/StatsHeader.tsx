@@ -58,29 +58,29 @@ const StatsHeader = ({ generations, userName }: StatsHeaderProps) => {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Message */}
+    <div className="space-y-8">
+      {/* Welcome Message - Apple-like hero */}
       <div>
-        <h1 className="text-3xl font-bold">
-          {userName ? `Welcome back, ${userName}!` : 'AI Video Dashboard'}
+        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground">
+          {userName ? `Welcome back, ${userName}` : 'Video Dashboard'}
         </h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-base text-muted-foreground mt-2.5">
           Manage and track your AI-generated videos
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Stats Grid - KPI Cards with generous spacing */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
         {statCards.map((stat) => (
-          <Card key={stat.label} className="border-none shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+          <Card key={stat.label} className="border-border/50 hover:shadow-md transition-all duration-150">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-[14px] ${stat.bgColor} flex-shrink-0`}>
                   <stat.icon className={`h-5 w-5 ${stat.color} ${stat.animate ? 'animate-spin' : ''}`} />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-2xl font-semibold tracking-tight">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1 font-medium">{stat.label}</p>
                 </div>
               </div>
             </CardContent>

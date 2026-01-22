@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "@/components/layout/Sidebar";
 import VideoGenerationCard from "@/components/video-generator/VideoGenerationCard";
 import StatsHeader from "@/components/dashboard/StatsHeader";
 import QuickActions from "@/components/dashboard/QuickActions";
@@ -9,10 +8,10 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Loader2, Filter, X } from "lucide-react";
+import { Plus, Search, Filter, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 
 const Dashboard = () => {
   const [userId, setUserId] = useState<string>("");
@@ -220,10 +219,8 @@ const Dashboard = () => {
   );
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
-      <Sidebar />
-      <main className="flex-1 p-6 md:p-8 overflow-auto">
-        <div className="max-w-7xl mx-auto space-y-8">
+    <div className="h-full w-full bg-background">
+      <div className="max-w-7xl mx-auto px-6 md:px-8 py-8 md:py-10 space-y-10">
           {/* Stats Header */}
           <StatsHeader generations={generations} userName={userName} />
           
@@ -231,26 +228,30 @@ const Dashboard = () => {
           <QuickActions />
 
           {/* Video List Section */}
-          <div id="video-list" className="space-y-4">
+          <div id="video-list" className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Your Videos</h2>
-              <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold tracking-tight">Your Videos</h2>
+              <div className="flex items-center gap-3">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowFilters(!showFilters)}
-                  className="gap-2"
+                  className="gap-2 rounded-[14px] border-border/50"
                 >
                   <Filter className="h-4 w-4" />
                   Filters
                   {hasActiveFilters && (
-                    <span className="ml-1 bg-primary text-primary-foreground rounded-full w-5 h-5 text-xs flex items-center justify-center">
+                    <span className="ml-1 bg-primary text-primary-foreground rounded-full w-5 h-5 text-xs flex items-center justify-center font-medium">
                       !
                     </span>
                   )}
                 </Button>
-                <Button onClick={() => navigate("/video-generator")} size="sm">
-                  <Plus className="h-4 w-4 mr-1" />
+                <Button 
+                  onClick={() => navigate("/video-generator")} 
+                  size="sm"
+                  className="rounded-[14px] shadow-sm hover:shadow-md transition-all duration-150"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
                   New Video
                 </Button>
               </div>
@@ -259,7 +260,7 @@ const Dashboard = () => {
             {/* Collapsible Filters */}
             <Collapsible open={showFilters} onOpenChange={setShowFilters}>
               <CollapsibleContent>
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/30 mb-4">
+                <div className="space-y-4 p-5 md:p-6 border border-border/50 rounded-[14px] bg-muted/40 mb-6">
                   {/* Search Bar */}
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -267,14 +268,14 @@ const Dashboard = () => {
                       placeholder="Search by industry, avatar, city, or story..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 rounded-[14px] border-border/50 focus:border-primary/50"
                     />
                   </div>
 
                   {/* Filter Controls */}
                   <div className="flex flex-wrap gap-3">
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-[160px]">
+                      <SelectTrigger className="w-[160px] rounded-[14px] border-border/50">
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -287,7 +288,7 @@ const Dashboard = () => {
                     </Select>
 
                     <Select value={dateFilter} onValueChange={setDateFilter}>
-                      <SelectTrigger className="w-[160px]">
+                      <SelectTrigger className="w-[160px] rounded-[14px] border-border/50">
                         <SelectValue placeholder="Date" />
                       </SelectTrigger>
                       <SelectContent>
@@ -299,7 +300,7 @@ const Dashboard = () => {
                     </Select>
 
                     <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="w-[160px]">
+                      <SelectTrigger className="w-[160px] rounded-[14px] border-border/50">
                         <SelectValue placeholder="Sort by" />
                       </SelectTrigger>
                       <SelectContent>
@@ -311,7 +312,12 @@ const Dashboard = () => {
                     </Select>
 
                     {hasActiveFilters && (
-                      <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={clearFilters} 
+                        className="gap-1.5 rounded-[14px]"
+                      >
                         <X className="h-4 w-4" />
                         Clear
                       </Button>
@@ -345,8 +351,7 @@ const Dashboard = () => {
             )}
           </div>
         </div>
-      </main>
-    </div>
+      </div>
   );
 };
 
