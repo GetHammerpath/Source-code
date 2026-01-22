@@ -156,15 +156,10 @@ serve(async (req) => {
       JSON.stringify({ sessionId: session.id, url: session.url }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating checkout session:', error);
-    const errorMessage = error?.message || error?.toString() || 'Unknown error';
-    console.error('Full error details:', JSON.stringify(error, null, 2));
     return new Response(
-      JSON.stringify({ 
-        error: errorMessage,
-        details: error?.stack || error
-      }),
+      JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
