@@ -123,7 +123,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
         imageUrl = photoData.file_url;
       }
 
-      const { data, error } = await supabase.functions.invoke('analyze-image-kie', {
+      const { data: responseData, error: responseError } = await supabase.functions.invoke('analyze-image-kie', {
         body: {
           image_url: imageUrl,
           industry: formData.industry,
@@ -135,26 +135,59 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
         }
       });
 
-      if (error) {
-        console.error('Edge function error:', error);
-        const errorMsg = error.message || 'Failed to analyze image';
-        // Check if it's a network/HTTP error
-        if (errorMsg.includes('non-2xx') || errorMsg.includes('status code')) {
-          throw new Error('Server error: Please check your inputs and try again. If the problem persists, contact support.');
+      // Handle errors from the Edge Function
+      if (responseError) {
+        console.error('Edge function error:', responseError);
+        console.error('Error details:', JSON.stringify(responseError, null, 2));
+        
+        // Try to extract the actual error message
+        let errorMessage = responseError.message || 'Failed to analyze image';
+        
+        // If it's a non-2xx error, the actual error might be in the response data
+        if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+          errorMessage = (responseData as any).error || errorMessage;
         }
-        throw new Error(errorMsg);
+        
+        // Show user-friendly error messages
+        if (errorMessage.includes('Unauthorized') || errorMessage.includes('authentication')) {
+          throw new Error('Authentication error: Please log out and log back in.');
+        } else if (errorMessage.includes('Missing required fields')) {
+          throw new Error('Please fill in all required fields (Industry, Avatar Name, City, and Story Idea).');
+        } else if (errorMessage.includes('OpenAI API key') || errorMessage.includes('not configured') || errorMessage.includes('configuration error')) {
+          throw new Error('Server configuration error: AI service is not properly configured. Please contact support.');
+        } else if (errorMessage.includes('Unable to analyze') || errorMessage.includes('content policy')) {
+          throw new Error('The image could not be analyzed. Please try a different image or simplify your marketing story.');
+        } else if (errorMessage.includes('non-2xx') || errorMessage.includes('status code')) {
+          // Generic server error - show the actual error if we have it
+          throw new Error('Server error: ' + (errorMessage.includes('Server error') ? errorMessage : 'Please check your inputs and try again. If the problem persists, contact support.'));
+        }
+        
+        throw new Error(errorMessage);
       }
 
-      if (!data?.success) {
-        const errorMsg = data?.error || 'AI analysis failed';
+      // Check if the response indicates failure
+      if (!responseData?.success) {
+        const errorMsg = responseData?.error || 'AI analysis failed';
         console.error('Analysis failed:', errorMsg);
+        
+        // Show more specific error messages
+        if (errorMsg.includes('Unauthorized')) {
+          throw new Error('Authentication error: Please log out and log back in.');
+        } else if (errorMsg.includes('Missing required fields')) {
+          throw new Error('Please fill in all required fields (Industry, Avatar Name, City, and Story Idea).');
+        } else if (errorMsg.includes('OpenAI API key') || errorMsg.includes('not configured')) {
+          throw new Error('Server configuration error: AI service is not properly configured. Please contact support.');
+        } else if (errorMsg.includes('Unable to analyze')) {
+          throw new Error('The image could not be analyzed. Please try a different image or simplify your marketing story.');
+        }
+        
         throw new Error(errorMsg);
       }
 
-      if (data.scenes && Array.isArray(data.scenes)) {
-        setScenePrompts(data.scenes);
+      if (responseData.scenes && Array.isArray(responseData.scenes)) {
+        setScenePrompts(responseData.scenes);
       } else {
-        setScenePrompts([{ scene_number: 1, prompt: data.prompt }]);
+        setScenePrompts([{ scene_number: 1, prompt: responseData.prompt }]);
       }
 
       toast({
