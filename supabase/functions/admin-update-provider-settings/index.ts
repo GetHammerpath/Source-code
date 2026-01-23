@@ -50,36 +50,39 @@ serve(async (req) => {
       throw new Error('Missing required fields: provider, reason');
     }
 
-    // Use service role for database operations
+    const userIdForDb = user_id ?? null;
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get current settings
-    const { data: currentSettings } = await supabaseAdmin
-      .from('provider_settings')
-      .select('*')
-      .eq('provider', provider)
-      .eq('user_id', user_id || 'global')
-      .single();
+    let q = supabaseAdmin.from('provider_settings').select('*').eq('provider', provider);
+    if (userIdForDb == null) {
+      q = q.is('user_id', null);
+    } else {
+      q = q.eq('user_id', userIdForDb);
+    }
+    const { data: currentSettings } = await q.maybeSingle();
 
-    const beforeJson = currentSettings || null;
+    const beforeJson = currentSettings ?? null;
+    const s = settings || {};
 
-    // Update or insert settings
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       provider,
-      user_id: user_id || 'global',
+      user_id: userIdForDb,
       enabled: enabled !== undefined ? enabled : (currentSettings?.enabled ?? true),
-      settings: settings || currentSettings?.settings || {},
+      max_retries: s.max_retries ?? currentSettings?.max_retries ?? 3,
+      timeout_seconds: s.timeout_seconds ?? currentSettings?.timeout_seconds ?? 300,
+      max_duration_per_job: s.max_duration_per_job ?? currentSettings?.max_duration_per_job ?? 300,
+      concurrency_limit: s.concurrency_limit ?? currentSettings?.concurrency_limit ?? 5,
+      emergency_pause: s.emergency_pause ?? currentSettings?.emergency_pause ?? false,
       updated_at: new Date().toISOString(),
     };
 
     const { data: updatedSettings, error: updateError } = await supabaseAdmin
       .from('provider_settings')
-      .upsert(updateData, {
-        onConflict: 'provider,user_id',
-      })
+      .upsert(updateData, { onConflict: 'provider,user_id' })
       .select()
       .single();
 
@@ -87,17 +90,19 @@ serve(async (req) => {
       throw new Error(`Failed to update settings: ${updateError.message}`);
     }
 
-    // Create audit log
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const auditTargetId = user_id != null && typeof user_id === 'string' && UUID_RE.test(user_id) ? user_id : null;
+
     const { error: auditError } = await supabaseAdmin
       .from('audit_log')
       .insert({
         actor_admin_user_id: user.id,
         action_type: 'provider_settings_update',
         target_type: 'provider',
-        target_id: user_id || 'global',
+        target_id: auditTargetId,
         before_json: beforeJson,
         after_json: updatedSettings,
-        reason: reason,
+        reason,
       });
 
     if (auditError) {
@@ -112,10 +117,11 @@ serve(async (req) => {
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating provider settings:', error);
+    const msg = error instanceof Error ? error.message : 'Failed to update provider settings';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: msg }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

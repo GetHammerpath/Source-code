@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import Sidebar from "@/components/layout/Sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Settings, Variable, Eye, List } from "lucide-react";
@@ -265,10 +264,7 @@ const SmartBulkGenerator = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="container py-8 max-w-6xl">
+    <div className="max-w-6xl mx-auto py-6 md:py-8 px-4 md:px-6">
           {/* Header */}
           <div className="flex items-center gap-4 mb-8">
             <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
@@ -377,8 +373,6 @@ const SmartBulkGenerator = () => {
               </div>
             </TabsContent>
           </Tabs>
-        </div>
-      </main>
     </div>
   );
 };

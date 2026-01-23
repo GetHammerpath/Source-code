@@ -55,62 +55,84 @@ export function shouldRefreshBalance(fetchedAt: string | null, cacheMinutes: num
 }
 
 /**
- * Fetch fresh provider balances from APIs
+ * Fetch fresh provider balances from APIs (always returns Kie + Fal)
  */
-export async function fetchProviderBalances(): Promise<{ success: boolean; balances?: ProviderBalance[]; error?: string }> {
+export async function fetchProviderBalances(): Promise<{
+  success: boolean;
+  balances?: ProviderBalance[];
+  fetched_at?: string;
+  error?: string;
+}> {
   try {
     const { data, error } = await supabase.functions.invoke('fetch-provider-balances');
 
     if (error) throw error;
+    if (data?.error) throw new Error(data.error);
 
-    return {
-      success: true,
-      balances: data.balances,
-    };
-  } catch (error: any) {
-    console.error('Error fetching provider balances:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to fetch provider balances',
-    };
+    const balances = Array.isArray(data?.balances) ? data.balances : [];
+    const fetchedAt = data?.fetched_at || new Date().toISOString();
+
+    const normalized = balances.map((b: Partial<ProviderBalance> & { error?: string }) => {
+      const v = Number(b.balance_value);
+      return {
+        provider: b.provider! as 'kie' | 'fal',
+        balance_value: Number.isFinite(v) ? v : 0,
+        balance_unit: b.balance_unit ?? 'credits',
+        fetched_at: b.fetched_at ?? fetchedAt,
+        error_message: b.error_message ?? b.error ?? undefined,
+      };
+    });
+
+    return { success: true, balances: normalized, fetched_at: fetchedAt };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Failed to fetch provider balances';
+    console.error('Error fetching provider balances:', err);
+    return { success: false, error: msg };
   }
 }
 
 /**
- * Get all provider balances (with refresh logic)
+ * Get all provider balances (Kie + Fal). Uses cache or fetches fresh; always returns both.
  */
 export async function getAllProviderBalances(forceRefresh: boolean = false): Promise<ProviderBalance[]> {
   const providers: ('kie' | 'fal')[] = ['kie', 'fal'];
-  const balances: ProviderBalance[] = [];
+  const cached: Record<string, ProviderBalance | null> = {};
+  let freshResult: { success: boolean; balances?: ProviderBalance[]; error?: string } | null = null;
 
+  for (const p of providers) {
+    try {
+      cached[p] = await getLatestProviderBalance(p);
+    } catch {
+      cached[p] = null;
+    }
+  }
+
+  const needRefresh =
+    forceRefresh ||
+    providers.some((p) => shouldRefreshBalance(cached[p]?.fetched_at ?? null));
+
+  if (needRefresh) {
+    freshResult = await fetchProviderBalances();
+  }
+
+  const balances: ProviderBalance[] = [];
   for (const provider of providers) {
-    const latest = await getLatestProviderBalance(provider);
-    
-    // Refresh if forced or cache expired
-    if (forceRefresh || shouldRefreshBalance(latest?.fetched_at || null)) {
-      // Fetch fresh balance
-      const freshResult = await fetchProviderBalances();
-      
-      if (freshResult.success && freshResult.balances) {
-        const providerBalance = freshResult.balances.find(b => b.provider === provider);
-        if (providerBalance) {
-          balances.push(providerBalance);
-          continue;
-        }
+    if (freshResult?.success && Array.isArray(freshResult.balances)) {
+      const b = freshResult.balances.find((x) => x.provider === provider);
+      if (b) {
+        balances.push(b);
+        continue;
       }
     }
-
-    // Use cached balance if available
-    if (latest) {
-      balances.push(latest);
+    if (cached[provider]) {
+      balances.push(cached[provider]!);
     } else {
-      // No balance found, return placeholder
       balances.push({
         provider,
         balance_value: 0,
         balance_unit: 'credits',
         fetched_at: new Date().toISOString(),
-        error_message: 'No balance data available',
+        error_message: freshResult?.error ?? 'No balance data available',
       });
     }
   }

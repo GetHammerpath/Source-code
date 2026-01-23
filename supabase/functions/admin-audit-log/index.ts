@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function asUuidOrNull(v: unknown): string | null {
+  if (v == null || typeof v !== 'string') return null;
+  return UUID_RE.test(v) ? v : null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -52,14 +58,20 @@ serve(async (req) => {
       throw new Error('Missing required fields: action_type, target_type, reason');
     }
 
-    // Create audit log entry
-    const { data, error } = await supabase
+    // Use service role for insert (bypasses RLS; we've already verified admin)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Create audit log entry (target_id is UUID; non-UUIDs like 'kie'/'global' stored in after_json)
+    const { data, error } = await supabaseAdmin
       .from('audit_log')
       .insert({
         actor_admin_user_id: user.id,
         action_type,
         target_type,
-        target_id: target_id || null,
+        target_id: asUuidOrNull(target_id),
         before_json: before_json || null,
         after_json: after_json || null,
         reason,
@@ -73,10 +85,11 @@ serve(async (req) => {
       JSON.stringify({ success: true, id: data.id }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating audit log:', error);
+    const msg = error instanceof Error ? error.message : 'Failed to create audit log';
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: msg }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

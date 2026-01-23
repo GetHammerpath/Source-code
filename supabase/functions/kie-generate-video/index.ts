@@ -76,7 +76,13 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('No authorization header');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Unauthorized: No authorization header'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     const supabase = createClient(
@@ -85,17 +91,86 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { generation_id, prompt, image_url, model, aspect_ratio, watermark, avatar_name, industry, script, generation_type } = await req.json();
+    // Verify authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Unauthorized: Invalid or missing authentication'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
-    const KIE_AI_TOKEN = Deno.env.get('KIE_AI_API_TOKEN');
+    const body = await req.json();
+    const { generation_id, prompt, image_url, model, aspect_ratio, watermark, avatar_name, industry, script, generation_type } = body;
+
+    // Validate required fields
+    if (!generation_id) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing required field: generation_id'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!prompt || prompt.trim() === '') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing required field: prompt'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const KIE_AI_TOKEN = Deno.env.get('KIE_AI_API_TOKEN') || Deno.env.get('KIE_API_KEY');
     if (!KIE_AI_TOKEN) {
-      throw new Error('KIE_AI_API_TOKEN not configured');
+      console.error('❌ KIE_AI_API_TOKEN or KIE_API_KEY not configured');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Server configuration error: Kie.ai API key not set'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Verify the generation belongs to the authenticated user
+    const { data: generation, error: genError } = await supabase
+      .from('kie_video_generations')
+      .select('user_id, initial_status')
+      .eq('id', generation_id)
+      .single();
+
+    if (genError || !generation) {
+      console.error('❌ Generation lookup error:', genError);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Generation not found or access denied'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (generation.user_id !== user.id) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Unauthorized: This generation does not belong to you'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Determine generation type - default to REFERENCE_2_VIDEO for backward compatibility
     const generationType = generation_type || (image_url && image_url !== 'text-to-video' ? 'REFERENCE_2_VIDEO' : 'TEXT_2_VIDEO');
 
-    console.log('🎬 Starting Kie.ai video generation:', { generation_id, model, aspect_ratio, generationType });
+    console.log('🎬 Starting Kie.ai video generation:', { generation_id, model, aspect_ratio, generationType, user_id: user.id });
 
     // Prepare callback URL for Kie.ai to send completion notification
     const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/kie-callback`;
@@ -251,13 +326,17 @@ Voice Delivery Notes:
       status: 200
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Error in kie-generate-video:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to start video generation';
+    const statusCode = errorMessage.includes('Unauthorized') ? 401 : 
+                      errorMessage.includes('Missing required') ? 400 : 500;
+    
     return new Response(JSON.stringify({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to start video generation'
+      error: errorMessage
     }), {
-      status: 500,
+      status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }

@@ -140,10 +140,11 @@ serve(async (req) => {
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error adjusting credits:', error);
+    const msg = error instanceof Error ? error.message : 'Failed to adjust credits';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: msg }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

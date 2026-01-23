@@ -33,9 +33,7 @@ lerna-debug.log*
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
-
-# Vercel
+*.sw?# Vercel
 .vercel
 
 # Supabase

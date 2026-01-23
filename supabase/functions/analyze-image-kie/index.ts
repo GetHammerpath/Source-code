@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,16 +13,64 @@ serve(async (req) => {
   }
 
   try {
-    const { image_url, industry, avatar_name, city, story_idea, number_of_scenes = 1 } = await req.json();
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Unauthorized: No authorization header'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
-    // Detect text-only mode (no image provided)
-    const isTextOnlyMode = !image_url || image_url === null || image_url === '';
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Unauthorized: Invalid or missing authentication'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const body = await req.json();
+    const { image_url, industry, avatar_name, city, story_idea, number_of_scenes = 1, generation_mode } = body;
+
+    // Validate required fields
+    if (!industry || !avatar_name || !city || !story_idea) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing required fields: industry, avatar_name, city, and story_idea are required'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Detect text-only mode (no image provided or generation_mode is 'text')
+    const isTextOnlyMode = generation_mode === 'text' || !image_url || image_url === null || image_url === '';
     console.log('🎬 Mode:', isTextOnlyMode ? 'TEXT_ONLY (no image)' : 'IMAGE_ANALYSIS');
-    console.log('📝 Details:', { industry, avatar_name, city, story_idea, number_of_scenes });
+    console.log('📝 Details:', { industry, avatar_name, city, story_idea, number_of_scenes, generation_mode, has_image: !!image_url });
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
+      console.error('❌ OPENAI_API_KEY not configured');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Server configuration error: OpenAI API key not set'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Build system prompt based on number of scenes and mode
@@ -351,13 +400,17 @@ The final video should play like a single, professionally edited marketing video
       }
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Error in analyze-image-kie:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Image analysis failed';
+    const statusCode = errorMessage.includes('Unauthorized') ? 401 : 
+                      errorMessage.includes('Missing required') ? 400 : 500;
+    
     return new Response(JSON.stringify({
       success: false,
-      error: error instanceof Error ? error.message : 'Image analysis failed'
+      error: errorMessage
     }), {
-      status: 500,
+      status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }

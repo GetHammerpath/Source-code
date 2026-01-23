@@ -57,44 +57,33 @@ serve(async (req) => {
       },
     });
 
-    // Use Supabase Admin API to send password reset email
+    // Use Supabase Auth to send password reset email
     const adminSupabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get target user email
     const { data: targetUser, error: userError } = await adminSupabase.auth.admin.getUserById(user_id);
-    if (userError || !targetUser) {
+    if (userError || !targetUser?.user?.email) {
       throw new Error('Target user not found');
     }
 
-    // Send password reset email
-    const { error: resetError } = await adminSupabase.auth.admin.generateLink({
-      type: 'recovery',
-      email: targetUser.user.email ?? '',
-    });
-
-    if (resetError) {
-      // If generateLink fails, try sending recovery email directly
-      const { error: emailError } = await adminSupabase.auth.resetPasswordForEmail(
-        targetUser.user.email ?? '',
-        {
-          redirectTo: `${Deno.env.get('SITE_URL') || 'http://localhost:8080'}/auth?type=recovery`,
-        }
-      );
-
-      if (emailError) throw emailError;
-    }
+    const redirectTo = `${Deno.env.get('SITE_URL') || 'http://localhost:8080'}/auth?type=recovery`;
+    const { error: emailError } = await adminSupabase.auth.resetPasswordForEmail(
+      targetUser.user.email,
+      { redirectTo }
+    );
+    if (emailError) throw emailError;
 
     return new Response(
       JSON.stringify({ success: true, message: 'Password reset email sent' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error forcing password reset:', error);
+    const msg = error instanceof Error ? error.message : 'Failed to send password reset';
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: msg }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

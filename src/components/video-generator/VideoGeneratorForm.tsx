@@ -137,11 +137,18 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
 
       if (error) {
         console.error('Edge function error:', error);
-        throw new Error(error.message || 'Failed to analyze image');
+        const errorMsg = error.message || 'Failed to analyze image';
+        // Check if it's a network/HTTP error
+        if (errorMsg.includes('non-2xx') || errorMsg.includes('status code')) {
+          throw new Error('Server error: Please check your inputs and try again. If the problem persists, contact support.');
+        }
+        throw new Error(errorMsg);
       }
 
       if (!data?.success) {
-        throw new Error(data?.error || 'AI analysis failed');
+        const errorMsg = data?.error || 'AI analysis failed';
+        console.error('Analysis failed:', errorMsg);
+        throw new Error(errorMsg);
       }
 
       if (data.scenes && Array.isArray(data.scenes)) {

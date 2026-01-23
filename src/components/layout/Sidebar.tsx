@@ -1,20 +1,29 @@
-import { LayoutDashboard, Plus, LogOut, Video, Users, FileText, Wand2, Sparkles, Zap, Film, Layers, Shuffle, Database, CreditCard, Shield, Wallet } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { LayoutDashboard, Plus, LogOut, Video, Users, FileText, Wand2, Sparkles, Zap, Film, Layers, Shuffle, Database, CreditCard, Shield, Wallet, User, Loader2 } from "lucide-react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { role, canManageUsers } = useUserRole();
+  const { role, canManageUsers, isAdmin, refreshRole } = useUserRole();
+  const [togglingRole, setTogglingRole] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   
   // Check if we're in admin context
   const isAdminContext = location.pathname.startsWith("/admin");
+
+  // Get user email to check if they're mershard@icloud.com
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserEmail(user?.email || null);
+    });
+  }, []);
   
   // Admin navigation items
   const adminNavItems = [
@@ -37,6 +46,41 @@ const Sidebar = () => {
       });
     } else {
       navigate("/auth");
+    }
+  };
+
+  const handleToggleRole = async () => {
+    setTogglingRole(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-toggle-role');
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const newRole = data?.role;
+      toast({
+        title: "Success",
+        description: `Switched to ${newRole === 'admin' ? 'admin' : 'user'} view`,
+      });
+
+      // Refresh role and navigate
+      await refreshRole();
+      
+      // Navigate based on new role
+      if (newRole === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (error: any) {
+      console.error('Error toggling role:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to toggle role",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingRole(false);
     }
   };
 
@@ -141,7 +185,37 @@ const Sidebar = () => {
         )}
       </nav>
 
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        {/* Role Toggle Button - Show for admins or mershard@icloud.com */}
+        {(isAdmin || userEmail === 'mershard@icloud.com' || (role === null && isAdminContext)) && (
+          <Button
+            onClick={handleToggleRole}
+            variant="outline"
+            disabled={togglingRole}
+            className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent/80 h-9 rounded-[14px] border-sidebar-border"
+          >
+            {togglingRole ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2.5 animate-spin" />
+                <span className="text-sm">Switching...</span>
+              </>
+            ) : (
+              <>
+                {isAdmin ? (
+                  <>
+                    <User className="h-4 w-4 mr-2.5" />
+                    <span className="text-sm">View as User</span>
+                  </>
+                ) : (
+                  <>
+                    <Shield className="h-4 w-4 mr-2.5" />
+                    <span className="text-sm">View as Admin</span>
+                  </>
+                )}
+              </>
+            )}
+          </Button>
+        )}
         <Button
           onClick={handleLogout}
           variant="ghost"

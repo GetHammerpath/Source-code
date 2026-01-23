@@ -55,10 +55,11 @@ serve(async (req) => {
       JSON.stringify({ url: session.url }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating portal session:', error);
+    const msg = error instanceof Error ? error.message : 'Failed to create portal session';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: msg }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

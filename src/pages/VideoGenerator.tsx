@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import Sidebar from "@/components/layout/Sidebar";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Video, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, Sparkles, Video } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import VideoGeneratorForm from "@/components/video-generator/VideoGeneratorForm";
 import VideoGenerationsList from "@/components/video-generator/VideoGenerationsList";
@@ -40,11 +39,7 @@ const VideoGenerator = () => {
   };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <Sidebar />
-      
-      <main className="flex-1 overflow-y-auto">
-        <div className="container mx-auto p-6 max-w-5xl">
+    <div className="container mx-auto p-6 max-w-5xl">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
@@ -98,8 +93,6 @@ const VideoGenerator = () => {
               {userId && <VideoGenerationsList userId={userId} onDuplicate={handleDuplicate} />}
             </TabsContent>
           </Tabs>
-        </div>
-      </main>
     </div>
   );
 };

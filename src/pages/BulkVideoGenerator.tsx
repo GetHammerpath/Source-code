@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import Sidebar from "@/components/layout/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Plus, List } from "lucide-react";
@@ -41,10 +40,7 @@ const BulkVideoGenerator = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 p-8 overflow-auto">
-        <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto p-6 md:p-8">
           <div className="flex items-center gap-4 mb-8">
             <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
               <ArrowLeft className="h-5 w-5" />
@@ -93,8 +89,6 @@ const BulkVideoGenerator = () => {
               </div>
             </TabsContent>
           </Tabs>
-        </div>
-      </main>
     </div>
   );
 };

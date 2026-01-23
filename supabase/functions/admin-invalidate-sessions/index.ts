@@ -63,8 +63,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Delete all auth sessions for this user
-    const { error: sessionError } = await adminSupabase.auth.admin.signOut(user_id, 'global');
+    // Sign out all sessions for this user (global scope)
+    const { error: sessionError } = await adminSupabase.auth.admin.signOut(user_id);
 
     if (sessionError) {
       console.error('Error signing out user sessions:', sessionError);
@@ -75,10 +75,11 @@ serve(async (req) => {
       JSON.stringify({ success: true, message: 'All user sessions invalidated' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error invalidating sessions:', error);
+    const msg = error instanceof Error ? error.message : 'Failed to invalidate sessions';
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: msg }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

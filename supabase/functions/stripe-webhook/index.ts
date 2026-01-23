@@ -47,53 +47,83 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log(`Processing webhook event: ${event.type}`);
+    const eventId = event.id;
+    const eventType = event.type;
+    console.log(`Processing webhook event: ${eventType} (${eventId})`);
 
-    // Handle different event types
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        await handleCheckoutSessionCompleted(supabase, session);
-        break;
+    const { data: existing } = await supabase
+      .from('stripe_event_log')
+      .select('id')
+      .eq('stripe_event_id', eventId)
+      .maybeSingle();
+
+    if (existing) {
+      console.log(`Event ${eventId} already processed (idempotent)`);
+      return new Response(
+        JSON.stringify({ received: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    try {
+      switch (eventType) {
+        case 'checkout.session.completed': {
+          const session = event.data.object as Stripe.Checkout.Session;
+          await handleCheckoutSessionCompleted(supabase, session);
+          break;
+        }
+        case 'customer.subscription.created':
+        case 'customer.subscription.updated': {
+          const subscription = event.data.object as Stripe.Subscription;
+          await handleSubscriptionCreatedOrUpdated(supabase, subscription);
+          break;
+        }
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as Stripe.Subscription;
+          await handleSubscriptionDeleted(supabase, subscription);
+          break;
+        }
+        case 'invoice.paid': {
+          const invoice = event.data.object as Stripe.Invoice;
+          await handleInvoicePaid(supabase, invoice);
+          break;
+        }
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object as Stripe.Invoice;
+          await handleInvoicePaymentFailed(supabase, invoice);
+          break;
+        }
+        default:
+          console.log(`Unhandled event type: ${eventType}`);
       }
 
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscriptionCreatedOrUpdated(supabase, subscription);
-        break;
-      }
-
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscriptionDeleted(supabase, subscription);
-        break;
-      }
-
-      case 'invoice.paid': {
-        const invoice = event.data.object as Stripe.Invoice;
-        await handleInvoicePaid(supabase, invoice);
-        break;
-      }
-
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice;
-        await handleInvoicePaymentFailed(supabase, invoice);
-        break;
-      }
-
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
+      await supabase.from('stripe_event_log').insert({
+        stripe_event_id: eventId,
+        event_type: eventType,
+        status: 'success',
+        metadata: { type: eventType },
+      });
+    } catch (handlerErr: unknown) {
+      const errMsg = handlerErr instanceof Error ? handlerErr.message : String(handlerErr);
+      await supabase.from('stripe_event_log').insert({
+        stripe_event_id: eventId,
+        event_type: eventType,
+        status: 'failed',
+        error_message: errMsg,
+        metadata: { type: eventType },
+      });
+      throw handlerErr;
     }
 
     return new Response(
       JSON.stringify({ received: true }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Webhook error:', error);
+    const msg = error instanceof Error ? error.message : 'Webhook processing failed';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: msg }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
