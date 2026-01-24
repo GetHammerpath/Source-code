@@ -13,7 +13,7 @@ function validateEnvVars() {
     'STRIPE_SECRET_KEY',
     'SUPABASE_URL',
     'SUPABASE_ANON_KEY',
-    'SUPABASE_SERVICE_ROLE_KEY',
+    'SERVICE_ROLE_KEY', // Note: Can't use SUPABASE_SERVICE_ROLE_KEY (reserved), using SERVICE_ROLE_KEY instead
   ];
   
   const missing = required.filter(key => !Deno.env.get(key));
@@ -77,9 +77,10 @@ serve(async (req) => {
     const { mode, planId, credits } = body;
 
     // Use service role key for database operations (bypasses RLS)
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    // Note: Using SERVICE_ROLE_KEY instead of SUPABASE_SERVICE_ROLE_KEY because Supabase CLI doesn't allow secrets starting with SUPABASE_
+    const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY');
     if (!serviceRoleKey) {
-      throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured. Please set it in Supabase Edge Function secrets.');
+      throw new Error('SERVICE_ROLE_KEY not configured. Please set it in Supabase Edge Function secrets. This should be your Supabase service role key from Settings → API.');
     }
     
     const supabaseAdmin = createClient(
@@ -214,8 +215,8 @@ serve(async (req) => {
     let helpfulMessage = errorMessage;
     if (errorMessage.includes('STRIPE_SECRET_KEY') || errorMessage.includes('Missing required environment variables')) {
       helpfulMessage = `${errorMessage}\n\nPlease set all required secrets in Supabase Dashboard → Settings → Functions → Secrets`;
-    } else if (errorMessage.includes('SUPABASE_SERVICE_ROLE_KEY')) {
-      helpfulMessage = `${errorMessage}\n\nGet the service role key from Supabase Dashboard → Settings → API → Service role key`;
+    } else if (errorMessage.includes('SERVICE_ROLE_KEY')) {
+      helpfulMessage = `${errorMessage}\n\nGet the service role key from Supabase Dashboard → Settings → API → Service role key, then set it as 'SERVICE_ROLE_KEY' in Edge Function secrets`;
     } else if (errorMessage.includes('STUDIO_ACCESS_PRICE_ID')) {
       helpfulMessage = `${errorMessage}\n\nCreate the price in Stripe Dashboard → Products → Add product → $99/month recurring`;
     }
