@@ -76,10 +76,12 @@ const Checkout = () => {
       // Check for Supabase function invocation error
       if (response.error) {
         console.error("Response error:", response.error);
-        // Try to extract error message from response.data if available
-        let errorMsg = response.error.message || JSON.stringify(response.error);
+        console.error("Full error object:", JSON.stringify(response.error, null, 2));
         
-        // Check if response.data contains error details
+        // Try to extract error message from various places
+        let errorMsg = response.error.message || "Edge Function returned a non-2xx status code";
+        
+        // Try to get error from response.data if available (sometimes Supabase includes it)
         if (response.data?.error) {
           errorMsg = response.data.error;
           if (response.data.details) {
@@ -87,13 +89,22 @@ const Checkout = () => {
           }
         }
         
-        throw new Error(`Checkout failed: ${errorMsg}`);
+        // Try to extract from error context if available
+        if (response.error.context) {
+          console.error("Error context:", response.error.context);
+        }
+        
+        // Provide helpful message with link to logs
+        const helpfulMsg = `${errorMsg}\n\nTo see the exact error, check the Edge Function logs:\nhttps://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs`;
+        
+        throw new Error(`Checkout failed: ${helpfulMsg}`);
       }
 
       // Check if data exists
       if (!response.data) {
         console.error("No data in response:", response);
-        throw new Error("No data returned from checkout session. Check Edge Function logs in Supabase Dashboard at: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs");
+        console.error("Response object:", JSON.stringify(response, null, 2));
+        throw new Error("No data returned from checkout session. The Edge Function returned an error. Check Edge Function logs in Supabase Dashboard at: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs");
       }
 
       // Check if response.data has an error (from Edge Function)
