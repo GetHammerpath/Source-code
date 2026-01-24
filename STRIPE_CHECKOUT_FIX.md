@@ -15,9 +15,10 @@ Add these secrets (if not already set):
 ### Required Secrets:
 
 1. **STRIPE_SECRET_KEY**
-   ```
-   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
-   ```
+   - Go to **Stripe Dashboard** → **Developers** → **API keys**
+   - Copy your **Secret key** (starts with `sk_live_...`)
+   - Add it to Supabase Edge Function secrets
+   - ⚠️ **NEVER commit this key to git!**
 
 2. **STUDIO_ACCESS_PRICE_ID** (CRITICAL - This is likely missing!)
    - Go to **Stripe Dashboard** → **Products**

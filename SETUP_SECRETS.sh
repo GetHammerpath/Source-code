@@ -36,8 +36,13 @@ supabase secrets set CREDIT_MARKUP_MULTIPLIER=3
 supabase secrets set CREDITS_PER_MINUTE=1
 
 # Set Stripe secret key
+# ⚠️ SECURITY: Never commit actual keys to git!
+# Get your key from: Stripe Dashboard → Developers → API keys
 echo "💳 Setting Stripe secret key..."
-supabase secrets set STRIPE_SECRET_KEY=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
+echo "⚠️  Please set STRIPE_SECRET_KEY manually in Supabase Dashboard"
+echo "   Go to: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/settings/functions"
+echo "   Add secret: STRIPE_SECRET_KEY = (your key from Stripe Dashboard)"
+# supabase secrets set STRIPE_SECRET_KEY=sk_live_YOUR_KEY_HERE
 
 # Set Stripe webhook secret
 echo "🔐 Setting Stripe webhook secret..."

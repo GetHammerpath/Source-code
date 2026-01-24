@@ -42,7 +42,20 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      console.error('❌ Failed to parse request body:', parseError);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid request format. Please check your inputs.'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
     const { image_url, industry, avatar_name, city, story_idea, number_of_scenes = 1, generation_mode } = body;
 
     // Validate required fields
@@ -321,29 +334,91 @@ The final video should play like a single, professionally edited marketing video
       };
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          userMessage
-        ],
-      }),
-    });
+    // Add timeout to prevent function from hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000); // 55 seconds (just under 60s limit)
+
+    let response;
+    try {
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            userMessage
+          ],
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('❌ OpenAI API request timed out');
+        throw new Error('Request timed out. The AI service took too long to respond. Please try again.');
+      }
+      throw fetchError;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ OpenAI API error:', errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error('❌ OpenAI API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      
+      // Parse OpenAI error if possible
+      let errorMessage = `OpenAI API error: ${response.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error?.message) {
+          errorMessage = errorJson.error.message;
+          
+          // Provide user-friendly messages for common errors
+          if (errorMessage.includes('exceeded your current quota') || errorMessage.includes('quota')) {
+            errorMessage = 'OpenAI API quota exceeded. Please check your OpenAI account billing and add credits, or contact support to update the API key.';
+          } else if (errorMessage.includes('rate limit') || response.status === 429) {
+            errorMessage = 'OpenAI API rate limit reached. Please wait a few minutes and try again.';
+          } else if (errorMessage.includes('invalid_api_key') || errorMessage.includes('Invalid API key')) {
+            errorMessage = 'OpenAI API key is invalid. Please contact support to update the API key.';
+          } else if (errorMessage.includes('insufficient_quota')) {
+            errorMessage = 'OpenAI API has insufficient quota. Please add credits to your OpenAI account.';
+          }
+        }
+      } catch {
+        // If not JSON, use the text as-is
+        if (errorText) {
+          const truncated = errorText.substring(0, 200);
+          if (truncated.includes('quota') || truncated.includes('exceeded')) {
+            errorMessage = 'OpenAI API quota exceeded. Please check your OpenAI account billing and add credits.';
+          } else {
+            errorMessage = `OpenAI API error: ${truncated}`;
+          }
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('❌ Invalid OpenAI response structure:', JSON.stringify(data, null, 2));
+      throw new Error('Invalid response from AI service. Please try again.');
+    }
+    
     const generatedText = data.choices[0].message.content;
+    
+    if (!generatedText) {
+      console.error('❌ Empty response from OpenAI:', JSON.stringify(data, null, 2));
+      throw new Error('AI service returned an empty response. Please try again.');
+    }
 
     console.log('🎬 Generated response:', generatedText);
 
@@ -402,13 +477,40 @@ The final video should play like a single, professionally edited marketing video
 
   } catch (error: unknown) {
     console.error('❌ Error in analyze-image-kie:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Image analysis failed';
-    const statusCode = errorMessage.includes('Unauthorized') ? 401 : 
-                      errorMessage.includes('Missing required') ? 400 : 500;
+    
+    // Get detailed error information
+    let errorMessage = 'Image analysis failed';
+    let statusCode = 500;
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      console.error('Error stack:', error.stack);
+      
+      // Determine status code based on error type
+      if (errorMessage.includes('Unauthorized') || errorMessage.includes('authentication')) {
+        statusCode = 401;
+      } else if (errorMessage.includes('Missing required') || errorMessage.includes('Invalid')) {
+        statusCode = 400;
+      } else if (errorMessage.includes('OpenAI API key') || errorMessage.includes('not configured')) {
+        statusCode = 500;
+        errorMessage = 'Server configuration error: OpenAI API key not set. Please contact support.';
+      } else if (errorMessage.includes('OpenAI API error')) {
+        statusCode = 502; // Bad Gateway - external API issue
+        errorMessage = 'AI service temporarily unavailable. Please try again in a moment.';
+      }
+    } else {
+      errorMessage = String(error);
+      console.error('Unknown error type:', typeof error, error);
+    }
     
     return new Response(JSON.stringify({
       success: false,
-      error: errorMessage
+      error: errorMessage,
+      details: error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        // Don't expose stack in production, but log it
+      } : undefined
     }), {
       status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

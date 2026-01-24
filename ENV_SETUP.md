@@ -59,8 +59,10 @@ supabase secrets set OPENAI_API_KEY=sk-proj-m4UnMAIT6KhBDBvNVUVs00t1N1Vj7W23O-s7
 ### Stripe Configuration (Edge Functions):
 
 ```bash
-# Stripe Secret Key (CONFIGURED)
-supabase secrets set STRIPE_SECRET_KEY=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
+# Stripe Secret Key (DO NOT COMMIT - Set via Supabase Dashboard)
+# Go to: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/settings/functions
+# Add secret: STRIPE_SECRET_KEY = (your Stripe secret key from dashboard)
+# supabase secrets set STRIPE_SECRET_KEY=sk_live_YOUR_NEW_KEY_HERE
 
 # Stripe Webhook Secret (CONFIGURED)
 supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_LsQYDIUAdMbemoh51e6rrtSPeMXhi3Hj

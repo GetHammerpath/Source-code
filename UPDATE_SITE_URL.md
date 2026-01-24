@@ -23,7 +23,9 @@ https://source-code-oi1wkfmin-jon-brinkleys-projects.vercel.app
 Make sure these are all set in Supabase Edge Function secrets:
 
 - ✅ **SITE_URL**: `https://source-code-oi1wkfmin-jon-brinkleys-projects.vercel.app`
-- ✅ **STRIPE_SECRET_KEY**: `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`
+- ✅ **STRIPE_SECRET_KEY**: (Set in Supabase Dashboard → Settings → Functions → Secrets)
+  - ⚠️ **DO NOT commit this key to git!**
+  - Get it from: Stripe Dashboard → Developers → API keys
 - ⚠️ **STUDIO_ACCESS_PRICE_ID**: Create in Stripe first, then add here
 - ✅ **KIE_COST_PER_MINUTE**: `0.20`
 - ✅ **CREDIT_MARKUP_MULTIPLIER**: `3`

@@ -38,3 +38,9 @@ lerna-debug.log*
 
 # Supabase
 .supabase
+
+# Secrets and sensitive files
+SUPABASE_SECRETS.txt
+*.secrets
+*.keys
+.env*.local
