@@ -46,24 +46,29 @@ const Checkout = () => {
       }
 
       let response;
-      if (mode === "access") {
-        // Studio Access subscription
-        response = await supabase.functions.invoke("create-checkout-session", {
-          body: {
-            mode: "subscription",
-            planId: "studio_access",
-          },
-        });
-      } else if (mode === "credits") {
-        // Credit purchase
-        response = await supabase.functions.invoke("create-checkout-session", {
-          body: {
-            mode: "credits",
-            credits: creditAmount,
-          },
-        });
-      } else {
-        throw new Error("Invalid checkout mode");
+      try {
+        if (mode === "access") {
+          // Studio Access subscription
+          response = await supabase.functions.invoke("create-checkout-session", {
+            body: {
+              mode: "subscription",
+              planId: "studio_access",
+            },
+          });
+        } else if (mode === "credits") {
+          // Credit purchase
+          response = await supabase.functions.invoke("create-checkout-session", {
+            body: {
+              mode: "credits",
+              credits: creditAmount,
+            },
+          });
+        } else {
+          throw new Error("Invalid checkout mode");
+        }
+      } catch (invokeError: any) {
+        console.error("Function invoke error:", invokeError);
+        throw new Error(`Failed to call Edge Function: ${invokeError?.message || JSON.stringify(invokeError)}`);
       }
 
       console.log("Checkout response:", response);
@@ -71,14 +76,24 @@ const Checkout = () => {
       // Check for Supabase function invocation error
       if (response.error) {
         console.error("Response error:", response.error);
-        const errorMsg = response.error.message || JSON.stringify(response.error);
+        // Try to extract error message from response.data if available
+        let errorMsg = response.error.message || JSON.stringify(response.error);
+        
+        // Check if response.data contains error details
+        if (response.data?.error) {
+          errorMsg = response.data.error;
+          if (response.data.details) {
+            errorMsg += `\n\nDetails: ${JSON.stringify(response.data.details, null, 2)}`;
+          }
+        }
+        
         throw new Error(`Checkout failed: ${errorMsg}`);
       }
 
       // Check if data exists
       if (!response.data) {
         console.error("No data in response:", response);
-        throw new Error("No data returned from checkout session. Check Edge Function logs in Supabase Dashboard.");
+        throw new Error("No data returned from checkout session. Check Edge Function logs in Supabase Dashboard at: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs");
       }
 
       // Check if response.data has an error (from Edge Function)
