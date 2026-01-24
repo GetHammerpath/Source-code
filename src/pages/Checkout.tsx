@@ -77,19 +77,27 @@ const Checkout = () => {
 
       // Check if data exists
       if (!response.data) {
-        throw new Error("No data returned from checkout session. Check Edge Function logs.");
+        console.error("No data in response:", response);
+        throw new Error("No data returned from checkout session. Check Edge Function logs in Supabase Dashboard.");
       }
 
       // Check if response.data has an error (from Edge Function)
       if (response.data.error) {
-        throw new Error(response.data.error);
+        console.error("Edge Function error:", response.data);
+        const errorDetails = response.data.details 
+          ? `\n\nDetails: ${JSON.stringify(response.data.details, null, 2)}`
+          : '';
+        throw new Error(`Checkout failed: ${response.data.error}${errorDetails}`);
       }
 
       // Get the URL
-      const { url } = response.data;
+      const { url, sessionId } = response.data;
       if (!url) {
-        throw new Error("No checkout URL returned. Check STUDIO_ACCESS_PRICE_ID is set correctly.");
+        console.error("Missing URL in response:", response.data);
+        throw new Error("No checkout URL returned. Check Edge Function logs and verify STUDIO_ACCESS_PRICE_ID is set correctly in Supabase secrets.");
       }
+      
+      console.log("Checkout session created:", { sessionId, url });
 
       // Redirect to Stripe checkout
       window.location.href = url;
