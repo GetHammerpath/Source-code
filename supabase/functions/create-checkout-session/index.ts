@@ -8,11 +8,10 @@ const corsHeaders = {
 };
 
 // Validate required environment variables
+// Note: SUPABASE_URL and SUPABASE_ANON_KEY are automatically provided by Supabase, so we don't check for them
 function validateEnvVars() {
   const required = [
     'STRIPE_SECRET_KEY',
-    'SUPABASE_URL',
-    'SUPABASE_ANON_KEY',
     'SERVICE_ROLE_KEY', // Note: Can't use SUPABASE_SERVICE_ROLE_KEY (reserved), using SERVICE_ROLE_KEY instead
   ];
   
@@ -20,6 +19,14 @@ function validateEnvVars() {
   
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}. Please set them in Supabase Edge Function secrets.`);
+  }
+  
+  // Check for SUPABASE_URL and SUPABASE_ANON_KEY (should be auto-provided, but log if missing)
+  if (!Deno.env.get('SUPABASE_URL')) {
+    console.warn('⚠️ SUPABASE_URL is not set (should be auto-provided by Supabase)');
+  }
+  if (!Deno.env.get('SUPABASE_ANON_KEY')) {
+    console.warn('⚠️ SUPABASE_ANON_KEY is not set (should be auto-provided by Supabase)');
   }
 }
 
