@@ -1,4 +1,7 @@
 #!/bin/bash
+# ⚠️ SECURITY WARNING: This script should NEVER contain actual secrets!
+# All secrets should be set via Supabase Dashboard or CLI with actual values
+# This script is for reference only
 # Script to set Supabase Edge Function secrets
 # Run this after linking to your Supabase project
 

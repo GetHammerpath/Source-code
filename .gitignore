@@ -44,3 +44,7 @@ SUPABASE_SECRETS.txt
 *.secrets
 *.keys
 .env*.local
+.gitignore.local
+secrets.local.*
+*.local.secrets
+local-secrets.*

@@ -1,0 +1,19 @@
+# Example local secrets file - DO NOT COMMIT THIS!
+# Copy this to .gitignore.local and fill in your actual secrets
+# This file is gitignored and will never be committed
+
+# Supabase Edge Function Secrets (set via Dashboard or CLI)
+# Never commit these values!
+
+STRIPE_SECRET_KEY=sk_live_YOUR_KEY_HERE
+SERVICE_ROLE_KEY=your_service_role_key_here
+STUDIO_ACCESS_PRICE_ID=price_YOUR_PRICE_ID_HERE
+STRIPE_WEBHOOK_SECRET=whsec_YOUR_WEBHOOK_SECRET_HERE
+
+# API Keys
+KIE_AI_API_TOKEN=your_kie_token_here
+FAL_API_KEY=your_fal_key_here
+OPENAI_API_KEY=your_openai_key_here
+
+# Site Configuration
+SITE_URL=https://your-app.vercel.app
