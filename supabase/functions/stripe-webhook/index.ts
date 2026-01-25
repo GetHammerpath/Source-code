@@ -144,6 +144,18 @@ async function handleCheckoutSessionCompleted(
   const metadata = session.metadata || {};
   const userId = metadata.user_id;
 
+  // Update profile with stripe_customer_id first (needed for subscription lookup)
+  if (customerId && userId) {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ stripe_customer_id: customerId })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error updating profile with stripe_customer_id:', error);
+    }
+  }
+
   // Check if this is a credit purchase
   if (metadata.type === 'credit_purchase') {
     const credits = parseInt(metadata.credits || '0');
@@ -153,7 +165,6 @@ async function handleCheckoutSessionCompleted(
       return;
     }
 
-    // Grant credits (idempotent check via stripe_event_id)
     await grantCredits(supabase, userId, credits, 'purchase', {
       stripe_event_id: session.id,
       stripe_payment_intent_id: session.payment_intent as string,
@@ -161,17 +172,17 @@ async function handleCheckoutSessionCompleted(
     });
 
     console.log(`Granted ${credits} credits to user ${userId}`);
+    return;
   }
 
-  // If customer doesn't have stripe_customer_id yet, update profile
-  if (customerId && userId) {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ stripe_customer_id: customerId })
-      .eq('id', userId);
-
-    if (error) {
-      console.error('Error updating profile with stripe_customer_id:', error);
+  // Subscription checkout: create/update subscription row from session
+  if (metadata.type === 'subscription' && metadata.plan === 'studio_access' && session.subscription) {
+    try {
+      const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+      await handleSubscriptionCreatedOrUpdated(supabase, subscription);
+      console.log(`Applied Studio Access subscription for user ${userId} from checkout.session.completed`);
+    } catch (err) {
+      console.error('Error applying subscription from checkout.session.completed:', err);
     }
   }
 }
