@@ -143,10 +143,18 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      let data: any;
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        data = {};
+      }
 
       if (!response.ok) {
-        const errorMsg = data?.error || data?.message || `Server error (${response.status})`;
+        const errorMsg = data?.error || data?.message || data?.details || `Server error (${response.status})`;
+        console.error('Stitching error response:', { status: response.status, data });
         throw new Error(errorMsg);
       }
 
@@ -175,6 +183,19 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
   const handleStitchWithTrim = async (generationId: string) => {
     setStitching(generationId);
     try {
+      // Check if generation has enough segments before making the request
+      const generation = generations.find((g: any) => g.id === generationId);
+      if (generation) {
+        const segments = generation.video_segments || [];
+        if (segments.length < 2) {
+          throw new Error(`Need at least 2 video segments to stitch. Currently have ${segments.length} segment(s). Wait for all scenes to complete.`);
+        }
+        const segmentsWithoutUrls = segments.filter((seg: any) => !seg.url && !seg.video_url);
+        if (segmentsWithoutUrls.length > 0) {
+          throw new Error(`${segmentsWithoutUrls.length} segment(s) are missing video URLs. Wait for scenes to finish generating.`);
+        }
+      }
+
       const url = import.meta.env.VITE_SUPABASE_URL;
       const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const { data: { session } } = await supabase.auth.getSession();
@@ -197,10 +218,18 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      let data: any;
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        data = {};
+      }
 
       if (!response.ok) {
-        const errorMsg = data?.error || data?.message || `Server error (${response.status})`;
+        const errorMsg = data?.error || data?.message || data?.details || `Server error (${response.status})`;
+        console.error('Stitching error response:', { status: response.status, data });
         throw new Error(errorMsg);
       }
 

@@ -53,6 +53,16 @@ const VideoGenerationCard = ({ generation, onRefresh, onDuplicate }: VideoGenera
   const handleStitchWithTrim = async (generationId: string) => {
     setStitching(true);
     try {
+      // Check if generation has enough segments before making the request
+      const segments = generation.video_segments || [];
+      if (segments.length < 2) {
+        throw new Error(`Need at least 2 video segments to stitch. Currently have ${segments.length} segment(s). Wait for all scenes to complete.`);
+      }
+      const segmentsWithoutUrls = segments.filter((seg: any) => !seg.url && !seg.video_url);
+      if (segmentsWithoutUrls.length > 0) {
+        throw new Error(`${segmentsWithoutUrls.length} segment(s) are missing video URLs. Wait for scenes to finish generating.`);
+      }
+
       const url = import.meta.env.VITE_SUPABASE_URL;
       const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const { data: { session } } = await supabase.auth.getSession();

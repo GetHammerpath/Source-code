@@ -20,19 +20,48 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const body = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch (jsonError) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid JSON in request body'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     generation_id = body.generation_id;
+    if (!generation_id) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing generation_id in request body'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const trim = body.trim ?? false;
     const trimSeconds = body.trim_seconds ?? 1;
 
     // Validate trim_seconds is within reasonable range
     if (trim && (trimSeconds < 0.1 || trimSeconds > 5)) {
-      throw new Error('Trim duration must be between 0.1 and 5 seconds');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Trim duration must be between 0.1 and 5 seconds'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     console.log('🎬 Cloudinary stitch request for generation:', generation_id);
     console.log('🎬 Trim mode:', trim);
     console.log('🎬 Trim seconds:', trimSeconds);
+    console.log('🎬 Request body:', JSON.stringify(body, null, 2));
 
     // Get generation record
     const { data: generation, error: fetchError } = await supabase
@@ -42,20 +71,58 @@ serve(async (req) => {
       .single();
 
     if (fetchError || !generation) {
-      throw new Error('Generation not found');
+      return new Response(JSON.stringify({
+        success: false,
+        error: `Generation not found: ${fetchError?.message || 'No generation record'}`
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Validate segments
     const segments = generation.video_segments || [];
+    console.log('🎬 Video segments:', JSON.stringify(segments, null, 2));
+    console.log('🎬 Segments count:', segments.length);
+    
     if (segments.length < 2) {
-      throw new Error('Need at least 2 video segments to stitch');
+      return new Response(JSON.stringify({
+        success: false,
+        error: `Need at least 2 video segments to stitch. Found ${segments.length} segment(s).`,
+        segments_count: segments.length,
+        segments: segments
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Validate all segments have URLs
-    const invalidSegment = segments.find((seg: any) => !seg.url);
+    // Validate all segments have URLs (check both 'url' and 'video_url' fields)
+    const segmentsWithUrls = segments.map((seg: any, index: number) => {
+      const url = seg.url || seg.video_url;
+      if (!url) {
+        return { index, segment: seg, error: 'Missing URL' };
+      }
+      return { index, segment: seg, url };
+    });
+
+    const invalidSegment = segmentsWithUrls.find((s: any) => s.error);
     if (invalidSegment) {
-      throw new Error('All segments must have valid URLs');
+      return new Response(JSON.stringify({
+        success: false,
+        error: `Segment ${invalidSegment.index} is missing a URL`,
+        segment_data: invalidSegment.segment
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
+
+    // Normalize segments to use 'url' field
+    const normalizedSegments = segmentsWithUrls.map((s: any) => ({
+      ...s.segment,
+      url: s.url
+    }));
 
     // Get Cloudinary credentials
     const CLOUDINARY_CLOUD_NAME = Deno.env.get('CLOUDINARY_CLOUD_NAME');
@@ -66,10 +133,10 @@ serve(async (req) => {
       throw new Error('Cloudinary credentials not configured');
     }
 
-    console.log(`📤 Processing ${segments.length} video segments for concatenation...`);
+    console.log(`📤 Processing ${normalizedSegments.length} video segments for concatenation...`);
 
     // Download and upload segments to Cloudinary (required for concatenation)
-    const uploadPromises = segments.map(async (segment: any, index: number) => {
+    const uploadPromises = normalizedSegments.map(async (segment: any, index: number) => {
       try {
         // First, download the video from the URL
         console.log(`📥 Downloading segment ${index} from: ${segment.url}`);
