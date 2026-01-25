@@ -130,6 +130,12 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
         throw new Error('Missing configuration or authentication');
       }
 
+      const requestBody = { 
+        generation_id: generationId, 
+        trim: false 
+      };
+      console.log('🎬 Frontend: Sending request to cloudinary-stitch-videos:', requestBody);
+      
       const response = await fetch(`${url}/functions/v1/cloudinary-stitch-videos`, {
         method: 'POST',
         headers: {
@@ -137,24 +143,32 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
           'Authorization': `Bearer ${session.access_token}`,
           'apikey': anon,
         },
-        body: JSON.stringify({ 
-          generation_id: generationId, 
-          trim: false 
-        }),
+        body: JSON.stringify(requestBody),
       });
+      
+      console.log('🎬 Frontend: Response status:', response.status, response.statusText);
 
-      let data: any;
+      let data: any = {};
+      let responseText = '';
       try {
-        const text = await response.text();
-        data = text ? JSON.parse(text) : {};
+        responseText = await response.text();
+        data = responseText ? JSON.parse(responseText) : {};
       } catch (parseError) {
-        console.error('Failed to parse response:', parseError);
-        data = {};
+        console.error('Failed to parse response:', parseError, 'Raw response:', responseText);
+        // If parsing failed, try to extract error from text
+        if (responseText) {
+          data = { error: responseText.substring(0, 500) };
+        }
       }
 
       if (!response.ok) {
-        const errorMsg = data?.error || data?.message || data?.details || `Server error (${response.status})`;
-        console.error('Stitching error response:', { status: response.status, data });
+        const errorMsg = data?.error || data?.message || data?.details || responseText || `Server error (${response.status})`;
+        console.error('Stitching failed - Full error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          data,
+          responseText: responseText.substring(0, 500)
+        });
         throw new Error(errorMsg);
       }
 
@@ -173,7 +187,7 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
       const errorMessage = error instanceof Error ? error.message : "Failed to combine videos";
       toast.error("Stitching Failed", {
         description: errorMessage,
-        duration: 8000,
+        duration: 10000,
       });
     } finally {
       setStitching(null);
