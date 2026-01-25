@@ -31,6 +31,8 @@ You should get JSON like:
 - If any of `stripe`, `serviceRole`, `priceId` is `false`, that secret is missing.
 - `hint` appears when something is missing and tells you what to set.
 
+**If you get `401 Invalid JWT`:** The Edge Function uses `verify_jwt = false`; the gateway should not require auth for GET. If you still see 401, check Supabase Dashboard → Edge Functions → create-checkout-session → Settings.
+
 ---
 
 ## 3. Required Supabase secrets
@@ -56,7 +58,7 @@ In **Vercel** → your project → **Settings** → **Environment Variables**:
 | Name | Description |
 |------|-------------|
 | `VITE_SUPABASE_URL` | `https://wzpswnuteisyxxwlnqrn.supabase.co` (or your project URL) |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase **anon** key |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase **anon** key (long JWT from Dashboard → API → anon public; not a placeholder like `sb_publishable_...`) |
 
 Redeploy after changing env vars.
 
