@@ -49,9 +49,6 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV
 # Kie.ai API Token
 supabase secrets set KIE_AI_API_TOKEN=36472cd29581ffdb407f9ffb15923264
 
-# Fal.ai API Key
-supabase secrets set FAL_API_KEY=0ef6de6b-6145-4d18-b7c6-37f95f7cefde:2e433fd0dc9930381111d8db44fdb4bc
-
 # OpenAI API Key
 supabase secrets set OPENAI_API_KEY=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
 ```
@@ -141,7 +138,6 @@ After setting all secrets, verify they're working:
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Frontend (.env) | Supabase anon/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Edge Functions | Full database access |
 | `KIE_AI_API_TOKEN` | Edge Functions | Kie.ai video generation |
-| `FAL_API_KEY` | Edge Functions | Fal.ai video stitching |
 | `OPENAI_API_KEY` | Edge Functions | OpenAI script/prompt generation |
 | `STRIPE_SECRET_KEY` | Edge Functions | Stripe payment processing |
 | `STRIPE_WEBHOOK_SECRET` | Edge Functions | Webhook signature verification |

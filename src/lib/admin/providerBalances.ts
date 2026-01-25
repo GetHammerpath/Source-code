@@ -6,7 +6,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ProviderBalance {
-  provider: 'kie' | 'fal';
+  provider: 'kie';
   balance_value: number;
   balance_unit: string;
   fetched_at: string;
@@ -19,7 +19,7 @@ const CACHE_DURATION_MINUTES = 10; // Default cache duration
  * Get latest provider balance from database
  */
 export async function getLatestProviderBalance(
-  provider: 'kie' | 'fal'
+  provider: 'kie'
 ): Promise<ProviderBalance | null> {
   try {
     const { data, error } = await supabase
@@ -75,7 +75,7 @@ export async function fetchProviderBalances(): Promise<{
     const normalized = balances.map((b: Partial<ProviderBalance> & { error?: string }) => {
       const v = Number(b.balance_value);
       return {
-        provider: b.provider! as 'kie' | 'fal',
+        provider: 'kie' as const,
         balance_value: Number.isFinite(v) ? v : 0,
         balance_unit: b.balance_unit ?? 'credits',
         fetched_at: b.fetched_at ?? fetchedAt,
@@ -92,10 +92,10 @@ export async function fetchProviderBalances(): Promise<{
 }
 
 /**
- * Get all provider balances (Kie + Fal). Uses cache or fetches fresh; always returns both.
+ * Get all provider balances (Kie only). Uses cache or fetches fresh.
  */
 export async function getAllProviderBalances(forceRefresh: boolean = false): Promise<ProviderBalance[]> {
-  const providers: ('kie' | 'fal')[] = ['kie', 'fal'];
+  const providers: ('kie')[] = ['kie'];
   const cached: Record<string, ProviderBalance | null> = {};
   let freshResult: { success: boolean; balances?: ProviderBalance[]; error?: string } | null = null;
 

@@ -40,7 +40,6 @@ supabase functions deploy admin-update-provider-settings
 ```bash
 # Set secrets
 supabase secrets set KIE_AI_API_TOKEN=36472cd29581ffdb407f9ffb15923264
-supabase secrets set FAL_API_KEY=0ef6de6b-6145-4d18-b7c6-37f95f7cefde:2e433fd0dc9930381111d8db44fdb4bc
 supabase secrets set STRIPE_SECRET_KEY=sk_live_...
 supabase secrets set STUDIO_ACCESS_PRICE_ID=price_...
 # etc.

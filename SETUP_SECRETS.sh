@@ -29,7 +29,7 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV
 # Set Provider API keys
 echo "🎬 Setting provider API keys..."
 supabase secrets set KIE_AI_API_TOKEN=36472cd29581ffdb407f9ffb15923264
-supabase secrets set FAL_API_KEY=0ef6de6b-6145-4d18-b7c6-37f95f7cefde:2e433fd0dc9930381111d8db44fdb4bc
+# FAL removed - KIE-only integration
 supabase secrets set OPENAI_API_KEY=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
 
 # Set pricing configuration

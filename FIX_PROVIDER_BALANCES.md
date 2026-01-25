@@ -13,8 +13,7 @@ Provider balances show "0 credits" and "Unavailable" because:
 Go to: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/settings/functions
 
 Set these secrets:
-- `KIE_AI_API_TOKEN` = `36472cd29581ffdb407f9ffb15923264`
-- `FAL_API_KEY` = `0ef6de6b-6145-4d18-b7c6-37f95f7cefde:2e433fd0dc9930381111d8db44fdb4bc`
+- `KIE_AI_API_TOKEN` = (your Kie.ai token)
 
 ### Step 2: Deploy Updated Function
 
@@ -81,7 +80,7 @@ INSERT INTO public.provider_balance_snapshots (
   fetched_at,
   raw_response_json
 ) VALUES (
-  'fal',
+  'kie',
   500, -- Your actual balance
   'credits',
   NOW(),

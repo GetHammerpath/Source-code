@@ -167,17 +167,18 @@ serve(async (req) => {
             console.log('✅ Scene extension triggered successfully');
           }
         } else if (currentScene === numberOfScenes && currentSegments.length === numberOfScenes) {
-          // All scenes complete - auto-trigger combine
-          console.log('🎉 All scenes complete! Auto-triggering video combine...');
+          // All scenes complete - auto-trigger combine (Cloudinary stitch, KIE-only pipeline)
+          console.log('🎉 All scenes complete! Auto-triggering video combine via Cloudinary...');
           
-          const stitchResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/fal-stitch-videos`, {
+          const stitchResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/cloudinary-stitch-videos`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
             },
             body: JSON.stringify({
-              generation_id: generation.id
+              generation_id: generation.id,
+              trim: false
             })
           });
 

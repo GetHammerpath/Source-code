@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface ProviderBalance {
-  provider: 'kie' | 'fal';
+  provider: 'kie';
   balance_value: number;
   balance_unit: string;
   error?: string;
@@ -81,67 +81,6 @@ async function fetchKieBalance(apiKey: string): Promise<ProviderBalance> {
   }
 }
 
-async function fetchFalBalance(apiKey: string): Promise<ProviderBalance> {
-  try {
-    // fal.ai uses key format: key_id:key_secret
-    const [keyId, keySecret] = apiKey.split(':');
-    
-    if (!keyId || !keySecret) {
-      throw new Error('Invalid Fal API key format. Expected: key_id:key_secret');
-    }
-
-    // Try multiple possible Fal.ai API endpoints for balance
-    const endpoints = [
-      'https://fal.run/api/v1/account/balance',
-      'https://api.fal.run/v1/account/balance',
-      'https://fal.run/api/v1/user/balance',
-      'https://fal.run/api/v1/account',
-    ];
-
-    let lastError: Error | null = null;
-    
-    for (const endpoint of endpoints) {
-      try {
-        const response = await fetch(endpoint, {
-          headers: {
-            'Authorization': `Key ${apiKey}`, // Fal uses "Key" prefix
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log(`Fal balance response from ${endpoint}:`, JSON.stringify(data));
-          
-          // Try different response structures
-          const balance = data.balance || data.credits || data.credit_balance || data.remaining_credits || data.amount || 0;
-          const unit = data.currency || data.unit || 'credits';
-          
-          return {
-            provider: 'fal',
-            balance_value: typeof balance === 'number' ? balance : parseFloat(balance) || 0,
-            balance_unit: unit,
-          };
-        }
-      } catch (err: any) {
-        lastError = err;
-        console.log(`Fal endpoint ${endpoint} failed:`, err.message);
-        continue;
-      }
-    }
-
-    throw lastError || new Error('Could not find valid Fal.ai balance endpoint');
-  } catch (error: any) {
-    console.error('Error fetching fal balance:', error);
-    return {
-      provider: 'fal',
-      balance_value: 0,
-      balance_unit: 'credits',
-      error: error.message || 'Failed to fetch fal balance - API endpoint may not exist',
-    };
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -175,15 +114,11 @@ serve(async (req) => {
       throw new Error('Only admins can fetch provider balances');
     }
 
-    // Get API keys from environment
+    // Get API keys from environment (KIE only)
     const kieApiKey = Deno.env.get('KIE_AI_API_TOKEN') || Deno.env.get('KIE_API_KEY');
-    const falApiKey = Deno.env.get('FAL_API_KEY');
     
     if (!kieApiKey) {
       console.warn('KIE_AI_API_TOKEN or KIE_API_KEY not set');
-    }
-    if (!falApiKey) {
-      console.warn('FAL_API_KEY not set');
     }
 
     const adminSupabase = createClient(
@@ -238,51 +173,6 @@ serve(async (req) => {
       };
     }
     balances.push(kieBalance);
-
-    // Fal: fetch or placeholder
-    let falBalance: ProviderBalance & { fetched_at: string };
-    if (falApiKey) {
-      const b = await fetchFalBalance(falApiKey);
-      falBalance = { ...b, fetched_at: timestamp };
-      try {
-        const { error: falError } = await adminSupabase
-          .from('provider_balance_snapshots')
-          .insert({
-            provider: 'fal',
-            balance_value: b.balance_value,
-            balance_unit: b.balance_unit,
-            fetched_at: timestamp,
-            error_message: b.error || null,
-            raw_response_json: b.error ? null : { success: true },
-          });
-        if (falError) console.error('Error storing fal balance snapshot:', falError);
-      } catch (e) {
-        console.error('Error storing fal balance snapshot:', e);
-      }
-      if (!b.error) {
-        try {
-          await supabase.functions.invoke('admin-audit-log', {
-            body: {
-              action_type: 'provider_balance_refresh',
-              target_type: 'provider',
-              target_id: 'fal',
-              before_json: {},
-              after_json: { balance: b.balance_value, unit: b.balance_unit },
-              reason: 'Admin refreshed provider balance',
-            },
-          });
-        } catch (_) {}
-      }
-    } else {
-      falBalance = {
-        provider: 'fal',
-        balance_value: 0,
-        balance_unit: 'credits',
-        error: 'API key not configured (FAL_API_KEY)',
-        fetched_at: timestamp,
-      };
-    }
-    balances.push(falBalance);
 
     return new Response(
       JSON.stringify({ success: true, balances, fetched_at: timestamp }),

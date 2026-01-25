@@ -24,12 +24,6 @@ verify_jwt = true
 [functions.kie-extend-next]
 verify_jwt = false
 
-[functions.fal-stitch-videos]
-verify_jwt = false
-
-[functions.fal-stitch-callback]
-verify_jwt = true
-
 [functions.kie-retry-generation]
 verify_jwt = false
 

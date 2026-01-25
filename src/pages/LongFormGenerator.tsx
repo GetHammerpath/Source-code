@@ -24,7 +24,7 @@ interface Scene {
   sceneNumber: number;
   title: string;
   prompt: string;
-  provider: "kie" | "fal" | "custom";
+  provider: "kie" | "custom";
   status: "pending" | "generating" | "completed" | "failed";
   videoUrl?: string;
   duration?: number;
@@ -140,7 +140,7 @@ const LongFormGenerator = () => {
         sceneNumber: i + 1,
         title: scene.title || scene.scene_title || `Scene ${i + 1}`,
         prompt: scene.prompt || scene.description || scene.scene || "",
-        provider: i % 2 === 0 ? "kie" : "fal", // Default provider assignment
+        provider: "kie",
         status: "pending" as const,
         duration: SCENE_DURATION_SECONDS,
       }));
@@ -164,7 +164,7 @@ const LongFormGenerator = () => {
     }
   };
 
-  const handleProviderChange = (sceneId: string, provider: "kie" | "fal" | "custom") => {
+  const handleProviderChange = (sceneId: string, provider: "kie" | "custom") => {
     setScenes(scenes.map(s => 
       s.id === sceneId ? { ...s, provider } : s
     ));
@@ -455,7 +455,6 @@ const LongFormGenerator = () => {
                             className="rounded-[10px] border border-border/50 px-3 py-1.5 text-sm bg-background"
                           >
                             <option value="kie">Kie.ai</option>
-                            <option value="fal">fal.ai</option>
                             <option value="custom">Custom Provider</option>
                           </select>
                         </div>

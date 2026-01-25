@@ -277,7 +277,6 @@ const AdminRenders = () => {
                 <SelectContent>
                   <SelectItem value="all">All Providers</SelectItem>
                   <SelectItem value="kie">Kie</SelectItem>
-                  <SelectItem value="fal">Fal</SelectItem>
                   <SelectItem value="runway">Runway</SelectItem>
                   <SelectItem value="sora">Sora</SelectItem>
                 </SelectContent>

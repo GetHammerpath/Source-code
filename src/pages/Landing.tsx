@@ -206,7 +206,7 @@ const Landing = () => {
           {[
             { icon: Film, title: "Long-Form Generation", desc: "Create videos from minutes to hours with multi-scene orchestration" },
             { icon: Workflow, title: "Scene Orchestration", desc: "Automatically break scripts into scenes, shots, and sequences" },
-            { icon: Settings, title: "Provider Routing", desc: "Choose Kie, fal, or other providers per scene for optimal results" },
+            { icon: Settings, title: "Provider Routing", desc: "Choose Kie or custom providers per scene for optimal results" },
             { icon: Shield, title: "Compliance Modes", desc: "Brand-safe generation with rights-safe prompts and no-logo options" },
             { icon: CheckCircle2, title: "Quality Gates", desc: "Preview, retry, and consistency checks before final render" },
             { icon: Database, title: "Asset Library", desc: "Centralized voice, music, b-roll, and caption assets" },
@@ -366,7 +366,7 @@ const Landing = () => {
                           <div className="w-6 text-center font-medium text-muted-foreground">{i}</div>
                           <div className="flex-1 text-foreground/80">Scene {i}: {i === 1 ? "Opening hook" : i === 2 ? "Problem statement" : i === 3 ? "Solution intro" : "Content continuation"}</div>
                           <div className="px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-medium">
-                            {i % 2 === 0 ? "Kie" : "fal"}
+                            Kie
                           </div>
                         </div>
                       ))}
@@ -387,7 +387,7 @@ const Landing = () => {
                       </div>
                       <div className="p-3 bg-background/50 rounded-[8px] border border-border/30 opacity-60">
                         <div className="text-sm font-medium mb-1">Scene 6/18</div>
-                        <div className="text-xs text-muted-foreground">Queued (fal)</div>
+                        <div className="text-xs text-muted-foreground">Queued (Kie)</div>
                       </div>
                       <div className="p-3 bg-background/50 rounded-[8px] border border-border/30 opacity-60">
                         <div className="text-sm font-medium mb-1">Scene 7/18</div>
@@ -448,11 +448,6 @@ const Landing = () => {
               name: "Kie.ai", 
               desc: "Video generation and upscaling provider",
               capabilities: ["Video generation", "Upscaling", "Scene extension"]
-            },
-            { 
-              name: "fal.ai", 
-              desc: "Multi-modal AI video and image generation",
-              capabilities: ["Video stitching", "Quality enhancement", "Format conversion"]
             },
             { 
               name: "Bring Your Own Model", 
@@ -658,8 +653,8 @@ const Landing = () => {
           <Accordion type="single" collapsible className="space-y-4">
             {[
               { q: "How long can videos be?", a: "Videos can range from a few minutes to hours. Our system is designed for long-form content with multi-scene orchestration, typically producing 5-60 minute videos, though longer formats are supported." },
-              { q: "Which providers do you support?", a: "We integrate with Kie.ai, fal.ai, and other major AI video providers. You can also bring your own model via API. Our architecture is provider-agnostic, allowing you to switch providers per scene or even use multiple providers in a single project." },
-              { q: "Can I switch providers per scene?", a: "Yes, that's one of our core features. Each scene can be assigned to a different provider based on your needs—use Kie for certain types, fal for others, or any custom provider you've integrated." },
+              { q: "Which providers do you support?", a: "We integrate with Kie.ai and other major AI video providers. You can also bring your own model via API. Our architecture is provider-agnostic, allowing you to use Kie or custom providers per scene." },
+              { q: "Can I switch providers per scene?", a: "Yes. Each scene can be assigned to Kie or a custom provider you've integrated." },
               { q: "How do you handle consistency across scenes?", a: "Our quality gates and consistency checks ensure visual and narrative coherence. We maintain style continuity, color matching, and pacing across all scenes, regardless of which provider rendered them." },
               { q: "What does compliance-safe mean?", a: "Compliance-safe generation means we support brand-safe prompts, rights-safe content generation, and no-logo options. Our system helps ensure generated content meets legal and brand guidelines, with configurable compliance rules." },
               { q: "Do you store prompts and assets?", a: "Yes, we maintain an asset library including voice samples, music, b-roll, and prompts. All data is stored securely and can be managed through our team collaboration features. You can also use your own storage (S3/GCS) for assets." },

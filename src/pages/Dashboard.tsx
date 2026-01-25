@@ -57,28 +57,18 @@ const Dashboard = () => {
     }
   }, [userId]);
 
-  // Poll for status updates
+  // Poll for status updates (KIE-only: kie-check-status for generation; Cloudinary stitch is synchronous)
   useEffect(() => {
     const pollStatus = async () => {
       const generatingItems = generations.filter(
-        gen => gen.initial_status === 'generating' || 
-               gen.extended_status === 'generating' ||
-               gen.final_video_status === 'generating'
+        gen => gen.initial_status === 'generating' || gen.extended_status === 'generating'
       );
 
       for (const gen of generatingItems) {
         try {
-          if (gen.initial_status === 'generating' || gen.extended_status === 'generating') {
-            await supabase.functions.invoke('kie-check-status', {
-              body: { generation_id: gen.id }
-            });
-          }
-          
-          if (gen.final_video_status === 'generating') {
-            await supabase.functions.invoke('fal-stitch-callback', {
-              body: { generation_id: gen.id }
-            });
-          }
+          await supabase.functions.invoke('kie-check-status', {
+            body: { generation_id: gen.id }
+          });
         } catch (error) {
           console.error('Error polling status:', error);
         }
@@ -86,9 +76,7 @@ const Dashboard = () => {
     };
 
     if (generations.some(gen => 
-      gen.initial_status === 'generating' || 
-      gen.extended_status === 'generating' ||
-      gen.final_video_status === 'generating'
+      gen.initial_status === 'generating' || gen.extended_status === 'generating'
     )) {
       const interval = setInterval(pollStatus, 15000);
       return () => clearInterval(interval);

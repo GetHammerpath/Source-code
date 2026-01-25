@@ -147,7 +147,7 @@ const Pricing = () => {
                     <p>• Credits are used to render videos</p>
                     <p>• Credits do not expire</p>
                     <p>• Pay only for what you use</p>
-                    <p>• Provider-agnostic (works with Kie, fal, and others)</p>
+                    <p>• Provider-agnostic (works with Kie and others)</p>
                   </div>
                 </div>
 

@@ -29,7 +29,6 @@ supabase functions deploy fetch-provider-balances
 ### Set Secrets
 ```bash
 supabase secrets set KIE_AI_API_TOKEN=your_key
-supabase secrets set FAL_API_KEY=your_key
 ```
 
 **Pros:**
