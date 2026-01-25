@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, Plus, ExternalLink, Calendar, CreditCard, RefreshCw } from "lucide-react";
 import { useStudioAccess } from "@/hooks/useStudioAccess";
 import { useCredits } from "@/hooks/useCredits";
+import { useToast } from "@/hooks/use-toast";
 import { STUDIO_ACCESS } from "@/lib/billing/pricing";
 import { supabase } from "@/integrations/supabase/client";
 import StudioHeader from "@/components/layout/StudioHeader";
@@ -29,20 +30,31 @@ const Billing = () => {
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [creatingPortal, setCreatingPortal] = useState(false);
   const [syncingSubscription, setSyncingSubscription] = useState(false);
+  const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
   const syncAttemptedRef = useRef(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchTransactions();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setLoggedInEmail(user?.email ?? null);
+    });
   }, []);
 
   const runSyncSubscription = async () => {
     setSyncingSubscription(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        toast({ title: "Not signed in", description: "Sign in and try again.", variant: "destructive" });
+        return;
+      }
       const url = import.meta.env.VITE_SUPABASE_URL;
       const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      if (!url || !anon) return;
+      if (!url || !anon) {
+        toast({ title: "Sync unavailable", description: "App config missing.", variant: "destructive" });
+        return;
+      }
       const controller = new AbortController();
       const t = setTimeout(() => controller.abort(), 12_000);
       const res = await fetch(`${url}/functions/v1/sync-subscription`, {
@@ -55,10 +67,44 @@ const Billing = () => {
         signal: controller.signal,
       });
       clearTimeout(t);
-      await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as { synced?: boolean; reason?: string; error?: string };
       await refreshSubscription();
+
+      if (data?.synced) {
+        toast({ title: "Subscription synced", description: "Your Studio Access status is up to date." });
+        return;
+      }
+      if (res.status >= 400) {
+        toast({
+          title: "Sync failed",
+          description: data?.error || data?.reason || "Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (data?.reason === "no_customer_id") {
+        toast({
+          title: "No Stripe customer linked",
+          description: "Your account isn’t linked to a Stripe customer. We’ve linked mershard@icloud — ensure you’re signed in with that email.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (data?.reason === "no_active_studio_subscription") {
+        toast({
+          title: "No active subscription in Stripe",
+          description: "Stripe has no active Studio Access subscription for this customer. If you just paid, wait a moment and refresh again.",
+          variant: "destructive",
+        });
+        return;
+      }
     } catch (e) {
       console.error("Sync subscription:", e);
+      toast({
+        title: "Sync failed",
+        description: e instanceof Error ? e.message : "Network or server error. Try again.",
+        variant: "destructive",
+      });
     } finally {
       setSyncingSubscription(false);
     }
@@ -184,6 +230,9 @@ const Billing = () => {
               ) : (
                 <div className="text-center py-8 space-y-4">
                   <p className="text-muted-foreground">No Studio Access subscription</p>
+                  {loggedInEmail && (
+                    <p className="text-xs text-muted-foreground">Logged in as {loggedInEmail}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Already purchased? Sync from Stripe to refresh.
                   </p>
