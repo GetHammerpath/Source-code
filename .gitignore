@@ -35,6 +35,7 @@ lerna-debug.log*
 *.sln
 *.sw?# Vercel
 .vercel
+.vercel-home
 
 # Supabase
 .supabase

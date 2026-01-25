@@ -15,7 +15,8 @@
     "preview": "vite preview",
     "test:checkout": "node --env-file=.env scripts/test-checkout.mjs",
     "sync:subscription": "node --env-file=.env scripts/sync-subscription.mjs",
-    "set:stripe-customer": "node --env-file=.env scripts/set-stripe-customer-id.mjs"
+    "set:stripe-customer": "node --env-file=.env scripts/set-stripe-customer-id.mjs",
+    "redeploy": "node --env-file=.env scripts/trigger-vercel-deploy.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
