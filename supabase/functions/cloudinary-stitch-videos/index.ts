@@ -84,13 +84,35 @@ serve(async (req) => {
     const segments = generation.video_segments || [];
     console.log('🎬 Video segments:', JSON.stringify(segments, null, 2));
     console.log('🎬 Segments count:', segments.length);
+    console.log('🎬 Generation status:', {
+      initial_status: generation.initial_status,
+      extended_status: generation.extended_status,
+      number_of_scenes: generation.number_of_scenes,
+      segments_length: segments.length
+    });
     
     if (segments.length < 2) {
+      const errorMsg = `Need at least 2 video segments to stitch. Found ${segments.length} segment(s).`;
+      console.error('❌ Validation failed:', errorMsg);
+      console.error('❌ Generation state:', {
+        generation_id: generation.id,
+        segments: segments.map((s: any, i: number) => ({
+          index: i,
+          has_url: !!(s.url || s.video_url),
+          url: s.url || s.video_url || 'MISSING',
+          status: s.status || 'unknown'
+        }))
+      });
       return new Response(JSON.stringify({
         success: false,
-        error: `Need at least 2 video segments to stitch. Found ${segments.length} segment(s).`,
+        error: errorMsg,
         segments_count: segments.length,
-        segments: segments
+        segments: segments.map((s: any, i: number) => ({
+          index: i,
+          has_url: !!(s.url || s.video_url),
+          url: s.url || s.video_url || null,
+          status: s.status || 'unknown'
+        }))
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -108,10 +130,26 @@ serve(async (req) => {
 
     const invalidSegment = segmentsWithUrls.find((s: any) => s.error);
     if (invalidSegment) {
+      const errorMsg = `Segment ${invalidSegment.index} is missing a URL`;
+      console.error('❌ Validation failed:', errorMsg);
+      console.error('❌ Invalid segment data:', JSON.stringify(invalidSegment.segment, null, 2));
+      console.error('❌ All segments:', segmentsWithUrls.map((s: any) => ({
+        index: s.index,
+        has_url: !!s.url,
+        url: s.url || 'MISSING',
+        error: s.error || null
+      })));
       return new Response(JSON.stringify({
         success: false,
-        error: `Segment ${invalidSegment.index} is missing a URL`,
-        segment_data: invalidSegment.segment
+        error: errorMsg,
+        segment_index: invalidSegment.index,
+        segment_data: invalidSegment.segment,
+        all_segments: segmentsWithUrls.map((s: any) => ({
+          index: s.index,
+          has_url: !!s.url,
+          url: s.url || null,
+          error: s.error || null
+        }))
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -291,7 +329,16 @@ serve(async (req) => {
     console.error('❌ Error in cloudinary-stitch-videos:', error);
     
     const errorMessage = error instanceof Error ? error.message : 'Stitching failed';
+    const errorStack = error instanceof Error ? error.stack : undefined;
     const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('credentials');
+    
+    // Log full error details
+    console.error('Full error details:', {
+      message: errorMessage,
+      stack: errorStack,
+      generation_id,
+      error_type: error?.constructor?.name
+    });
     
     // Update database with error using generation_id from outer scope
     if (generation_id) {
@@ -321,7 +368,8 @@ serve(async (req) => {
       error: errorMessage,
       details: isConfigError 
         ? 'Cloudinary credentials are missing. Please configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in Supabase secrets.'
-        : undefined
+        : 'Check Edge Function logs for detailed error information.',
+      generation_id: generation_id || null
     }), {
       status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

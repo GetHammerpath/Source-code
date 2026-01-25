@@ -55,6 +55,15 @@ const VideoGenerationCard = ({ generation, onRefresh, onDuplicate }: VideoGenera
     try {
       // Check if generation has enough segments before making the request
       const segments = generation.video_segments || [];
+      console.log('🎬 Frontend: Attempting to stitch generation:', generationId);
+      console.log('🎬 Frontend: Segments count:', segments.length);
+      console.log('🎬 Frontend: Segments data:', segments.map((s: any, i: number) => ({
+        index: i,
+        has_url: !!(s.url || s.video_url),
+        url: s.url || s.video_url || 'MISSING',
+        status: s.status || 'unknown'
+      })));
+      
       if (segments.length < 2) {
         throw new Error(`Need at least 2 video segments to stitch. Currently have ${segments.length} segment(s). Wait for all scenes to complete.`);
       }
@@ -71,6 +80,13 @@ const VideoGenerationCard = ({ generation, onRefresh, onDuplicate }: VideoGenera
         throw new Error('Missing configuration or authentication');
       }
 
+      const requestBody = { 
+        generation_id: generationId, 
+        trim: true,
+        trim_seconds: trimSeconds
+      };
+      console.log('🎬 Frontend: Sending request to cloudinary-stitch-videos:', requestBody);
+      
       const response = await fetch(`${url}/functions/v1/cloudinary-stitch-videos`, {
         method: 'POST',
         headers: {
@@ -78,12 +94,10 @@ const VideoGenerationCard = ({ generation, onRefresh, onDuplicate }: VideoGenera
           'Authorization': `Bearer ${session.access_token}`,
           'apikey': anon,
         },
-        body: JSON.stringify({ 
-          generation_id: generationId, 
-          trim: true,
-          trim_seconds: trimSeconds
-        }),
+        body: JSON.stringify(requestBody),
       });
+      
+      console.log('🎬 Frontend: Response status:', response.status, response.statusText);
 
       let data: any = {};
       let responseText = '';
