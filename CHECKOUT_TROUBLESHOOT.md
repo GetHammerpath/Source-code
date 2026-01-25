@@ -2,6 +2,8 @@
 
 If **Subscribe** or **Buy Credits** fails with "Failed to start checkout", use these steps.
 
+**Full setup checklist:** See **`CHECKLIST_DO_NOW.md`** for a single “do these” list (Vercel env, Supabase secrets, migrations, Stripe webhook, verify).
+
 ---
 
 ## 1. See the actual error
