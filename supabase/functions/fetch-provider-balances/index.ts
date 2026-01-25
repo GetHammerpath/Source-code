@@ -15,68 +15,42 @@ interface ProviderBalance {
 
 async function fetchKieBalance(apiKey: string): Promise<ProviderBalance> {
   try {
-    // Try multiple possible Kie.ai API endpoints for balance
-    const endpoints = [
-      'https://api.kie.ai/api/v1/account/balance',
-      'https://api.kie.ai/v1/account/balance',
-      'https://api.kie.ai/api/v1/user/balance',
-      'https://api.kie.ai/api/v1/account',
-    ];
-
-    let lastError: Error | null = null;
-    
-    for (const endpoint of endpoints) {
-      try {
-        const response = await fetch(endpoint, {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log(`Kie balance response from ${endpoint}:`, JSON.stringify(data));
-          
-          // Try different response structures
-          const balance = data.balance || data.credits || data.credit_balance || data.remaining_credits || data.amount || 0;
-          const unit = data.currency || data.unit || 'credits';
-          
-          return {
-            provider: 'kie',
-            balance_value: typeof balance === 'number' ? balance : parseFloat(balance) || 0,
-            balance_unit: unit,
-          };
-        }
-      } catch (err: any) {
-        lastError = err;
-        console.log(`Kie endpoint ${endpoint} failed:`, err.message);
-        continue;
-      }
-    }
-
-    // If all endpoints failed, try a simple API call to verify the key works
-    const testResponse = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
-      method: 'POST',
+    // Kie.ai credits API: GET /api/v1/chat/credit
+    // Response: { "code": 200, "msg": "success", "data": 100 }
+    const response = await fetch('https://api.kie.ai/api/v1/chat/credit', {
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ test: true }),
     });
 
-    if (testResponse.status === 401 || testResponse.status === 403) {
-      throw new Error('Invalid Kie.ai API key');
+    const json = await response.json().catch(() => ({}));
+    console.log('Kie credits response:', JSON.stringify(json));
+
+    if (!response.ok) {
+      const errMsg = json?.msg || json?.message || `HTTP ${response.status}`;
+      throw new Error(errMsg);
     }
 
-    throw lastError || new Error('Could not find valid Kie.ai balance endpoint');
+    if (json.code !== 200) {
+      throw new Error(json.msg || 'Kie API returned non-success');
+    }
+
+    const balance = typeof json.data === 'number' ? json.data : parseFloat(String(json.data || 0)) || 0;
+
+    return {
+      provider: 'kie',
+      balance_value: balance,
+      balance_unit: 'credits',
+    };
   } catch (error: any) {
     console.error('Error fetching Kie balance:', error);
     return {
       provider: 'kie',
       balance_value: 0,
       balance_unit: 'credits',
-      error: error.message || 'Failed to fetch Kie balance - API endpoint may not exist',
+      error: error.message || 'Failed to fetch Kie credits',
     };
   }
 }
