@@ -97,7 +97,11 @@ const Checkout = () => {
 
       if (!res.ok) {
         const msg = data?.error || `Edge Function error (${res.status})`;
-        const details = data?.details ? `\n\nDetails: ${JSON.stringify(data.details)}` : "";
+        let details = "";
+        if (data?.details != null) {
+          const raw = typeof data.details === "string" ? data.details : JSON.stringify(data.details);
+          details = raw.length > 600 ? `\n\nDetails: ${raw.slice(0, 600)}…` : `\n\nDetails: ${raw}`;
+        }
         throw new Error(`${msg}${details}`);
       }
 

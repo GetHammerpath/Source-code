@@ -12,7 +12,8 @@
     "build:dev": "vite build --mode development",
     "build:vercel": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:checkout": "node --env-file=.env scripts/test-checkout.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
