@@ -23,7 +23,7 @@ interface CreditTransaction {
 
 const Billing = () => {
   const navigate = useNavigate();
-  const { subscription, loading: subLoading, refresh: refreshSubscription } = useStudioAccess();
+  const { subscription, loading: subLoading, refresh: refreshSubscription } = useStudioAccess({ silent: true });
   const { balance, loading: creditsLoading } = useCredits();
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
@@ -52,6 +52,8 @@ const Billing = () => {
           setSyncingSubscription(false);
           return;
         }
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 12_000);
         const res = await fetch(`${url}/functions/v1/sync-subscription`, {
           method: "POST",
           headers: {
@@ -59,7 +61,9 @@ const Billing = () => {
             Authorization: `Bearer ${session.access_token}`,
             apikey: anon,
           },
+          signal: controller.signal,
         });
+        clearTimeout(t);
         const data = (await res.json().catch(() => ({}))) as { synced?: boolean; error?: string };
         if (data?.synced) {
           await refreshSubscription();

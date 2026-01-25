@@ -13,7 +13,8 @@
     "build:vercel": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:checkout": "node --env-file=.env scripts/test-checkout.mjs"
+    "test:checkout": "node --env-file=.env scripts/test-checkout.mjs",
+    "sync:subscription": "node --env-file=.env scripts/sync-subscription.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
