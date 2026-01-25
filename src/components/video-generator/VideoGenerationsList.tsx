@@ -368,14 +368,14 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
                       <div key={index} className="border rounded-lg p-3 bg-muted/30">
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-sm font-medium">
-                            Part {index + 1} - {(segment.duration / 1000).toFixed(0)}s
+                            Part {index + 1} - {segment.duration ? `${(segment.duration / 1000).toFixed(0)}s` : '~8s'}
                           </span>
                           <Badge variant="secondary" className="capitalize">
                             {segment.type}
                           </Badge>
                         </div>
                         <video
-                          src={segment.url}
+                          src={segment.url || segment.video_url}
                           controls
                           className="w-full rounded-lg"
                         />
@@ -481,7 +481,7 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
                       <CheckCircle2 className="h-5 w-5 text-green-500" />
                       Final Video
                       <Badge variant="outline">
-                        {(gen.video_segments?.reduce((sum: number, seg: any) => sum + seg.duration, 0) / 1000 || 0).toFixed(0)}s total
+                        {(gen.video_segments?.reduce((sum: number, seg: any) => sum + (seg.duration || 8000), 0) / 1000 || 0).toFixed(0)}s total
                       </Badge>
                     </h4>
                     {getStatusBadge(gen.final_video_status)}

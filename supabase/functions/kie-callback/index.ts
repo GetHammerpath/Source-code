@@ -64,12 +64,15 @@ serve(async (req) => {
         
         // Add to video_segments array
         const currentSegments = generation.video_segments || [];
+        // Default duration: 8 seconds for KIE videos (or use generation.duration if available)
+        const segmentDuration = (generation.duration || 8) * 1000; // Convert to milliseconds
         updates.video_segments = [
           ...currentSegments,
           {
             url: videoUrl,
             scene: 1,
             type: 'initial',
+            duration: segmentDuration,
             completed_at: new Date().toISOString()
           }
         ];
@@ -99,6 +102,8 @@ serve(async (req) => {
         // Add to video_segments array
         const currentSegments = generation.video_segments || [];
         const currentScene = generation.current_scene || (currentSegments.length + 1);
+        // Default duration: 8 seconds for KIE videos (or use generation.duration if available)
+        const segmentDuration = (generation.duration || 8) * 1000; // Convert to milliseconds
         
         updates.video_segments = [
           ...currentSegments,
@@ -106,6 +111,7 @@ serve(async (req) => {
             url: videoUrl,
             scene: currentScene,
             type: 'extended',
+            duration: segmentDuration,
             completed_at: new Date().toISOString()
           }
         ];
