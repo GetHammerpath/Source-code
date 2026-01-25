@@ -68,7 +68,16 @@ const Checkout = () => {
         body: JSON.stringify(body),
       });
 
-      const data = (await res.json().catch(() => ({}))) as { url?: string; sessionId?: string; error?: string; details?: unknown };
+      const raw = await res.text();
+      let data: { url?: string; sessionId?: string; error?: string; details?: unknown } = {};
+      try {
+        data = raw ? (JSON.parse(raw) as typeof data) : {};
+      } catch {
+        if (!res.ok) {
+          const preview = raw.slice(0, 200).replace(/\n/g, " ");
+          throw new Error(`Edge Function error (${res.status}). Response not JSON. Preview: ${preview}`);
+        }
+      }
 
       if (!res.ok) {
         const msg = data?.error || `Edge Function error (${res.status})`;
@@ -87,7 +96,13 @@ const Checkout = () => {
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error("Checkout error:", error);
-      alert(`Failed to start checkout: ${msg}\n\nLogs: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs`);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://wzpswnuteisyxxwlnqrn.supabase.co";
+      const verifyUrl = `${supabaseUrl}/functions/v1/create-checkout-session`;
+      alert(
+        `Failed to start checkout: ${msg}\n\n` +
+          `Logs: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs\n\n` +
+          `Verify secrets (open in new tab): ${verifyUrl}`
+      );
       setLoading(false);
     }
   };

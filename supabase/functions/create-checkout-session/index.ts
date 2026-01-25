@@ -60,15 +60,47 @@ const CREDIT_MARKUP_MULTIPLIER = parseFloat(Deno.env.get('CREDIT_MARKUP_MULTIPLI
 const CREDITS_PER_MINUTE = parseFloat(Deno.env.get('CREDITS_PER_MINUTE') || '1');
 const PRICE_PER_CREDIT = (KIE_COST_PER_MINUTE * CREDIT_MARKUP_MULTIPLIER) / CREDITS_PER_MINUTE;
 
+function getSiteUrl(req: Request): string {
+  const fromEnv = Deno.env.get('SITE_URL');
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  const origin = req.headers.get('Origin') || req.headers.get('Referer');
+  if (origin) {
+    try {
+      const u = new URL(origin);
+      return `${u.protocol}//${u.host}`;
+    } catch {
+      /**/
+    }
+  }
+  return 'http://localhost:8080';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (req.method === 'GET') {
+    const stripe = !!Deno.env.get('STRIPE_SECRET_KEY');
+    const serviceRole = !!Deno.env.get('SERVICE_ROLE_KEY');
+    const priceId = !!Deno.env.get('STUDIO_ACCESS_PRICE_ID');
+    const siteUrl = !!Deno.env.get('SITE_URL');
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        env: { stripe, serviceRole, priceId, siteUrl },
+        hint: !stripe || !serviceRole || !priceId
+          ? 'Set STRIPE_SECRET_KEY, SERVICE_ROLE_KEY, STUDIO_ACCESS_PRICE_ID in Supabase Edge Function secrets.'
+          : undefined,
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     validateEnvVars();
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')!;
-    const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:8080';
+    const siteUrl = getSiteUrl(req);
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -86,7 +118,12 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const body = (await req.json()) as { mode?: string; planId?: string; credits?: number };
+    let body: { mode?: string; planId?: string; credits?: number };
+    try {
+      body = (await req.json()) as { mode?: string; planId?: string; credits?: number };
+    } catch {
+      throw new Error('Invalid JSON body. Send { mode, planId } for subscription or { mode, credits } for credits.');
+    }
     const { mode, planId, credits } = body;
 
     const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY');
