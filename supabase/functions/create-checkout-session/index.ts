@@ -1,54 +1,60 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Validate required environment variables
-// Note: SUPABASE_URL and SUPABASE_ANON_KEY are automatically provided by Supabase, so we don't check for them
+const STRIPE_API = 'https://api.stripe.com/v1';
+
 function validateEnvVars() {
-  const required = [
-    'STRIPE_SECRET_KEY',
-    'SERVICE_ROLE_KEY', // Note: Can't use SUPABASE_SERVICE_ROLE_KEY (reserved), using SERVICE_ROLE_KEY instead
-  ];
-  
-  const missing = required.filter(key => !Deno.env.get(key));
-  
+  const required = ['STRIPE_SECRET_KEY', 'SERVICE_ROLE_KEY'];
+  const missing = required.filter((key) => !Deno.env.get(key));
   if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}. Please set them in Supabase Edge Function secrets.`);
-  }
-  
-  // Check for SUPABASE_URL and SUPABASE_ANON_KEY (should be auto-provided, but log if missing)
-  if (!Deno.env.get('SUPABASE_URL')) {
-    console.warn('⚠️ SUPABASE_URL is not set (should be auto-provided by Supabase)');
-  }
-  if (!Deno.env.get('SUPABASE_ANON_KEY')) {
-    console.warn('⚠️ SUPABASE_ANON_KEY is not set (should be auto-provided by Supabase)');
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}. Set them in Supabase Edge Function secrets.`);
   }
 }
 
-// Validate on startup
-try {
-  validateEnvVars();
-} catch (error) {
-  console.error('Environment validation failed:', error);
-  // Don't throw here - let it fail when the function is called so we get proper error response
+// Form-encode key-value pairs (Stripe format)
+function formBody(params: Record<string, string>): string {
+  return new URLSearchParams(params).toString();
 }
 
-const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
-if (!stripeSecretKey) {
-  console.error('⚠️ STRIPE_SECRET_KEY is not set! Stripe operations will fail.');
+async function stripeFetch(
+  secretKey: string,
+  method: 'GET' | 'POST',
+  path: string,
+  body?: Record<string, string>
+): Promise<{ ok: boolean; data?: Record<string, unknown>; error?: { message?: string } }> {
+  const url = `${STRIPE_API}${path}`;
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${secretKey}`,
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: body ? formBody(body) : undefined,
+  });
+  const text = await res.text();
+  let data: Record<string, unknown> | undefined;
+  try {
+    data = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    data = undefined;
+  }
+  if (!res.ok) {
+    const err = (data?.error as Record<string, unknown>) || {};
+    return {
+      ok: false,
+      error: { message: (err.message as string) || text || `Stripe API ${res.status}` },
+    };
+  }
+  return { ok: true, data: data as Record<string, unknown> };
 }
 
-const stripe = new Stripe(stripeSecretKey || '', {
-  apiVersion: '2024-11-20.acacia',
-  httpClient: Stripe.createFetchHttpClient(),
-});
-
-// Pricing constants (must match frontend)
+// Pricing (match frontend / Edge Function defaults)
 const KIE_COST_PER_MINUTE = parseFloat(Deno.env.get('KIE_COST_PER_MINUTE') || '0.20');
 const CREDIT_MARKUP_MULTIPLIER = parseFloat(Deno.env.get('CREDIT_MARKUP_MULTIPLIER') || '3');
 const CREDITS_PER_MINUTE = parseFloat(Deno.env.get('CREDITS_PER_MINUTE') || '1');
@@ -60,15 +66,15 @@ serve(async (req) => {
   }
 
   try {
-    // Validate environment variables on each request
     validateEnvVars();
-    
+    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')!;
+    const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:8080';
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('No authorization header');
     }
 
-    // Use anon key for user authentication
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -80,22 +86,19 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const body = await req.json();
+    const body = (await req.json()) as { mode?: string; planId?: string; credits?: number };
     const { mode, planId, credits } = body;
 
-    // Use service role key for database operations (bypasses RLS)
-    // Note: Using SERVICE_ROLE_KEY instead of SUPABASE_SERVICE_ROLE_KEY because Supabase CLI doesn't allow secrets starting with SUPABASE_
     const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY');
     if (!serviceRoleKey) {
-      throw new Error('SERVICE_ROLE_KEY not configured. Please set it in Supabase Edge Function secrets. This should be your Supabase service role key from Settings → API.');
+      throw new Error('SERVICE_ROLE_KEY not configured. Set it in Supabase Edge Function secrets (Settings → API → Service role key).');
     }
-    
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       serviceRoleKey
     );
 
-    // Get user profile, create if doesn't exist
     let { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('id, email, stripe_customer_id')
@@ -103,136 +106,123 @@ serve(async (req) => {
       .single();
 
     if (!profile) {
-      // Profile doesn't exist, create it using admin client (bypasses RLS)
-      console.log('Profile not found, creating profile for user:', user.id);
       const { data: newProfile, error: createError } = await supabaseAdmin
         .from('profiles')
         .insert({
           id: user.id,
           email: user.email || '',
-          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
+          full_name: (user.user_metadata?.full_name as string) || user.email?.split('@')[0] || '',
         })
         .select('id, email, stripe_customer_id')
         .single();
 
       if (createError || !newProfile) {
-        console.error('Error creating profile:', createError);
         throw new Error(`Failed to create profile: ${createError?.message || 'Unknown error'}`);
       }
       profile = newProfile;
     }
 
-    let customerId = profile.stripe_customer_id;
-    
-    // Create Stripe customer if doesn't exist
-    if (!customerId) {
-      if (!stripeSecretKey) {
-        throw new Error('STRIPE_SECRET_KEY not configured. Cannot create Stripe customer.');
-      }
-      
-      const customer = await stripe.customers.create({
-        email: profile.email || user.email,
-        metadata: {
-          supabase_user_id: user.id,
-        },
-      });
-      customerId = customer.id;
+    let customerId = profile.stripe_customer_id as string | null;
 
-      // Update profile using admin client
+    if (!customerId) {
+      const customerRes = await stripeFetch(stripeSecretKey, 'POST', '/customers', {
+        email: profile.email || (user.email as string) || '',
+        'metadata[supabase_user_id]': user.id,
+      });
+      if (!customerRes.ok || !customerRes.data) {
+        throw new Error(customerRes.error?.message || 'Failed to create Stripe customer');
+      }
+      customerId = (customerRes.data.id as string) || null;
+      if (!customerId) throw new Error('Stripe customer created but no id returned');
+
       await supabaseAdmin
         .from('profiles')
         .update({ stripe_customer_id: customerId })
         .eq('id', user.id);
     }
 
-    let session: Stripe.Checkout.Session;
+    let sessionId: string;
+    let sessionUrl: string | null;
 
     if (mode === 'subscription' && planId === 'studio_access') {
-      // Studio Access subscription checkout
       const studioAccessPriceId = Deno.env.get('STUDIO_ACCESS_PRICE_ID');
       if (!studioAccessPriceId) {
-        throw new Error('STUDIO_ACCESS_PRICE_ID not configured. Please create a $99/month recurring price in Stripe and add the Price ID to Supabase Edge Function secrets.');
+        throw new Error('STUDIO_ACCESS_PRICE_ID not configured. Create a $99/month recurring price in Stripe and add the Price ID to Supabase secrets.');
       }
 
-      if (!stripeSecretKey) {
-        throw new Error('STRIPE_SECRET_KEY not configured. Cannot create checkout session.');
-      }
-      
-      session = await stripe.checkout.sessions.create({
-        customer: customerId,
+      const sessionRes = await stripeFetch(stripeSecretKey, 'POST', '/checkout/sessions', {
+        customer: customerId!,
         mode: 'subscription',
-        line_items: [{ price: studioAccessPriceId, quantity: 1 }],
-        success_url: `${Deno.env.get('SITE_URL') || 'http://localhost:8080'}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${Deno.env.get('SITE_URL') || 'http://localhost:8080'}/checkout/cancel`,
-        metadata: {
-          user_id: user.id,
-          type: 'subscription',
-          plan: 'studio_access',
-        },
+        'line_items[0][price]': studioAccessPriceId,
+        'line_items[0][quantity]': '1',
+        success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${siteUrl}/checkout/cancel`,
+        'metadata[user_id]': user.id,
+        'metadata[type]': 'subscription',
+        'metadata[plan]': 'studio_access',
       });
+
+      if (!sessionRes.ok || !sessionRes.data) {
+        throw new Error(sessionRes.error?.message || 'Failed to create Stripe checkout session');
+      }
+      sessionId = sessionRes.data.id as string;
+      sessionUrl = (sessionRes.data.url as string) || null;
     } else if (mode === 'credits' && credits) {
-      // Credit purchase (dynamic pricing)
-      const creditAmount = parseInt(credits);
-      if (creditAmount < 1) {
-        throw new Error('Credit amount must be at least 1');
-      }
+      const creditAmount = Math.max(1, parseInt(String(credits), 10));
+      const totalCents = Math.round(creditAmount * PRICE_PER_CREDIT * 100);
+      const productName = `${creditAmount.toLocaleString()} Credits`;
+      const productDesc = 'Credits for video rendering (1 credit = 1 rendered minute)';
 
-      const totalAmount = Math.round(creditAmount * PRICE_PER_CREDIT * 100); // Convert to cents
-
-      if (!stripeSecretKey) {
-        throw new Error('STRIPE_SECRET_KEY not configured. Cannot create checkout session.');
-      }
-
-      session = await stripe.checkout.sessions.create({
-        customer: customerId,
+      const sessionRes = await stripeFetch(stripeSecretKey, 'POST', '/checkout/sessions', {
+        customer: customerId!,
         mode: 'payment',
-        line_items: [{
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `${creditAmount.toLocaleString()} Credits`,
-              description: 'Credits for video rendering (1 credit = 1 rendered minute)',
-            },
-            unit_amount: totalAmount, // Total in cents
-          },
-          quantity: 1,
-        }],
-        success_url: `${Deno.env.get('SITE_URL') || 'http://localhost:8080'}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${Deno.env.get('SITE_URL') || 'http://localhost:8080'}/checkout/cancel`,
-        metadata: {
-          user_id: user.id,
-          type: 'credit_purchase',
-          credits: creditAmount.toString(),
-        },
+        'line_items[0][price_data][currency]': 'usd',
+        'line_items[0][price_data][product_data][name]': productName,
+        'line_items[0][price_data][product_data][description]': productDesc,
+        'line_items[0][price_data][unit_amount]': String(totalCents),
+        'line_items[0][quantity]': '1',
+        success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${siteUrl}/checkout/cancel`,
+        'metadata[user_id]': user.id,
+        'metadata[type]': 'credit_purchase',
+        'metadata[credits]': String(creditAmount),
       });
+
+      if (!sessionRes.ok || !sessionRes.data) {
+        throw new Error(sessionRes.error?.message || 'Failed to create Stripe checkout session');
+      }
+      sessionId = sessionRes.data.id as string;
+      sessionUrl = (sessionRes.data.url as string) || null;
     } else {
       throw new Error('Invalid mode or missing planId/credits');
     }
 
+    if (!sessionUrl) {
+      throw new Error('Stripe checkout session created but no URL returned');
+    }
+
     return new Response(
-      JSON.stringify({ sessionId: session.id, url: session.url }),
+      JSON.stringify({ sessionId, url: sessionUrl }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error: any) {
-    console.error('Error creating checkout session:', error);
-    const errorMessage = error?.message || error?.toString() || 'Unknown error';
-    console.error('Full error details:', JSON.stringify(error, null, 2));
-    
-    // Provide helpful error messages for common issues
-    let helpfulMessage = errorMessage;
-    if (errorMessage.includes('STRIPE_SECRET_KEY') || errorMessage.includes('Missing required environment variables')) {
-      helpfulMessage = `${errorMessage}\n\nPlease set all required secrets in Supabase Dashboard → Settings → Functions → Secrets`;
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('create-checkout-session error:', errorMessage);
+
+    let helpful = errorMessage;
+    if (errorMessage.includes('STRIPE_SECRET_KEY') || errorMessage.includes('Missing required')) {
+      helpful = `${errorMessage}\n\nSet secrets in Supabase Dashboard → Settings → Edge Functions → Secrets`;
     } else if (errorMessage.includes('SERVICE_ROLE_KEY')) {
-      helpfulMessage = `${errorMessage}\n\nGet the service role key from Supabase Dashboard → Settings → API → Service role key, then set it as 'SERVICE_ROLE_KEY' in Edge Function secrets`;
+      helpful = `${errorMessage}\n\nUse Supabase Dashboard → Settings → API → Service role key`;
     } else if (errorMessage.includes('STUDIO_ACCESS_PRICE_ID')) {
-      helpfulMessage = `${errorMessage}\n\nCreate the price in Stripe Dashboard → Products → Add product → $99/month recurring`;
+      helpful = `${errorMessage}\n\nCreate a $99/month recurring price in Stripe, then add its Price ID to secrets`;
     }
-    
+
     return new Response(
-      JSON.stringify({ 
-        error: helpfulMessage,
-        details: error?.stack || error,
-        timestamp: new Date().toISOString()
+      JSON.stringify({
+        error: helpful,
+        details: err instanceof Error ? err.stack : undefined,
+        timestamp: new Date().toISOString(),
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

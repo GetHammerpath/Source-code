@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import Stripe from "npm:stripe@14.21.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,8 +9,8 @@ const corsHeaders = {
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2024-11-20.acacia',
-  httpClient: Stripe.createFetchHttpClient(),
 });
+const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -30,10 +30,16 @@ serve(async (req) => {
       throw new Error('STRIPE_WEBHOOK_SECRET not configured');
     }
 
-    // Verify webhook signature
+    // Verify webhook signature (Web Crypto API for Deno edge runtime)
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        signature,
+        webhookSecret,
+        undefined,
+        cryptoProvider
+      );
     } catch (err) {
       console.error('Webhook signature verification failed:', err);
       return new Response(
