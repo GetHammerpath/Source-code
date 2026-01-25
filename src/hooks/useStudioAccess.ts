@@ -52,6 +52,7 @@ export function useStudioAccess(options?: UseStudioAccessOptions) {
   }, []);
 
   const fetchSubscription = async () => {
+    setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -64,7 +65,7 @@ export function useStudioAccess(options?: UseStudioAccessOptions) {
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
-        .eq('status', 'active')
+        .in('status', ['active', 'trialing'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();

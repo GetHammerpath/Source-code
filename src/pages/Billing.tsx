@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Plus, ExternalLink, Calendar, CreditCard } from "lucide-react";
+import { Loader2, Plus, ExternalLink, Calendar, CreditCard, RefreshCw } from "lucide-react";
 import { useStudioAccess } from "@/hooks/useStudioAccess";
 import { useCredits } from "@/hooks/useCredits";
 import { STUDIO_ACCESS } from "@/lib/billing/pricing";
@@ -29,54 +29,46 @@ const Billing = () => {
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [creatingPortal, setCreatingPortal] = useState(false);
   const [syncingSubscription, setSyncingSubscription] = useState(false);
+  const syncAttemptedRef = useRef(false);
 
   useEffect(() => {
     fetchTransactions();
   }, []);
 
-  // When no subscription found, sync from Stripe (handles webhook misses or prior purchases)
+  const runSyncSubscription = async () => {
+    setSyncingSubscription(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const url = import.meta.env.VITE_SUPABASE_URL;
+      const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!url || !anon) return;
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 12_000);
+      const res = await fetch(`${url}/functions/v1/sync-subscription`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: anon,
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(t);
+      await res.json().catch(() => ({}));
+      await refreshSubscription();
+    } catch (e) {
+      console.error("Sync subscription:", e);
+    } finally {
+      setSyncingSubscription(false);
+    }
+  };
+
   useEffect(() => {
-    if (subLoading || subscription || syncingSubscription) return;
-
-    const run = async () => {
-      setSyncingSubscription(true);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setSyncingSubscription(false);
-          return;
-        }
-        const url = import.meta.env.VITE_SUPABASE_URL;
-        const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        if (!url || !anon) {
-          setSyncingSubscription(false);
-          return;
-        }
-        const controller = new AbortController();
-        const t = setTimeout(() => controller.abort(), 12_000);
-        const res = await fetch(`${url}/functions/v1/sync-subscription`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: anon,
-          },
-          signal: controller.signal,
-        });
-        clearTimeout(t);
-        const data = (await res.json().catch(() => ({}))) as { synced?: boolean; error?: string };
-        if (data?.synced) {
-          await refreshSubscription();
-        }
-      } catch (e) {
-        console.error("Sync subscription:", e);
-      } finally {
-        setSyncingSubscription(false);
-      }
-    };
-
-    run();
-  }, [subLoading, subscription, syncingSubscription, refreshSubscription]);
+    if (subLoading || subscription || syncingSubscription || syncAttemptedRef.current) return;
+    syncAttemptedRef.current = true;
+    runSyncSubscription();
+  }, [subLoading, subscription, syncingSubscription]);
 
   const fetchTransactions = async () => {
     try {
@@ -190,14 +182,32 @@ const Billing = () => {
                   </Button>
                 </>
               ) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">No Studio Access subscription</p>
-                  <Button
-                    onClick={() => navigate("/checkout?mode=access")}
-                    className="rounded-[14px]"
-                  >
-                    Subscribe to Studio Access
-                  </Button>
+                <div className="text-center py-8 space-y-4">
+                  <p className="text-muted-foreground">No Studio Access subscription</p>
+                  <p className="text-xs text-muted-foreground">
+                    Already purchased? Sync from Stripe to refresh.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                    <Button
+                      onClick={runSyncSubscription}
+                      disabled={syncingSubscription}
+                      variant="outline"
+                      className="rounded-[14px]"
+                    >
+                      {syncingSubscription ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                      )}
+                      Refresh subscription status
+                    </Button>
+                    <Button
+                      onClick={() => navigate("/checkout?mode=access")}
+                      className="rounded-[14px]"
+                    >
+                      Subscribe to Studio Access
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>

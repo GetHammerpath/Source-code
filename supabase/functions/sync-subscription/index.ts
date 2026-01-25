@@ -71,10 +71,15 @@ serve(async (req) => {
         (s.status === "active" || s.status === "trialing") &&
         (s.items.data[0]?.price?.id === priceId ||
           (s.items.data[0]?.price?.metadata?.plan as string) === "studio_access" ||
-          (s.metadata?.plan as string) === "studio_access")
+          (s.metadata?.plan as string) === "studio_access" ||
+          (s.metadata?.user_id as string) === user.id)
     );
+    const fallback = !active && subs.data.length > 0
+      ? subs.data.find((s) => s.status === "active" || s.status === "trialing")
+      : null;
+    const sub = active ?? fallback;
 
-    if (!active) {
+    if (!sub) {
       return new Response(
         JSON.stringify({ synced: false, reason: "no_active_studio_subscription" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -82,11 +87,11 @@ serve(async (req) => {
     }
 
     const status =
-      active.status === "active" || active.status === "trialing"
+      sub.status === "active" || sub.status === "trialing"
         ? "active"
-        : active.status === "past_due"
+        : sub.status === "past_due"
           ? "past_due"
-          : active.status === "unpaid"
+          : sub.status === "unpaid"
             ? "unpaid"
             : "canceled";
 
@@ -95,11 +100,11 @@ serve(async (req) => {
         user_id: user.id,
         plan: "studio_access",
         status,
-        stripe_subscription_id: active.id,
+        stripe_subscription_id: sub.id,
         stripe_customer_id: profile.stripe_customer_id,
-        current_period_start: new Date(active.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(active.current_period_end * 1000).toISOString(),
-        cancel_at_period_end: active.cancel_at_period_end,
+        current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+        current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+        cancel_at_period_end: sub.cancel_at_period_end,
       },
       { onConflict: "user_id,status" }
     );
