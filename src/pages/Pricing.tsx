@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, ArrowRight, CreditCard } from "lucide-react";
 import { STUDIO_ACCESS, PRICE_PER_CREDIT, CREDITS_PER_MINUTE } from "@/lib/billing/pricing";
@@ -11,10 +13,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Pricing = () => {
   const navigate = useNavigate();
+  const [subscribing, setSubscribing] = useState(false);
   const { subscription } = useStudioAccess();
   const { balance } = useCredits();
 
   const handleSubscribe = async () => {
+    setSubscribing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -22,22 +26,57 @@ const Pricing = () => {
         return;
       }
 
-      const response = await supabase.functions.invoke("create-checkout-session", {
-        body: {
-          mode: "subscription",
-          planId: "studio_access",
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!supabaseUrl || !anonKey) {
+        alert("Missing Supabase config (VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY). Configure in Vercel env.");
+        return;
+      }
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/create-checkout-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: anonKey,
         },
+        body: JSON.stringify({ mode: "subscription", planId: "studio_access" }),
       });
 
-      if (response.error) throw response.error;
-
-      const { url } = response.data;
-      if (url) {
-        window.location.href = url;
+      const raw = await res.text();
+      let data: { url?: string; error?: string; details?: unknown } = {};
+      try {
+        data = raw ? (JSON.parse(raw) as typeof data) : {};
+      } catch {
+        if (!res.ok) {
+          const preview = raw.slice(0, 200).replace(/\n/g, " ");
+          throw new Error(`Edge Function error (${res.status}). Response not JSON. Preview: ${preview}`);
+        }
       }
-    } catch (error) {
+
+      if (!res.ok) {
+        const msg = data?.error || `Edge Function error (${res.status})`;
+        const details = data?.details ? `\n\nDetails: ${JSON.stringify(data.details)}` : "";
+        throw new Error(`${msg}${details}`);
+      }
+
+      if (data?.error) throw new Error(data.error);
+      if (!data?.url) {
+        throw new Error("No checkout URL returned. Check STUDIO_ACCESS_PRICE_ID and Edge Function logs.");
+      }
+
+      window.location.href = data.url;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
       console.error("Error creating checkout session:", error);
-      alert("Failed to start checkout. Please try again.");
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://wzpswnuteisyxxwlnqrn.supabase.co";
+      alert(
+        `Failed to start checkout: ${msg}\n\n` +
+          `Logs: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs\n\n` +
+          `Verify secrets: ${supabaseUrl}/functions/v1/create-checkout-session`
+      );
+    } finally {
+      setSubscribing(false);
     }
   };
 
@@ -95,12 +134,17 @@ const Pricing = () => {
               <CardFooter>
                 <Button
                   onClick={handleSubscribe}
-                  disabled={subscription?.status === "active"}
+                  disabled={subscription?.status === "active" || subscribing}
                   className="w-full rounded-[14px]"
                   size="lg"
                 >
                   {subscription?.status === "active" ? (
                     "Studio Access Active"
+                  ) : subscribing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
                   ) : (
                     <>
                       Subscribe to Studio Access

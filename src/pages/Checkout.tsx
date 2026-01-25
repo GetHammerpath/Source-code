@@ -11,11 +11,14 @@ import { useStudioAccess } from "@/hooks/useStudioAccess";
 import { useCredits } from "@/hooks/useCredits";
 import StudioHeader from "@/components/layout/StudioHeader";
 
+type EnvStatus = { stripe: boolean; serviceRole: boolean; priceId: boolean; siteUrl: boolean } | null;
+
 const Checkout = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get("mode") || "access"; // access or credits
   const [loading, setLoading] = useState(false);
+  const [envStatus, setEnvStatus] = useState<EnvStatus>(null);
   const { subscription } = useStudioAccess();
   const { balance } = useCredits();
 
@@ -24,11 +27,24 @@ const Checkout = () => {
   const quickAmounts = [100, 250, 500, 1000];
 
   useEffect(() => {
-    // Redirect to auth if not logged in
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/auth?redirect=/checkout");
+        return;
+      }
+      const url = import.meta.env.VITE_SUPABASE_URL;
+      const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!url) return;
+      try {
+        const res = await fetch(`${url}/functions/v1/create-checkout-session`, {
+          method: "GET",
+          headers: anon ? { apikey: anon } : {},
+        });
+        const j = await res.json().catch(() => ({}));
+        if (j?.env) setEnvStatus(j.env as EnvStatus);
+      } catch {
+        /**/
       }
     };
     checkAuth();
@@ -98,11 +114,15 @@ const Checkout = () => {
       console.error("Checkout error:", error);
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://wzpswnuteisyxxwlnqrn.supabase.co";
       const verifyUrl = `${supabaseUrl}/functions/v1/create-checkout-session`;
+      const logsUrl = "https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs";
+      const genericHint =
+        /non-2xx|status code/i.test(msg)
+          ? "\n\nThe actual error is in the Edge Function logs. Common causes: missing STRIPE_SECRET_KEY, SERVICE_ROLE_KEY, or STUDIO_ACCESS_PRICE_ID in Supabase Edge Function secrets."
+          : "";
       alert(
-        `Failed to start checkout: ${msg}\n\n` +
-          `Logs: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs\n\n` +
-          `Verify secrets (open in new tab): ${verifyUrl}`
+        `Failed to start checkout: ${msg}${genericHint}\n\nLogs: ${logsUrl}\n\nVerify secrets: ${verifyUrl}`
       );
+    } finally {
       setLoading(false);
     }
   };
@@ -233,6 +253,19 @@ const Checkout = () => {
                       <span className="font-semibold">${totalPrice.toFixed(2)}</span>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {envStatus && (mode === "access" ? !envStatus.stripe || !envStatus.serviceRole || !envStatus.priceId : !envStatus.stripe || !envStatus.serviceRole) && (
+                <div className="p-4 rounded-[10px] bg-destructive/10 border border-destructive/30 text-sm text-destructive">
+                  <strong>Checkout not fully configured.</strong>{" "}
+                  {mode === "access" && !envStatus.priceId
+                    ? "Add STUDIO_ACCESS_PRICE_ID"
+                    : "Add STRIPE_SECRET_KEY, SERVICE_ROLE_KEY"}
+                  {" "}to Supabase Edge Function secrets.{" "}
+                  <a href="https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/settings/functions" target="_blank" rel="noreferrer" className="underline">
+                    Open secrets
+                  </a>
                 </div>
               )}
 
