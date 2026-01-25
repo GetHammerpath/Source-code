@@ -23,15 +23,56 @@ interface CreditTransaction {
 
 const Billing = () => {
   const navigate = useNavigate();
-  const { subscription, loading: subLoading } = useStudioAccess();
+  const { subscription, loading: subLoading, refresh: refreshSubscription } = useStudioAccess();
   const { balance, loading: creditsLoading } = useCredits();
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [creatingPortal, setCreatingPortal] = useState(false);
+  const [syncingSubscription, setSyncingSubscription] = useState(false);
 
   useEffect(() => {
     fetchTransactions();
   }, []);
+
+  // When no subscription found, sync from Stripe (handles webhook misses or prior purchases)
+  useEffect(() => {
+    if (subLoading || subscription || syncingSubscription) return;
+
+    const run = async () => {
+      setSyncingSubscription(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          setSyncingSubscription(false);
+          return;
+        }
+        const url = import.meta.env.VITE_SUPABASE_URL;
+        const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        if (!url || !anon) {
+          setSyncingSubscription(false);
+          return;
+        }
+        const res = await fetch(`${url}/functions/v1/sync-subscription`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: anon,
+          },
+        });
+        const data = (await res.json().catch(() => ({}))) as { synced?: boolean; error?: string };
+        if (data?.synced) {
+          await refreshSubscription();
+        }
+      } catch (e) {
+        console.error("Sync subscription:", e);
+      } finally {
+        setSyncingSubscription(false);
+      }
+    };
+
+    run();
+  }, [subLoading, subscription, syncingSubscription, refreshSubscription]);
 
   const fetchTransactions = async () => {
     try {
@@ -91,9 +132,12 @@ const Billing = () => {
               <CardDescription>Your subscription status</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {subLoading ? (
-                <div className="flex items-center justify-center py-8">
+              {subLoading || syncingSubscription ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-2">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  {syncingSubscription && (
+                    <p className="text-sm text-muted-foreground">Checking subscription status...</p>
+                  )}
                 </div>
               ) : subscription ? (
                 <>
