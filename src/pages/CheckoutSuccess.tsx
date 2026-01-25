@@ -10,7 +10,7 @@ const CheckoutSuccess = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("session_id");
-  const { subscription, refresh: refreshSubscription } = useStudioAccess();
+  const { subscription, refresh: refreshSubscription } = useStudioAccess({ silent: true });
   const { balance, refresh: refreshCredits } = useCredits();
 
   useEffect(() => {

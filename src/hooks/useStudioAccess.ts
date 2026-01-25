@@ -16,7 +16,13 @@ export interface StudioAccessSubscription {
   updated_at: string;
 }
 
-export function useStudioAccess() {
+export interface UseStudioAccessOptions {
+  /** When true, don't toast on fetch errors (e.g. on CheckoutSuccess where no subscription is OK) */
+  silent?: boolean;
+}
+
+export function useStudioAccess(options?: UseStudioAccessOptions) {
+  const { silent = false } = options ?? {};
   const [subscription, setSubscription] = useState<StudioAccessSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -70,11 +76,13 @@ export function useStudioAccess() {
       setSubscription(data);
     } catch (error) {
       console.error('Error fetching Studio Access subscription:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load subscription',
-        variant: 'destructive',
-      });
+      if (!silent) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load subscription',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
