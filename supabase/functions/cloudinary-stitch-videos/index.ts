@@ -272,63 +272,165 @@ serve(async (req) => {
     // Build Cloudinary transformation URL for video concatenation
     console.log('🔗 Building transformation URL for concatenation...');
 
-    // Start with the first segment as base
-    const baseSegment = uploadedSegments[0].public_id;
-    
-    // Build transformation layers for additional segments
-    const transformations: string[] = [];
-    
-    for (let i = 1; i < uploadedSegments.length; i++) {
-      const segmentId = uploadedSegments[i].public_id;
+    try {
+      // Start with the first segment as base
+      const baseSegment = uploadedSegments[0].public_id;
       
-      // Build transformation: fl_splice,l_video:segment_id,so_{trimSeconds}/fl_layer_apply
-      const parts = ['fl_splice', `l_video:${segmentId}`];
-      
-      // Apply start_offset for trimming if enabled
-      if (trim) {
-        parts.push(`so_${trimSeconds}`);
+      if (!baseSegment) {
+        throw new Error('Base segment public_id is missing');
       }
       
-      transformations.push(parts.join(','));
-      transformations.push('fl_layer_apply');
+      // Apply trim to base segment (first segment) if enabled
+      // Use eo_ (end_offset) to trim from the end of the base segment
+      let baseSegmentTransform = '';
+      if (trim) {
+        const baseSegmentIndex = 0;
+        const baseOriginalSegment = normalizedSegments[baseSegmentIndex];
+        
+        if (baseOriginalSegment) {
+          const baseSegmentDuration = baseOriginalSegment.duration || 8000; // Default 8 seconds in milliseconds
+          const baseDurationSeconds = (baseSegmentDuration / 1000) - trimSeconds;
+          
+          console.log(`✂️ Trim analysis for base segment (index ${baseSegmentIndex}):`, {
+            original_duration_ms: baseSegmentDuration,
+            original_duration_seconds: (baseSegmentDuration / 1000).toFixed(1),
+            trim_seconds: trimSeconds,
+            final_duration_seconds: baseDurationSeconds.toFixed(1)
+          });
+          
+          if (baseDurationSeconds > 0) {
+            // Use end_offset (eo_) to trim from the end of the base segment
+            // eo_X means the video ends at X seconds (trimming from the end)
+            baseSegmentTransform = `eo_${baseDurationSeconds.toFixed(1)}`;
+            console.log(`✅ Applied trim to base segment: ending at ${baseDurationSeconds.toFixed(1)}s (removed ${trimSeconds}s from end)`);
+          } else {
+            console.warn(`⚠️ Trim amount (${trimSeconds}s) is greater than or equal to base segment duration (${(baseSegmentDuration / 1000).toFixed(1)}s). Skipping trim.`);
+          }
+        }
+      }
+      
+      // Build transformation layers for additional segments
+      const transformations: string[] = [];
+      
+      for (let i = 1; i < uploadedSegments.length; i++) {
+        const segmentId = uploadedSegments[i].public_id;
+        
+        if (!segmentId) {
+          throw new Error(`Segment ${i} public_id is missing`);
+        }
+        
+        // Build transformation: fl_splice,l_video:segment_id/fl_layer_apply
+        const parts = ['fl_splice', `l_video:${segmentId}`];
+        
+        // Apply trim to ALL segments (trim from end using duration)
+        if (trim) {
+          // Get the segment's duration from the original segment data
+          const segmentIndex = i;
+          const originalSegment = normalizedSegments[segmentIndex];
+          
+          if (!originalSegment) {
+            throw new Error(`Original segment data not found for segment ${segmentIndex}`);
+          }
+          
+          const segmentDuration = originalSegment.duration || 8000; // Default 8 seconds in milliseconds
+          
+          // Convert to seconds and subtract trimSeconds
+          const durationSeconds = (segmentDuration / 1000) - trimSeconds;
+          
+          console.log(`✂️ Trim analysis for segment ${segmentIndex}:`, {
+            original_duration_ms: segmentDuration,
+            original_duration_seconds: (segmentDuration / 1000).toFixed(1),
+            trim_seconds: trimSeconds,
+            final_duration_seconds: durationSeconds.toFixed(1),
+            segment_data: {
+              url: originalSegment.url?.substring(0, 50) + '...',
+              has_duration: !!originalSegment.duration
+            }
+          });
+          
+          if (durationSeconds > 0) {
+            // Use duration (du_) to limit the segment, effectively trimming from the end
+            // Format: l_video:segment_id,du_X where X is the duration in seconds
+            parts.push(`du_${durationSeconds.toFixed(1)}`);
+            console.log(`✅ Applied trim to segment ${segmentIndex}: limiting to ${durationSeconds.toFixed(1)}s (removed ${trimSeconds}s from end)`);
+          } else {
+            console.warn(`⚠️ Trim amount (${trimSeconds}s) is greater than or equal to segment ${segmentIndex} duration (${(segmentDuration / 1000).toFixed(1)}s). Skipping trim to avoid invalid duration.`);
+          }
+        }
+        
+        transformations.push(parts.join(','));
+        transformations.push('fl_layer_apply');
+      }
+      
+      // Construct the full transformation URL
+      // If trim is enabled, apply duration to base segment BEFORE splice transformations
+      let transformationString = transformations.join('/');
+      
+      // Apply base segment duration transformation BEFORE all splice operations
+      if (baseSegmentTransform) {
+        transformationString = `${baseSegmentTransform}/${transformationString}`;
+        console.log(`🎬 Base segment transformation applied: ${baseSegmentTransform}`);
+      }
+      
+      const finalVideoUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/${transformationString}/${baseSegment}.mp4`;
+
+      console.log('🎥 Final video URL:', finalVideoUrl);
+      console.log('🎥 Transformation string:', transformationString);
+      console.log('🎥 Transformation breakdown:', {
+        base_segment: baseSegment,
+        additional_segments: uploadedSegments.length - 1,
+        transformations: transformations,
+        trim_applied: trim,
+        trim_seconds: trim ? trimSeconds : null
+      });
+
+      // Update database with final video URL
+      const { error: updateError } = await supabase
+        .from('kie_video_generations')
+        .update({
+          final_video_url: finalVideoUrl,
+          final_video_status: 'completed',
+          final_video_completed_at: new Date().toISOString(),
+          is_final: true
+        })
+        .eq('id', generation_id);
+
+      if (updateError) {
+        throw new Error(`Failed to update database: ${updateError.message}`);
+      }
+
+      console.log('✅ Video stitching completed successfully');
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Videos combined successfully',
+        video_url: finalVideoUrl
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      });
+    } catch (transformError) {
+      const transformErrorMsg = transformError instanceof Error ? transformError.message : String(transformError);
+      console.error('❌ Error building transformation or updating database:', transformErrorMsg);
+      throw new Error(`Transformation failed: ${transformErrorMsg}`);
     }
-    
-    // Construct the full transformation URL
-    const transformationString = transformations.join('/');
-    const finalVideoUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/${transformationString}/${baseSegment}.mp4`;
 
-    console.log('🎥 Final video URL:', finalVideoUrl);
-
-    // Update database with final video URL
-    const { error: updateError } = await supabase
-      .from('kie_video_generations')
-      .update({
-        final_video_url: finalVideoUrl,
-        final_video_status: 'completed',
-        final_video_completed_at: new Date().toISOString(),
-        is_final: true
-      })
-      .eq('id', generation_id);
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    console.log('✅ Video stitching completed successfully');
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Videos combined successfully',
-      video_url: finalVideoUrl
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
-    });
 
   } catch (error) {
     console.error('❌ Error in cloudinary-stitch-videos:', error);
     
-    const errorMessage = error instanceof Error ? error.message : 'Stitching failed';
+    // Extract error message more thoroughly
+    let errorMessage = 'Stitching failed';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object' && 'message' in error) {
+      errorMessage = String(error.message);
+    } else if (error && typeof error === 'object' && 'error' in error) {
+      errorMessage = String(error.error);
+    }
+    
     const errorStack = error instanceof Error ? error.stack : undefined;
     const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('credentials');
     
@@ -337,7 +439,8 @@ serve(async (req) => {
       message: errorMessage,
       stack: errorStack,
       generation_id,
-      error_type: error?.constructor?.name
+      error_type: error?.constructor?.name,
+      error_object: JSON.stringify(error, Object.getOwnPropertyNames(error)).substring(0, 1000)
     });
     
     // Update database with error using generation_id from outer scope
