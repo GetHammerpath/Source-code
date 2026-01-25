@@ -198,9 +198,13 @@ BEGIN
   END IF;
 END $$;
 
--- 7. Add columns to video_jobs table if missing
+-- 7. Add columns to video_jobs table if missing (only when table exists; created later by add_billing_tables)
 DO $$ 
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'video_jobs') THEN
+    RETURN;
+  END IF;
+
   -- Add error_code and error_message columns if missing
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
