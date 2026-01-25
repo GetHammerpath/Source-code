@@ -140,13 +140,29 @@ serve(async (req) => {
       try {
         // First, download the video from the URL
         console.log(`📥 Downloading segment ${index} from: ${segment.url}`);
-        const videoResponse = await fetch(segment.url);
+        
+        if (!segment.url || !segment.url.startsWith('http')) {
+          throw new Error(`Segment ${index} has invalid URL: ${segment.url || 'missing'}`);
+        }
+
+        const videoResponse = await fetch(segment.url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'video/*',
+          },
+        });
         
         if (!videoResponse.ok) {
-          throw new Error(`Failed to download segment ${index}: ${videoResponse.status} ${videoResponse.statusText}`);
+          const errorText = await videoResponse.text().catch(() => '');
+          throw new Error(`Failed to download segment ${index}: ${videoResponse.status} ${videoResponse.statusText}. ${errorText.substring(0, 200)}`);
         }
 
         const videoBlob = await videoResponse.blob();
+        
+        if (!videoBlob || videoBlob.size === 0) {
+          throw new Error(`Segment ${index} downloaded but file is empty (0 bytes)`);
+        }
+        
         console.log(`✅ Downloaded segment ${index} (${videoBlob.size} bytes)`);
 
         // Now upload to Cloudinary using signed upload
@@ -178,8 +194,9 @@ serve(async (req) => {
         );
 
         if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          throw new Error(`Failed to upload segment ${index} to Cloudinary: ${errorText}`);
+          const errorText = await uploadResponse.text().catch(() => 'Unknown error');
+          console.error(`❌ Cloudinary upload failed for segment ${index}:`, errorText);
+          throw new Error(`Failed to upload segment ${index} to Cloudinary (${uploadResponse.status}): ${errorText.substring(0, 500)}`);
         }
 
         const uploadResult = await uploadResponse.json();
@@ -191,12 +208,28 @@ serve(async (req) => {
         };
       } catch (error) {
         console.error(`❌ Error processing segment ${index}:`, error);
-        throw new Error(`Failed to process segment ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        // Return detailed error with segment info
+        throw new Error(`Segment ${index} failed: ${errorMsg}. URL: ${segment.url || 'missing'}`);
       }
     });
 
-    const uploadedSegments = await Promise.all(uploadPromises);
-    console.log('✅ All segments uploaded to Cloudinary');
+    let uploadedSegments;
+    try {
+      uploadedSegments = await Promise.all(uploadPromises);
+      console.log('✅ All segments uploaded to Cloudinary');
+    } catch (uploadError) {
+      const errorMsg = uploadError instanceof Error ? uploadError.message : 'Failed to upload segments';
+      console.error('❌ Segment upload failed:', errorMsg);
+      return new Response(JSON.stringify({
+        success: false,
+        error: errorMsg,
+        details: 'One or more video segments failed to download or upload to Cloudinary. Check segment URLs are accessible.'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     // Build Cloudinary transformation URL for video concatenation
     console.log('🔗 Building transformation URL for concatenation...');

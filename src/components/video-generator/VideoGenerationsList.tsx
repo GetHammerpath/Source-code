@@ -248,7 +248,7 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
       const errorMessage = error instanceof Error ? error.message : "Failed to combine videos";
       toast.error("Stitching Failed", {
         description: errorMessage,
-        duration: 8000,
+        duration: 10000,
       });
     } finally {
       setStitching(null);

@@ -85,23 +85,43 @@ const VideoGenerationCard = ({ generation, onRefresh, onDuplicate }: VideoGenera
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      let data: any = {};
+      let responseText = '';
+      try {
+        responseText = await response.text();
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError, 'Raw response:', responseText);
+        // If parsing failed, try to extract error from text
+        if (responseText) {
+          data = { error: responseText.substring(0, 500) };
+        }
+      }
 
       if (!response.ok) {
-        const errorMsg = data?.error || data?.message || `Server error (${response.status})`;
+        const errorMsg = data?.error || data?.message || data?.details || responseText || `Server error (${response.status})`;
+        console.error('Stitching failed - Full error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          data,
+          responseText: responseText.substring(0, 500)
+        });
         throw new Error(errorMsg);
       }
 
       if (!data?.success) {
-        throw new Error(data?.error || 'Failed to stitch videos');
+        throw new Error(data?.error || data?.message || 'Failed to stitch videos');
       }
       
       toast.success('Video stitching started!');
       if (onRefresh) onRefresh();
     } catch (error: any) {
       console.error('Error stitching videos:', error);
-      const errorMessage = error?.message || error instanceof Error ? error.message : 'Failed to start stitching';
-      toast.error(errorMessage, { duration: 8000 });
+      const errorMessage = error?.message || (error instanceof Error ? error.message : 'Failed to start stitching');
+      toast.error('Stitching Failed', {
+        description: errorMessage,
+        duration: 10000,
+      });
     } finally {
       setStitching(false);
     }
