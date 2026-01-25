@@ -39,99 +39,55 @@ const Checkout = () => {
   const handleCheckout = async () => {
     setLoading(true);
     try {
-      // Check authentication first
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error("You must be logged in to checkout");
       }
 
-      let response;
-      try {
-        if (mode === "access") {
-          // Studio Access subscription
-          response = await supabase.functions.invoke("create-checkout-session", {
-            body: {
-              mode: "subscription",
-              planId: "studio_access",
-            },
-          });
-        } else if (mode === "credits") {
-          // Credit purchase
-          response = await supabase.functions.invoke("create-checkout-session", {
-            body: {
-              mode: "credits",
-              credits: creditAmount,
-            },
-          });
-        } else {
-          throw new Error("Invalid checkout mode");
-        }
-      } catch (invokeError: any) {
-        console.error("Function invoke error:", invokeError);
-        throw new Error(`Failed to call Edge Function: ${invokeError?.message || JSON.stringify(invokeError)}`);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!supabaseUrl || !anonKey) {
+        throw new Error("Missing Supabase config (VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY)");
       }
 
-      console.log("Checkout response:", response);
+      const body =
+        mode === "access"
+          ? { mode: "subscription", planId: "studio_access" }
+          : mode === "credits"
+            ? { mode: "credits", credits: creditAmount }
+            : null;
+      if (!body) throw new Error("Invalid checkout mode");
 
-      // Check for Supabase function invocation error
-      if (response.error) {
-        console.error("Response error:", response.error);
-        console.error("Full error object:", JSON.stringify(response.error, null, 2));
-        
-        // Try to extract error message from various places
-        let errorMsg = response.error.message || "Edge Function returned a non-2xx status code";
-        
-        // Try to get error from response.data if available (sometimes Supabase includes it)
-        if (response.data?.error) {
-          errorMsg = response.data.error;
-          if (response.data.details) {
-            errorMsg += `\n\nDetails: ${JSON.stringify(response.data.details, null, 2)}`;
-          }
-        }
-        
-        // Try to extract from error context if available
-        if (response.error.context) {
-          console.error("Error context:", response.error.context);
-        }
-        
-        // Provide helpful message with link to logs
-        const helpfulMsg = `${errorMsg}\n\nTo see the exact error, check the Edge Function logs:\nhttps://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs`;
-        
-        throw new Error(`Checkout failed: ${helpfulMsg}`);
+      const res = await fetch(`${supabaseUrl}/functions/v1/create-checkout-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: anonKey,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as { url?: string; sessionId?: string; error?: string; details?: unknown };
+
+      if (!res.ok) {
+        const msg = data?.error || `Edge Function error (${res.status})`;
+        const details = data?.details ? `\n\nDetails: ${JSON.stringify(data.details)}` : "";
+        throw new Error(`${msg}${details}`);
       }
 
-      // Check if data exists
-      if (!response.data) {
-        console.error("No data in response:", response);
-        console.error("Response object:", JSON.stringify(response, null, 2));
-        throw new Error("No data returned from checkout session. The Edge Function returned an error. Check Edge Function logs in Supabase Dashboard at: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs");
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      if (!data?.url) {
+        throw new Error("No checkout URL returned. Check STUDIO_ACCESS_PRICE_ID and Edge Function logs.");
       }
 
-      // Check if response.data has an error (from Edge Function)
-      if (response.data.error) {
-        console.error("Edge Function error:", response.data);
-        const errorDetails = response.data.details 
-          ? `\n\nDetails: ${JSON.stringify(response.data.details, null, 2)}`
-          : '';
-        throw new Error(`Checkout failed: ${response.data.error}${errorDetails}`);
-      }
-
-      // Get the URL
-      const { url, sessionId } = response.data;
-      if (!url) {
-        console.error("Missing URL in response:", response.data);
-        throw new Error("No checkout URL returned. Check Edge Function logs and verify STUDIO_ACCESS_PRICE_ID is set correctly in Supabase secrets.");
-      }
-      
-      console.log("Checkout session created:", { sessionId, url });
-
-      // Redirect to Stripe checkout
-      window.location.href = url;
-    } catch (error: any) {
-      console.error("Error creating checkout session:", error);
-      const errorMessage = error?.message || error?.error?.message || "Unknown error";
-      console.error("Full error details:", error);
-      alert(`Failed to start checkout: ${errorMessage}\n\nCheck the browser console (F12) for more details.`);
+      window.location.href = data.url;
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error("Checkout error:", error);
+      alert(`Failed to start checkout: ${msg}\n\nLogs: https://supabase.com/dashboard/project/wzpswnuteisyxxwlnqrn/functions/create-checkout-session/logs`);
       setLoading(false);
     }
   };
