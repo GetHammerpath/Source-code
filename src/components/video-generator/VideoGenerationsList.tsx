@@ -122,11 +122,33 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
   const handleStitchVideos = async (generationId: string) => {
     setStitching(generationId);
     try {
-      const { data, error } = await supabase.functions.invoke('cloudinary-stitch-videos', {
-        body: { generation_id: generationId, trim: false }
+      const url = import.meta.env.VITE_SUPABASE_URL;
+      const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!url || !anon || !session) {
+        throw new Error('Missing configuration or authentication');
+      }
+
+      const response = await fetch(`${url}/functions/v1/cloudinary-stitch-videos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': anon,
+        },
+        body: JSON.stringify({ 
+          generation_id: generationId, 
+          trim: false 
+        }),
       });
 
-      if (error) throw error;
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const errorMsg = data?.error || data?.message || `Server error (${response.status})`;
+        throw new Error(errorMsg);
+      }
 
       if (!data?.success) {
         throw new Error(data?.error || 'Failed to stitch videos');
@@ -140,8 +162,10 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
       await fetchGenerations();
     } catch (error) {
       console.error('Error stitching videos:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to combine videos";
       toast.error("Stitching Failed", {
-        description: error instanceof Error ? error.message : "Failed to combine videos",
+        description: errorMessage,
+        duration: 8000,
       });
     } finally {
       setStitching(null);
@@ -151,11 +175,34 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
   const handleStitchWithTrim = async (generationId: string) => {
     setStitching(generationId);
     try {
-      const { data, error } = await supabase.functions.invoke('cloudinary-stitch-videos', {
-        body: { generation_id: generationId, trim: true, trim_seconds: trimSeconds }
+      const url = import.meta.env.VITE_SUPABASE_URL;
+      const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!url || !anon || !session) {
+        throw new Error('Missing configuration or authentication');
+      }
+
+      const response = await fetch(`${url}/functions/v1/cloudinary-stitch-videos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': anon,
+        },
+        body: JSON.stringify({ 
+          generation_id: generationId, 
+          trim: true, 
+          trim_seconds: trimSeconds 
+        }),
       });
 
-      if (error) throw error;
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const errorMsg = data?.error || data?.message || `Server error (${response.status})`;
+        throw new Error(errorMsg);
+      }
 
       if (!data?.success) {
         throw new Error(data?.error || 'Failed to stitch videos');
@@ -169,8 +216,10 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
       await fetchGenerations();
     } catch (error) {
       console.error('Error stitching with trim:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to combine videos";
       toast.error("Stitching Failed", {
-        description: error instanceof Error ? error.message : "Failed to combine videos",
+        description: errorMessage,
+        duration: 8000,
       });
     } finally {
       setStitching(null);

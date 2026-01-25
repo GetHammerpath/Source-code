@@ -76,7 +76,12 @@ serve(async (req) => {
       }
       if (errorMessage || successFlag !== 1) {
         const errorDetail = errorMessage || 'Unknown generation failure';
-        updates.initial_error = `Generation failed at Kie.ai: ${errorDetail}`;
+        // Provide user-friendly message for audio filtering errors
+        let userMessage = errorDetail;
+        if (errorDetail.includes('AUDIO_FILTERED') || errorDetail.includes('audio') && errorDetail.includes('filter')) {
+          userMessage = 'Audio content was filtered by KIE. Try simplifying the avatar script or removing business-specific terms.';
+        }
+        updates.initial_error = `Generation failed at Kie.ai: ${userMessage}`;
         console.error('❌ Initial generation failed:', {
           taskId,
           generation_id: generation.id,
@@ -107,7 +112,12 @@ serve(async (req) => {
       }
       if (errorMessage || successFlag !== 1) {
         const errorDetail = errorMessage || 'Unknown generation failure';
-        updates.extended_error = `Scene ${generation.current_scene}: Generation failed at Kie.ai: ${errorDetail}`;
+        // Provide user-friendly message for audio filtering errors
+        let userMessage = errorDetail;
+        if (errorDetail.includes('AUDIO_FILTERED') || errorDetail.includes('audio') && errorDetail.includes('filter')) {
+          userMessage = 'Audio content was filtered by KIE. Try simplifying the avatar script or removing business-specific terms.';
+        }
+        updates.extended_error = `Scene ${generation.current_scene}: Generation failed at Kie.ai: ${userMessage}`;
         console.error('❌ Extended generation failed:', {
           taskId,
           generation_id: generation.id,

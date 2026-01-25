@@ -66,49 +66,66 @@ serve(async (req) => {
       throw new Error('Cloudinary credentials not configured');
     }
 
-    console.log(`📤 Uploading ${segments.length} video segments to Cloudinary...`);
+    console.log(`📤 Processing ${segments.length} video segments for concatenation...`);
 
-    // Upload all segments to Cloudinary in parallel using SIGNED uploads
+    // Download and upload segments to Cloudinary (required for concatenation)
     const uploadPromises = segments.map(async (segment: any, index: number) => {
-      const timestamp = Math.round(Date.now() / 1000);
-      const publicId = `video_${generation_id}_segment_${index}`;
-      
-      // Create signature for signed upload
-      const params = `public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
-      const encoder = new TextEncoder();
-      const data = encoder.encode(params);
-      const hashBuffer = await crypto.subtle.digest('SHA-1', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-      const uploadData = new FormData();
-      uploadData.append('file', segment.url);
-      uploadData.append('public_id', publicId);
-      uploadData.append('timestamp', timestamp.toString());
-      uploadData.append('api_key', CLOUDINARY_API_KEY);
-      uploadData.append('signature', signature);
-      uploadData.append('resource_type', 'video');
-
-      const uploadResponse = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`,
-        {
-          method: 'POST',
-          body: uploadData,
+      try {
+        // First, download the video from the URL
+        console.log(`📥 Downloading segment ${index} from: ${segment.url}`);
+        const videoResponse = await fetch(segment.url);
+        
+        if (!videoResponse.ok) {
+          throw new Error(`Failed to download segment ${index}: ${videoResponse.status} ${videoResponse.statusText}`);
         }
-      );
 
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        throw new Error(`Failed to upload segment ${index}: ${errorText}`);
+        const videoBlob = await videoResponse.blob();
+        console.log(`✅ Downloaded segment ${index} (${videoBlob.size} bytes)`);
+
+        // Now upload to Cloudinary using signed upload
+        const timestamp = Math.round(Date.now() / 1000);
+        const publicId = `video_${generation_id}_segment_${index}`;
+        
+        // Create signature for signed upload
+        const params = `public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
+        const encoder = new TextEncoder();
+        const data = encoder.encode(params);
+        const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        const uploadData = new FormData();
+        uploadData.append('file', videoBlob, `segment_${index}.mp4`);
+        uploadData.append('public_id', publicId);
+        uploadData.append('timestamp', timestamp.toString());
+        uploadData.append('api_key', CLOUDINARY_API_KEY);
+        uploadData.append('signature', signature);
+        uploadData.append('resource_type', 'video');
+
+        const uploadResponse = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`,
+          {
+            method: 'POST',
+            body: uploadData,
+          }
+        );
+
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          throw new Error(`Failed to upload segment ${index} to Cloudinary: ${errorText}`);
+        }
+
+        const uploadResult = await uploadResponse.json();
+        console.log(`✅ Uploaded segment ${index} to Cloudinary: ${uploadResult.public_id}`);
+        
+        return {
+          public_id: uploadResult.public_id,
+          index: index
+        };
+      } catch (error) {
+        console.error(`❌ Error processing segment ${index}:`, error);
+        throw new Error(`Failed to process segment ${index}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-
-      const uploadResult = await uploadResponse.json();
-      console.log(`✅ Uploaded segment ${index}: ${uploadResult.public_id}`);
-      
-      return {
-        public_id: uploadResult.public_id,
-        index: index
-      };
     });
 
     const uploadedSegments = await Promise.all(uploadPromises);
@@ -173,6 +190,9 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Error in cloudinary-stitch-videos:', error);
     
+    const errorMessage = error instanceof Error ? error.message : 'Stitching failed';
+    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('credentials');
+    
     // Update database with error using generation_id from outer scope
     if (generation_id) {
       try {
@@ -185,7 +205,7 @@ serve(async (req) => {
           .from('kie_video_generations')
           .update({
             final_video_status: 'failed',
-            final_video_error: error instanceof Error ? error.message : 'Stitching failed'
+            final_video_error: errorMessage
           })
           .eq('id', generation_id);
       } catch (dbError) {
@@ -193,11 +213,17 @@ serve(async (req) => {
       }
     }
 
+    // Return appropriate status code
+    const statusCode = isConfigError ? 500 : 400;
+    
     return new Response(JSON.stringify({
       success: false,
-      error: error instanceof Error ? error.message : 'Stitching failed'
+      error: errorMessage,
+      details: isConfigError 
+        ? 'Cloudinary credentials are missing. Please configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in Supabase secrets.'
+        : undefined
     }), {
-      status: 500,
+      status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }

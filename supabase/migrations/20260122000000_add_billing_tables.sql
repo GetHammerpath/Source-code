@@ -25,8 +25,8 @@ CREATE TABLE public.subscriptions (
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   
   -- Ensure one active subscription per user
-  CONSTRAINT one_active_subscription UNIQUE (user_id, status) 
-    DEFERRABLE INITIALLY DEFERRED
+  -- Note: Non-deferrable required for ON CONFLICT in upserts
+  CONSTRAINT one_active_subscription UNIQUE (user_id, status)
 );
 
 -- Create credit_balance table (one row per user)

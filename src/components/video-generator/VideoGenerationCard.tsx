@@ -53,21 +53,45 @@ const VideoGenerationCard = ({ generation, onRefresh, onDuplicate }: VideoGenera
   const handleStitchWithTrim = async (generationId: string) => {
     setStitching(true);
     try {
-      const { data, error } = await supabase.functions.invoke('cloudinary-stitch-videos', {
-        body: { 
+      const url = import.meta.env.VITE_SUPABASE_URL;
+      const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!url || !anon || !session) {
+        throw new Error('Missing configuration or authentication');
+      }
+
+      const response = await fetch(`${url}/functions/v1/cloudinary-stitch-videos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': anon,
+        },
+        body: JSON.stringify({ 
           generation_id: generationId, 
           trim: true,
           trim_seconds: trimSeconds
-        }
+        }),
       });
-      
-      if (error) throw error;
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const errorMsg = data?.error || data?.message || `Server error (${response.status})`;
+        throw new Error(errorMsg);
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to stitch videos');
+      }
       
       toast.success('Video stitching started!');
       if (onRefresh) onRefresh();
     } catch (error: any) {
       console.error('Error stitching videos:', error);
-      toast.error(error.message || 'Failed to start stitching');
+      const errorMessage = error?.message || error instanceof Error ? error.message : 'Failed to start stitching';
+      toast.error(errorMessage, { duration: 8000 });
     } finally {
       setStitching(false);
     }
