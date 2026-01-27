@@ -17,7 +17,8 @@
     "sync:subscription": "node --env-file=.env scripts/sync-subscription.mjs",
     "set:stripe-customer": "node --env-file=.env scripts/set-stripe-customer-id.mjs",
     "redeploy": "node --env-file=.env scripts/trigger-vercel-deploy.mjs",
-    "charge:retroactive": "node --env-file=.env scripts/retroactively-charge-credits.mjs"
+    "charge:retroactive": "node --env-file=.env scripts/retroactively-charge-credits.mjs",
+    "check:credits": "node --env-file=.env scripts/check-video-credits.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

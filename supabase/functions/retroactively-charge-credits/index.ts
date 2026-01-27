@@ -76,16 +76,6 @@ serve(async (req) => {
 
     console.log(`Filtered to ${generations.length} completed generations`);
 
-    if (genError) {
-      console.error("❌ Error fetching generations:", genError);
-      return new Response(
-        JSON.stringify({ success: false, error: genError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`Found ${generations?.length || 0} completed generations`);
-
     if (!generations || generations.length === 0) {
       return new Response(
         JSON.stringify({ success: true, message: "No completed videos found", charged: 0 }),
