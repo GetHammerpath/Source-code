@@ -35,19 +35,46 @@ serve(async (req) => {
 
     console.log("🔍 Finding completed videos without credit charges...");
 
-    // Build query - find completed generations
+    // Build query - find ALL generations first, then filter for completed ones
+    // This ensures we catch videos that have segments/URLs even if status isn't set correctly
     let query = supabase
       .from("kie_video_generations")
-      .select("id, user_id, initial_status, extended_status, number_of_scenes, video_segments, created_at")
-      .or("initial_status.eq.completed,extended_status.eq.completed")
+      .select("id, user_id, initial_status, extended_status, number_of_scenes, video_segments, final_video_url, initial_video_url, extended_video_url, created_at")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(200);
 
     if (targetUserId) {
       query = query.eq("user_id", targetUserId);
     }
 
-    const { data: generations, error: genError } = await query;
+    const { data: allGenerations, error: genError } = await query;
+
+    if (genError) {
+      console.error("❌ Error fetching generations:", genError);
+      return new Response(
+        JSON.stringify({ success: false, error: genError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Found ${allGenerations?.length || 0} total generations`);
+
+    // Filter for completed videos:
+    // 1. Has completed status
+    // 2. Has final_video_url (stitched)
+    // 3. Has video_segments with URLs
+    // 4. Has initial_video_url or extended_video_url
+    const generations = (allGenerations || []).filter((gen) => {
+      const hasCompletedStatus = gen.initial_status === "completed" || gen.extended_status === "completed";
+      const hasFinalVideo = !!gen.final_video_url;
+      const segments = Array.isArray(gen.video_segments) ? gen.video_segments : [];
+      const hasSegmentsWithUrls = segments.length > 0 && segments.some((s: any) => s.url || s.video_url);
+      const hasAnyVideoUrl = !!gen.initial_video_url || !!gen.extended_video_url;
+      
+      return hasCompletedStatus || hasFinalVideo || hasSegmentsWithUrls || hasAnyVideoUrl;
+    });
+
+    console.log(`Filtered to ${generations.length} completed generations`);
 
     if (genError) {
       console.error("❌ Error fetching generations:", genError);
@@ -104,19 +131,45 @@ serve(async (req) => {
     // Charge credits for each uncharged generation
     for (const gen of unchargedGenerations) {
       try {
-        // Calculate scenes completed
-        const segments = gen.video_segments || [];
-        const scenesCompleted = Math.max(
-          segments.length,
-          gen.number_of_scenes || 1,
-          (gen.initial_status === "completed" ? 1 : 0) + (gen.extended_status === "completed" ? 1 : 0)
-        );
+        // Calculate scenes completed - use multiple indicators
+        const segments = Array.isArray(gen.video_segments) ? gen.video_segments : [];
+        const hasSegments = segments.length > 0 && segments.some((s: any) => s.url || s.video_url);
+        const hasInitialVideo = !!gen.initial_video_url;
+        const hasExtendedVideo = !!gen.extended_video_url;
+        const hasFinalVideo = !!gen.final_video_url;
+        const isInitialCompleted = gen.initial_status === "completed";
+        const isExtendedCompleted = gen.extended_status === "completed";
+        
+        // Determine scenes completed:
+        // - If has final_video_url, use number_of_scenes or segments.length
+        // - If has segments with URLs, count them
+        // - Otherwise, count based on status flags
+        let scenesCompleted = 1; // Default to 1 scene
+        
+        if (hasFinalVideo || hasSegments) {
+          // Multi-scene video - count segments or use number_of_scenes
+          scenesCompleted = Math.max(
+            segments.length,
+            gen.number_of_scenes || 1,
+            (hasInitialVideo ? 1 : 0) + (hasExtendedVideo ? 1 : 0)
+          );
+        } else if (isInitialCompleted || hasInitialVideo) {
+          scenesCompleted = 1;
+        } else if (isExtendedCompleted || hasExtendedVideo) {
+          scenesCompleted = gen.number_of_scenes || 2; // Extended means at least 2 scenes
+        }
+        
+        // Ensure at least 1 scene
+        scenesCompleted = Math.max(1, scenesCompleted);
 
         // Calculate credits (8 seconds per scene = ~0.133 minutes per scene)
         const actualRenderedMinutes = (scenesCompleted * 8) / 60;
         const actualCredits = Math.ceil(actualRenderedMinutes);
 
-        console.log(`🎬 Generation ${gen.id.substring(0, 8)}... - Scenes: ${scenesCompleted}, Credits: ${actualCredits}`);
+        console.log(`🎬 Generation ${gen.id.substring(0, 8)}...`);
+        console.log(`   Status: initial=${gen.initial_status}, extended=${gen.extended_status}`);
+        console.log(`   Has videos: initial=${hasInitialVideo}, extended=${hasExtendedVideo}, final=${hasFinalVideo}`);
+        console.log(`   Segments: ${segments.length}, Scenes: ${scenesCompleted}, Credits: ${actualCredits}`);
 
         // Get current balance
         const { data: balance, error: balanceError } = await supabase
