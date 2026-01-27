@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Plus, ExternalLink, Calendar, CreditCard, RefreshCw, Minus } from "lucide-react";
+import { Loader2, Plus, ExternalLink, Calendar, CreditCard, RefreshCw } from "lucide-react";
 import { useStudioAccess } from "@/hooks/useStudioAccess";
 import { useCredits } from "@/hooks/useCredits";
 import { useToast } from "@/hooks/use-toast";
@@ -34,9 +34,6 @@ const Billing = () => {
   const [syncingSubscription, setSyncingSubscription] = useState(false);
   const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
   const syncAttemptedRef = useRef(false);
-  const [deductAmount, setDeductAmount] = useState("");
-  const [deductReason, setDeductReason] = useState("");
-  const [deducting, setDeducting] = useState(false);
   const [chargingRetroactive, setChargingRetroactive] = useState(false);
   const { toast } = useToast();
 
@@ -157,59 +154,6 @@ const Billing = () => {
       console.error("Error creating portal session:", error);
       alert("Failed to open customer portal. Please try again.");
       setCreatingPortal(false);
-    }
-  };
-
-  const handleDeductKieCredits = async () => {
-    const amt = parseInt(deductAmount, 10);
-    if (isNaN(amt) || amt <= 0) {
-      toast({ title: "Invalid amount", description: "Enter a positive number of credits to deduct.", variant: "destructive" });
-      return;
-    }
-    if (balance && balance.credits < amt) {
-      toast({ title: "Insufficient credits", description: `You have ${balance.credits} credits. Cannot deduct ${amt}.`, variant: "destructive" });
-      return;
-    }
-    setDeducting(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({ title: "Not signed in", description: "Sign in and try again.", variant: "destructive" });
-        setDeducting(false);
-        return;
-      }
-      const url = import.meta.env.VITE_SUPABASE_URL;
-      const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      if (!url || !anon) {
-        toast({ title: "Config missing", description: "App config missing.", variant: "destructive" });
-        setDeducting(false);
-        return;
-      }
-      const res = await fetch(`${url}/functions/v1/deduct-kie-credits`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: anon,
-        },
-        body: JSON.stringify({ amount: amt, reason: deductReason || undefined }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string; new_balance?: number };
-      if (!res.ok || !data?.success) {
-        toast({ title: "Deduction failed", description: data?.error || "Failed to deduct credits.", variant: "destructive" });
-        setDeducting(false);
-        return;
-      }
-      toast({ title: "Credits deducted", description: `${amt} Kie credits deducted. New balance: ${data.new_balance ?? "—"}.` });
-      setDeductAmount("");
-      setDeductReason("");
-      await refreshCredits();
-      await fetchTransactions();
-    } catch (e) {
-      console.error("Deduct Kie credits:", e);
-      toast({ title: "Error", description: e instanceof Error ? e.message : "Failed to deduct credits.", variant: "destructive" });
-    } finally {
-      setDeducting(false);
     }
   };
 
@@ -422,69 +366,28 @@ const Billing = () => {
                     Buy Credits
                   </Button>
 
-                  <div className="pt-4 border-t space-y-4">
-                    <div>
-                      <Label className="text-sm font-medium">Deduct Kie credits</Label>
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Subtract credits you&apos;ve already used in Kie.ai (e.g. console or API).
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <Input
-                          type="number"
-                          min={1}
-                          placeholder="Amount"
-                          value={deductAmount}
-                          onChange={(e) => setDeductAmount(e.target.value)}
-                          className="rounded-[10px] sm:w-24"
-                        />
-                        <Input
-                          type="text"
-                          placeholder="Reason (optional)"
-                          value={deductReason}
-                          onChange={(e) => setDeductReason(e.target.value)}
-                          className="rounded-[10px] flex-1"
-                        />
-                        <Button
-                          variant="secondary"
-                          className="rounded-[10px]"
-                          onClick={handleDeductKieCredits}
-                          disabled={deducting || creditsLoading || !deductAmount.trim()}
-                        >
-                          {deducting ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Minus className="h-4 w-4 mr-2" />
-                              Deduct
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium">Fix missing charges</Label>
-                      <p className="text-xs text-muted-foreground mb-3">
-                        If you created videos but credits weren&apos;t deducted, click here to charge for completed videos.
-                      </p>
-                      <Button
-                        variant="outline"
-                        className="w-full rounded-[10px]"
-                        onClick={handleRetroactivelyChargeCredits}
-                        disabled={chargingRetroactive || creditsLoading}
-                      >
-                        {chargingRetroactive ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Charging...
-                          </>
-                        ) : (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Charge for completed videos
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                  <div className="pt-4 border-t">
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Credits are automatically deducted when videos complete. If credits weren&apos;t deducted for a completed video, click below to fix it.
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-[10px]"
+                      onClick={handleRetroactivelyChargeCredits}
+                      disabled={chargingRetroactive || creditsLoading}
+                    >
+                      {chargingRetroactive ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Checking...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Fix missing charges
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </>
               )}

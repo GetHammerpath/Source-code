@@ -86,3 +86,6 @@ verify_jwt = true
 
 [functions.retroactively-charge-credits]
 verify_jwt = true
+
+[functions.admin-charge-credits]
+verify_jwt = true
