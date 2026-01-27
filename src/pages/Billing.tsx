@@ -213,6 +213,79 @@ const Billing = () => {
     }
   };
 
+  const handleRetroactivelyChargeCredits = async () => {
+    setChargingRetroactive(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({ title: "Error", description: "Not authenticated.", variant: "destructive" });
+        return;
+      }
+      console.log("🔄 Calling retroactively-charge-credits...");
+      const url = import.meta.env.VITE_SUPABASE_URL;
+      const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!url || !anon) {
+        toast({ title: "Config missing", description: "App config missing.", variant: "destructive" });
+        return;
+      }
+      const res = await fetch(`${url}/functions/v1/retroactively-charge-credits`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: anon,
+        },
+      });
+      
+      const responseText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Failed to parse response:", responseText);
+        throw new Error(`Invalid response: ${responseText.substring(0, 200)}`);
+      }
+      
+      console.log("📊 Response:", data);
+      
+      if (!res.ok) {
+        throw new Error(data.error || data.message || `HTTP ${res.status}: ${responseText.substring(0, 200)}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.error || data.message || "Failed to charge credits");
+      }
+      
+      const charged = data.charged || 0;
+      const totalCredits = data.total_credits || 0;
+      
+      if (charged > 0) {
+        toast({
+          title: "Credits charged",
+          description: `Charged ${totalCredits} credits for ${charged} completed video${charged !== 1 ? "s" : ""}.`,
+        });
+      } else {
+        toast({
+          title: "No charges needed",
+          description: data.message || "All completed videos have already been charged.",
+        });
+      }
+      
+      await refreshCredits();
+      await fetchTransactions();
+    } catch (e) {
+      console.error("❌ Retroactively charge credits error:", e);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      toast({
+        title: "Error",
+        description: errorMessage.length > 100 ? `${errorMessage.substring(0, 100)}...` : errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setChargingRetroactive(false);
+    }
+  };
+
   const nextRenewal = subscription?.current_period_end
     ? format(new Date(subscription.current_period_end), "MMM d, yyyy")
     : null;
