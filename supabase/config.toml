@@ -80,3 +80,9 @@ verify_jwt = false
 
 [functions.sync-subscription]
 verify_jwt = true
+
+[functions.deduct-kie-credits]
+verify_jwt = true
+
+[functions.retroactively-charge-credits]
+verify_jwt = true

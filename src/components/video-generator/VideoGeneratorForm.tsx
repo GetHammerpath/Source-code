@@ -73,12 +73,9 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
     return 1;
   };
 
-  // Handle mode change and reset aspect ratio if needed
+  // Handle mode change
   const handleModeChange = (mode: 'image' | 'text') => {
     setGenerationMode(mode);
-    if (mode === 'image' && formData.aspectRatio !== '16:9') {
-      setFormData({ ...formData, aspectRatio: '16:9' });
-    }
     if (mode === 'text') {
       setSelectedPhotoId(null);
     }
@@ -415,7 +412,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
                   <Image className="h-4 w-4" />
                   <div>
                     <div className="font-medium">Image Reference</div>
-                    <div className="text-xs text-muted-foreground">16:9 only</div>
+                    <div className="text-xs text-muted-foreground">16:9 or 9:16</div>
                   </div>
                 </Label>
               </div>
@@ -545,26 +542,25 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
               <Select
                 value={formData.aspectRatio}
                 onValueChange={(value) => setFormData({ ...formData, aspectRatio: value })}
-                disabled={generationMode === 'image'}
               >
                 <SelectTrigger id="aspectRatio">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="16:9">16:9 (Landscape - YouTube, TV)</SelectItem>
+                  <SelectItem value="9:16">9:16 (Portrait - TikTok, Reels)</SelectItem>
                   {generationMode === 'text' && (
-                    <>
-                      <SelectItem value="9:16">9:16 (Portrait - TikTok, Reels)</SelectItem>
-                      <SelectItem value="Auto">Auto (Based on content)</SelectItem>
-                    </>
+                    <SelectItem value="Auto">Auto (Based on content)</SelectItem>
                   )}
                 </SelectContent>
               </Select>
-              {generationMode === 'image' && (
-                <p className="text-xs text-muted-foreground">
-                  Image-to-video only supports 16:9. Use "Prompt Only" mode for 9:16.
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {formData.aspectRatio === '9:16'
+                  ? 'Portrait format for TikTok, Instagram Reels, Stories.'
+                  : formData.aspectRatio === '16:9'
+                    ? 'Landscape format for YouTube, presentations.'
+                    : 'Aspect ratio is chosen based on content.'}
+              </p>
             </div>
 
             <div className="space-y-2">

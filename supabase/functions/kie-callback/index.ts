@@ -183,9 +183,119 @@ serve(async (req) => {
             console.log('✅ Scene extension triggered successfully');
           }
         } else if (currentScene === numberOfScenes && currentSegments.length === numberOfScenes) {
-          // All scenes complete - auto-trigger combine (Cloudinary stitch, KIE-only pipeline)
-          console.log('🎉 All scenes complete! Auto-triggering video combine via Cloudinary...');
+          // All scenes complete - charge credits and auto-trigger combine
+          console.log('🎉 All scenes complete! Charging credits and auto-triggering video combine...');
           
+          // Charge credits for completed generation
+          try {
+            // Calculate actual rendered minutes (8 seconds per scene = ~0.133 minutes per scene)
+            const actualRenderedMinutes = (numberOfScenes * 8) / 60;
+            const creditsPerMinute = 1; // 1 credit = 1 minute
+            const actualCredits = Math.ceil(actualRenderedMinutes * creditsPerMinute);
+
+            console.log(`💰 Charging credits for ${numberOfScenes} scenes: ${actualCredits} credits (${actualRenderedMinutes.toFixed(2)} minutes)`);
+
+            // Find video_job for this generation (optional - charge even if it doesn't exist)
+            const { data: videoJob, error: jobError } = await supabase
+              .from('video_jobs')
+              .select('*')
+              .eq('generation_id', generation.id)
+              .eq('status', 'pending')
+              .single();
+
+            if (jobError && jobError.code !== 'PGRST116') {
+              console.warn('⚠️ Could not find video_jobs record:', jobError.message);
+            }
+
+            // Get current credit balance
+            const { data: balance, error: balanceError } = await supabase
+              .from('credit_balance')
+              .select('credits')
+              .eq('user_id', generation.user_id)
+              .single();
+
+            if (balanceError) {
+              console.error('❌ Failed to get credit balance:', balanceError);
+              throw new Error(`Failed to get credit balance: ${balanceError.message}`);
+            }
+
+            const currentBalance = balance?.credits || 0;
+            
+            if (currentBalance < actualCredits) {
+              console.warn(`⚠️ Insufficient credits: ${currentBalance} < ${actualCredits}. Charging available balance.`);
+            }
+
+            const newBalance = Math.max(0, currentBalance - actualCredits);
+
+            // Update credit balance
+            const { error: updateError } = await supabase
+              .from('credit_balance')
+              .update({ credits: newBalance })
+              .eq('user_id', generation.user_id);
+
+            if (updateError) {
+              console.error('❌ Failed to update credit balance:', updateError);
+              throw updateError;
+            }
+
+            // Create debit transaction
+            const { error: txError } = await supabase.from('credit_transactions').insert({
+              user_id: generation.user_id,
+              type: 'debit',
+              amount: -actualCredits,
+              balance_after: newBalance,
+              metadata: {
+                job_id: videoJob?.id || null,
+                generation_id: generation.id,
+                actual_minutes: actualRenderedMinutes,
+                scenes_completed: numberOfScenes,
+                video_job_exists: !!videoJob
+              }
+            });
+
+            if (txError) {
+              console.error('❌ Failed to create transaction:', txError);
+              // Don't throw - balance already updated
+            }
+
+            // Update video_job if it exists
+            if (videoJob && !jobError) {
+              await supabase
+                .from('video_jobs')
+                .update({
+                  status: 'completed',
+                  actual_minutes: actualRenderedMinutes,
+                  credits_charged: actualCredits,
+                  credits_reserved: 0,
+                  completed_at: new Date().toISOString()
+                })
+                .eq('id', videoJob.id);
+            } else {
+              // Create video_job record if it doesn't exist (for tracking)
+              await supabase.from('video_jobs').insert({
+                user_id: generation.user_id,
+                generation_id: generation.id,
+                provider: 'kie',
+                estimated_minutes: actualRenderedMinutes,
+                actual_minutes: actualRenderedMinutes,
+                estimated_credits: actualCredits,
+                credits_charged: actualCredits,
+                credits_reserved: 0,
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                metadata: { created_retroactively: true }
+              }).catch(err => {
+                console.warn('⚠️ Could not create retroactive video_job:', err);
+              });
+            }
+
+            console.log(`✅ Charged ${actualCredits} credits (${actualRenderedMinutes.toFixed(2)} minutes) for ${numberOfScenes} scenes. Balance: ${currentBalance} → ${newBalance}`);
+          } catch (creditError) {
+            console.error('❌ Error charging credits:', creditError);
+            // Don't fail the callback if credit charging fails, but log it
+          }
+          
+          // Auto-trigger combine (Cloudinary stitch)
           const stitchResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/cloudinary-stitch-videos`, {
             method: 'POST',
             headers: {
@@ -203,7 +313,118 @@ serve(async (req) => {
           }
         }
       } else {
-        // Single scene - auto-trigger first extend only
+        // Single scene - charge credits when initial scene completes
+        if (isInitial && videoUrl && successFlag === 1) {
+          try {
+            // Single scene: 8 seconds = ~0.133 minutes
+            const actualRenderedMinutes = 8 / 60;
+            const creditsPerMinute = 1;
+            const actualCredits = Math.ceil(actualRenderedMinutes * creditsPerMinute);
+
+            console.log(`💰 Charging credits for single scene: ${actualCredits} credits (${actualRenderedMinutes.toFixed(2)} minutes)`);
+
+            // Find video_job for this generation (optional - charge even if it doesn't exist)
+            const { data: videoJob, error: jobError } = await supabase
+              .from('video_jobs')
+              .select('*')
+              .eq('generation_id', generation.id)
+              .eq('status', 'pending')
+              .single();
+
+            if (jobError && jobError.code !== 'PGRST116') {
+              console.warn('⚠️ Could not find video_jobs record:', jobError.message);
+            }
+
+            // Get current credit balance
+            const { data: balance, error: balanceError } = await supabase
+              .from('credit_balance')
+              .select('credits')
+              .eq('user_id', generation.user_id)
+              .single();
+
+            if (balanceError) {
+              console.error('❌ Failed to get credit balance:', balanceError);
+              throw new Error(`Failed to get credit balance: ${balanceError.message}`);
+            }
+
+            const currentBalance = balance?.credits || 0;
+            
+            if (currentBalance < actualCredits) {
+              console.warn(`⚠️ Insufficient credits: ${currentBalance} < ${actualCredits}. Charging available balance.`);
+            }
+
+            const newBalance = Math.max(0, currentBalance - actualCredits);
+
+            // Update credit balance
+            const { error: updateError } = await supabase
+              .from('credit_balance')
+              .update({ credits: newBalance })
+              .eq('user_id', generation.user_id);
+
+            if (updateError) {
+              console.error('❌ Failed to update credit balance:', updateError);
+              throw updateError;
+            }
+
+            // Create debit transaction
+            const { error: txError } = await supabase.from('credit_transactions').insert({
+              user_id: generation.user_id,
+              type: 'debit',
+              amount: -actualCredits,
+              balance_after: newBalance,
+              metadata: {
+                job_id: videoJob?.id || null,
+                generation_id: generation.id,
+                actual_minutes: actualRenderedMinutes,
+                scenes_completed: 1,
+                video_job_exists: !!videoJob
+              }
+            });
+
+            if (txError) {
+              console.error('❌ Failed to create transaction:', txError);
+              // Don't throw - balance already updated
+            }
+
+            // Update video_job if it exists
+            if (videoJob && !jobError) {
+              await supabase
+                .from('video_jobs')
+                .update({
+                  status: 'completed',
+                  actual_minutes: actualRenderedMinutes,
+                  credits_charged: actualCredits,
+                  credits_reserved: 0,
+                  completed_at: new Date().toISOString()
+                })
+                .eq('id', videoJob.id);
+            } else {
+              // Create video_job record if it doesn't exist (for tracking)
+              await supabase.from('video_jobs').insert({
+                user_id: generation.user_id,
+                generation_id: generation.id,
+                provider: 'kie',
+                estimated_minutes: actualRenderedMinutes,
+                actual_minutes: actualRenderedMinutes,
+                estimated_credits: actualCredits,
+                credits_charged: actualCredits,
+                credits_reserved: 0,
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                metadata: { created_retroactively: true }
+              }).catch(err => {
+                console.warn('⚠️ Could not create retroactive video_job:', err);
+              });
+            }
+
+            console.log(`✅ Charged ${actualCredits} credits for single scene completion. Balance: ${currentBalance} → ${newBalance}`);
+          } catch (creditError) {
+            console.error('❌ Error charging credits:', creditError);
+            // Don't fail the callback if credit charging fails, but log it
+          }
+        }
+        
+        // Auto-trigger first extend only
         if (isInitial && (currentSegments.length === 0 || (currentSegments.length === 1 && currentSegments[0].type === 'initial'))) {
           console.log('✅ Initial video completed, auto-triggering FIRST extend...');
           

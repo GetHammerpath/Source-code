@@ -280,34 +280,8 @@ serve(async (req) => {
         throw new Error('Base segment public_id is missing');
       }
       
-      // Apply trim to base segment (first segment) if enabled
-      // Use eo_ (end_offset) to trim from the end of the base segment
-      let baseSegmentTransform = '';
-      if (trim) {
-        const baseSegmentIndex = 0;
-        const baseOriginalSegment = normalizedSegments[baseSegmentIndex];
-        
-        if (baseOriginalSegment) {
-          const baseSegmentDuration = baseOriginalSegment.duration || 8000; // Default 8 seconds in milliseconds
-          const baseDurationSeconds = (baseSegmentDuration / 1000) - trimSeconds;
-          
-          console.log(`✂️ Trim analysis for base segment (index ${baseSegmentIndex}):`, {
-            original_duration_ms: baseSegmentDuration,
-            original_duration_seconds: (baseSegmentDuration / 1000).toFixed(1),
-            trim_seconds: trimSeconds,
-            final_duration_seconds: baseDurationSeconds.toFixed(1)
-          });
-          
-          if (baseDurationSeconds > 0) {
-            // Use end_offset (eo_) to trim from the end of the base segment
-            // eo_X means the video ends at X seconds (trimming from the end)
-            baseSegmentTransform = `eo_${baseDurationSeconds.toFixed(1)}`;
-            console.log(`✅ Applied trim to base segment: ending at ${baseDurationSeconds.toFixed(1)}s (removed ${trimSeconds}s from end)`);
-          } else {
-            console.warn(`⚠️ Trim amount (${trimSeconds}s) is greater than or equal to base segment duration (${(baseSegmentDuration / 1000).toFixed(1)}s). Skipping trim.`);
-          }
-        }
-      }
+      // Scene 0 (base segment): NO TRIM - keep as is
+      console.log(`ℹ️ Base segment (scene 0): No trim applied - keeping full duration`);
       
       // Build transformation layers for additional segments
       const transformations: string[] = [];
@@ -322,9 +296,10 @@ serve(async (req) => {
         // Build transformation: fl_splice,l_video:segment_id/fl_layer_apply
         const parts = ['fl_splice', `l_video:${segmentId}`];
         
-        // Apply trim to ALL segments (trim from end using duration)
+        // Apply trim to Scene 1 and all subsequent scenes (trim 1 second from BEGINNING)
+        // Scene 0 (base segment) has no trim
+        // Scene 1+ (segments 1, 2, 3...) get so_1 (start_offset) to skip first second
         if (trim) {
-          // Get the segment's duration from the original segment data
           const segmentIndex = i;
           const originalSegment = normalizedSegments[segmentIndex];
           
@@ -333,29 +308,23 @@ serve(async (req) => {
           }
           
           const segmentDuration = originalSegment.duration || 8000; // Default 8 seconds in milliseconds
+          const segmentDurationSeconds = segmentDuration / 1000;
           
-          // Convert to seconds and subtract trimSeconds
-          const durationSeconds = (segmentDuration / 1000) - trimSeconds;
-          
-          console.log(`✂️ Trim analysis for segment ${segmentIndex}:`, {
+          console.log(`✂️ Trim analysis for scene ${segmentIndex} (segment ${i}):`, {
             original_duration_ms: segmentDuration,
-            original_duration_seconds: (segmentDuration / 1000).toFixed(1),
+            original_duration_seconds: segmentDurationSeconds.toFixed(1),
             trim_seconds: trimSeconds,
-            final_duration_seconds: durationSeconds.toFixed(1),
+            trim_from: 'beginning',
             segment_data: {
               url: originalSegment.url?.substring(0, 50) + '...',
               has_duration: !!originalSegment.duration
             }
           });
           
-          if (durationSeconds > 0) {
-            // Use duration (du_) to limit the segment, effectively trimming from the end
-            // Format: l_video:segment_id,du_X where X is the duration in seconds
-            parts.push(`du_${durationSeconds.toFixed(1)}`);
-            console.log(`✅ Applied trim to segment ${segmentIndex}: limiting to ${durationSeconds.toFixed(1)}s (removed ${trimSeconds}s from end)`);
-          } else {
-            console.warn(`⚠️ Trim amount (${trimSeconds}s) is greater than or equal to segment ${segmentIndex} duration (${(segmentDuration / 1000).toFixed(1)}s). Skipping trim to avoid invalid duration.`);
-          }
+          // Use start_offset (so_) to skip the first X seconds (trim from beginning)
+          // Format: l_video:segment_id,so_X where X is the number of seconds to skip
+          parts.push(`so_${trimSeconds.toFixed(1)}`);
+          console.log(`✅ Applied trim to scene ${segmentIndex}: skipping first ${trimSeconds}s from beginning (start_offset: so_${trimSeconds.toFixed(1)})`);
         }
         
         transformations.push(parts.join(','));
@@ -363,15 +332,8 @@ serve(async (req) => {
       }
       
       // Construct the full transformation URL
-      // If trim is enabled, apply duration to base segment BEFORE splice transformations
-      let transformationString = transformations.join('/');
-      
-      // Apply base segment duration transformation BEFORE all splice operations
-      if (baseSegmentTransform) {
-        transformationString = `${baseSegmentTransform}/${transformationString}`;
-        console.log(`🎬 Base segment transformation applied: ${baseSegmentTransform}`);
-      }
-      
+      // Scene 0 (base segment) has no transformations - it's used as-is
+      const transformationString = transformations.join('/');
       const finalVideoUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/${transformationString}/${baseSegment}.mp4`;
 
       console.log('🎥 Final video URL:', finalVideoUrl);

@@ -170,7 +170,7 @@ serve(async (req) => {
     // Determine generation type - default to REFERENCE_2_VIDEO for backward compatibility
     const generationType = generation_type || (image_url && image_url !== 'text-to-video' ? 'REFERENCE_2_VIDEO' : 'TEXT_2_VIDEO');
 
-    console.log('🎬 Starting Kie.ai video generation:', { generation_id, model, aspect_ratio, generationType, user_id: user.id });
+    console.log('🎬 Starting Kie.ai video generation:', { generation_id, model, aspect_ratio: aspect_ratio || '16:9', generationType, user_id: user.id });
 
     // Prepare callback URL for Kie.ai to send completion notification
     const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/kie-callback`;
@@ -221,13 +221,17 @@ Voice Delivery Notes:
     // Wrap prompt with content policy disclaimer
     const safePrompt = `${CONTENT_POLICY_DISCLAIMER}${enhancedPrompt}`;
 
+    // Normalize aspect ratio: support 16:9, 9:16; map Auto/invalid to 16:9
+    const validAspectRatios = ['16:9', '9:16'];
+    const aspectRatio = validAspectRatios.includes(aspect_ratio) ? aspect_ratio : '16:9';
+
     // Build request payload - conditionally include imageUrls based on generation type
     const requestPayload: Record<string, unknown> = {
       prompt: safePrompt,
       model: model || 'veo3_fast',
       watermark: watermark || '',
       callBackUrl: callbackUrl,
-      aspectRatio: aspect_ratio || '16:9',
+      aspectRatio,
       enableFallback: false,
       enableTranslation: true,
       generationType: generationType
