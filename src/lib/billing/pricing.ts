@@ -10,7 +10,8 @@ export const KIE_COST_PER_MINUTE = parseFloat(
 
 // Margin multiplier
 export const CREDIT_MARKUP_MULTIPLIER = parseFloat(
-  import.meta.env.VITE_CREDIT_MARKUP_MULTIPLIER || "3"
+  // 6.67x ≈ 85% gross margin on provider cost: margin = 1 - 1/m
+  import.meta.env.VITE_CREDIT_MARKUP_MULTIPLIER || "6.67"
 );
 
 // Credit consumption rate
