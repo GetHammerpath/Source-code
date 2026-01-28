@@ -16,6 +16,11 @@ const Pricing = () => {
   const [subscribing, setSubscribing] = useState(false);
   const { subscription } = useStudioAccess();
   const { balance } = useCredits();
+  const secondsPerCredit = 60 / CREDITS_PER_MINUTE;
+  const starterCredits = 3;
+  const starterTotal = starterCredits * PRICE_PER_CREDIT;
+  const tenPackCredits = 10;
+  const tenPackTotal = tenPackCredits * PRICE_PER_CREDIT;
 
   const handleSubscribe = async () => {
     setSubscribing(true);
@@ -177,16 +182,33 @@ const Pricing = () => {
                   <div className="flex items-center justify-between p-4 bg-muted/50 rounded-[10px]">
                     <div>
                       <div className="font-semibold">
-                        1 credit = {CREDITS_PER_MINUTE === 7.5 ? "1 segment (~8 seconds)" : `${(1 / CREDITS_PER_MINUTE).toFixed(2)} rendered minutes`}
+                        1 credit ≈ 1 segment (~{Math.round(secondsPerCredit)}s)
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
-                        Credits are consumed when rendering videos
+                        Credits are consumed when rendering videos (charged per completed segment)
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold">${PRICE_PER_CREDIT.toFixed(2)}</div>
-                      <div className="text-sm text-muted-foreground">per credit</div>
+                      <div className="text-2xl font-bold">${starterTotal.toFixed(2)}</div>
+                      <div className="text-sm text-muted-foreground">{starterCredits} segments (~{Math.round(starterCredits * secondsPerCredit)}s)</div>
                     </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="p-3 rounded-[10px] border bg-card">
+                      <div className="text-sm font-medium">Starter</div>
+                      <div className="text-xs text-muted-foreground">{starterCredits} segments</div>
+                      <div className="mt-1 font-semibold">${starterTotal.toFixed(2)}</div>
+                    </div>
+                    <div className="p-3 rounded-[10px] border bg-card">
+                      <div className="text-sm font-medium">Popular</div>
+                      <div className="text-xs text-muted-foreground">{tenPackCredits} segments</div>
+                      <div className="mt-1 font-semibold">${tenPackTotal.toFixed(2)}</div>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground">
+                    Equivalent: <span className="font-medium text-foreground">${PRICE_PER_CREDIT.toFixed(2)}</span> per segment credit.
                   </div>
 
                   <div className="text-sm text-muted-foreground space-y-2">

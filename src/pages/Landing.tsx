@@ -16,6 +16,9 @@ const Landing = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeStep, setActiveStep] = useState("ingest");
+  const secondsPerCredit = 60 / CREDITS_PER_MINUTE;
+  const starterCredits = 3;
+  const starterTotal = starterCredits * PRICE_PER_CREDIT;
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -611,15 +614,18 @@ const Landing = () => {
             <div className="p-8 rounded-[14px] border border-border/50 bg-card hover:shadow-md transition-all duration-150">
               <h3 className="text-2xl font-semibold mb-2">Credits</h3>
               <div className="mb-6">
-                <span className="text-4xl font-semibold">${PRICE_PER_CREDIT.toFixed(2)}</span>
-                <span className="text-muted-foreground">/credit</span>
+                <span className="text-4xl font-semibold">${starterTotal.toFixed(2)}</span>
+                <span className="text-muted-foreground">/{starterCredits} segments</span>
+                <div className="text-xs text-muted-foreground mt-1">
+                  ${PRICE_PER_CREDIT.toFixed(2)} per segment credit
+                </div>
               </div>
               <p className="text-sm text-muted-foreground mb-6">
                 Pay-as-you-go credits for video rendering
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  `1 credit ≈ ${Math.round((60 / CREDITS_PER_MINUTE) * 10) / 10}s of rendered video`,
+                  `1 credit ≈ 1 segment (~${Math.round(secondsPerCredit)}s)`,
                   "Credits never expire",
                   "Buy what you need",
                   "No monthly minimums",
