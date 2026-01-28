@@ -176,9 +176,11 @@ const Pricing = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-4 bg-muted/50 rounded-[10px]">
                     <div>
-                      <div className="font-semibold">1 credit = {CREDITS_PER_MINUTE === 1 ? "1 rendered minute" : `${1/CREDITS_PER_MINUTE} rendered minutes`}</div>
+                      <div className="font-semibold">
+                        1 credit = {CREDITS_PER_MINUTE === 7.5 ? "1 segment (~8 seconds)" : `${(1 / CREDITS_PER_MINUTE).toFixed(2)} rendered minutes`}
+                      </div>
                       <div className="text-sm text-muted-foreground mt-1">
-                        Credits are provider-agnostic
+                        Credits are consumed when rendering videos
                       </div>
                     </div>
                     <div className="text-right">
@@ -191,7 +193,7 @@ const Pricing = () => {
                     <p>• Credits are used to render videos</p>
                     <p>• Credits do not expire</p>
                     <p>• Pay only for what you use</p>
-                    <p>• Provider-agnostic (works with Kie and others)</p>
+                    <p>• Credits are charged per rendered segment</p>
                   </div>
                 </div>
 

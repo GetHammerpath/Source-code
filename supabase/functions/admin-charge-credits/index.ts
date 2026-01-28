@@ -112,11 +112,11 @@ serve(async (req) => {
         );
       }
 
-      // Calculate credits based on generation
+      // Credit model: 1 segment/scene (~8s) = 1 credit
       const segments = Array.isArray(generation.video_segments) ? generation.video_segments : [];
       const scenesCompleted = Math.max(segments.length, generation.number_of_scenes || 1, 1);
       const actualRenderedMinutes = (scenesCompleted * 8) / 60;
-      const actualCredits = Math.ceil(actualRenderedMinutes);
+      const actualCredits = scenesCompleted;
 
       // Get current balance
       const { data: balance, error: balanceError } = await supabaseAdmin

@@ -8,23 +8,23 @@ export const KIE_COST_PER_MINUTE = parseFloat(
   import.meta.env.VITE_KIE_COST_PER_MINUTE || "0.20"
 );
 
-// Margin multiplier
-export const CREDIT_MARKUP_MULTIPLIER = parseFloat(
-  // 6.67x ≈ 85% gross margin on provider cost: margin = 1 - 1/m
-  import.meta.env.VITE_CREDIT_MARKUP_MULTIPLIER || "6.67"
-);
+// CREDIT MODEL (Option B):
+// - 1 video segment (~8 seconds) = 1 credit
+// - 3 segments (24s) = 3 credits and should be >= $10
+//
+// Credit consumption rate:
+// 60 seconds / 8 seconds = 7.5 credits per rendered minute
+export const CREDITS_PER_MINUTE = parseFloat(import.meta.env.VITE_CREDITS_PER_MINUTE || "7.5");
 
-// Credit consumption rate
-export const CREDITS_PER_MINUTE = parseFloat(
-  import.meta.env.VITE_CREDITS_PER_MINUTE || "1"
-);
+// Price per credit:
+// Default to $3.34 so 3 credits ~= $10.02 (minimum >= $10).
+// You can override exactly via VITE_PRICE_PER_CREDIT, e.g. 3.3333333333.
+export const PRICE_PER_CREDIT = parseFloat(import.meta.env.VITE_PRICE_PER_CREDIT || "3.34");
 
-// Price per credit
-// Formula: (KIE_COST_PER_MINUTE * CREDIT_MARKUP_MULTIPLIER) / CREDITS_PER_MINUTE
-export const PRICE_PER_CREDIT = (KIE_COST_PER_MINUTE * CREDIT_MARKUP_MULTIPLIER) / CREDITS_PER_MINUTE;
-
-// Rule: 1 credit = 1 rendered minute (by default)
 export const MINUTES_PER_CREDIT = 1 / CREDITS_PER_MINUTE;
+
+// Keep these for reference/analytics (not used for default pricing anymore).
+export const CREDIT_MARKUP_MULTIPLIER = parseFloat(import.meta.env.VITE_CREDIT_MARKUP_MULTIPLIER || "1");
 
 // Studio Access Subscription
 export interface StudioAccess {

@@ -239,7 +239,7 @@ serve(async (req) => {
 
             const actualRenderedMinutes = videoJob?.estimated_minutes ?? fallbackRenderedMinutes;
             const actualCredits =
-              (videoJob?.credits_reserved ?? videoJob?.estimated_credits ?? Math.ceil(actualRenderedMinutes)) || 0;
+              (videoJob?.credits_reserved ?? videoJob?.estimated_credits ?? numberOfScenes) || 0;
 
             console.log(`💰 Charging credits for ${numberOfScenes} scenes: ${actualCredits} credits (${actualRenderedMinutes.toFixed(2)} minutes)`);
 
@@ -388,7 +388,7 @@ serve(async (req) => {
 
               const actualRenderedMinutes = videoJob?.estimated_minutes ?? fallbackRenderedMinutes;
               const actualCredits =
-                (videoJob?.credits_reserved ?? videoJob?.estimated_credits ?? Math.ceil(actualRenderedMinutes)) || 0;
+                (videoJob?.credits_reserved ?? videoJob?.estimated_credits ?? 1) || 0;
 
               console.log(`💰 Charging credits for single scene: ${actualCredits} credits (${actualRenderedMinutes.toFixed(2)} minutes)`);
 

@@ -51,8 +51,7 @@ async function maybeChargeCreditsForGeneration(
   }
 
   const renderedMinutes = 8 / 60; // single 8s clip
-  const creditsToCharge =
-    (pendingJob?.credits_reserved ?? pendingJob?.estimated_credits ?? Math.ceil(renderedMinutes)) || 0;
+  const creditsToCharge = (pendingJob?.credits_reserved ?? pendingJob?.estimated_credits ?? 1) || 0;
 
   if (creditsToCharge <= 0) {
     console.warn('⚠️ No credits to charge for generation:', generationId);

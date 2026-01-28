@@ -152,9 +152,9 @@ serve(async (req) => {
         // Ensure at least 1 scene
         scenesCompleted = Math.max(1, scenesCompleted);
 
-        // Calculate credits (8 seconds per scene = ~0.133 minutes per scene)
+        // Credit model: 1 segment/scene (~8s) = 1 credit
         const actualRenderedMinutes = (scenesCompleted * 8) / 60;
-        const actualCredits = Math.ceil(actualRenderedMinutes);
+        const actualCredits = scenesCompleted;
 
         console.log(`🎬 Generation ${gen.id.substring(0, 8)}...`);
         console.log(`   Status: initial=${gen.initial_status}, extended=${gen.extended_status}`);

@@ -214,8 +214,8 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
       return;
     }
 
-    // Estimate rendered minutes: each scene is ~8 seconds
-    const estimatedRenderedMinutes = Math.ceil(scenePrompts.length * 8 / 60); // 8 seconds per scene
+    // Estimate rendered minutes: each scene is ~8 seconds (keep as float; credits math handles rounding)
+    const estimatedRenderedMinutes = (scenePrompts.length * 8) / 60; // 8 seconds per scene
     const requiredCredits = estimateCreditsForRenderedMinutes(estimatedRenderedMinutes);
 
     // Check credits before starting
@@ -688,7 +688,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
               {scenePrompts.length > 0 && (
                 <div className="space-y-2">
                   {(() => {
-                    const estimatedRenderedMinutes = Math.ceil(scenePrompts.length * 8 / 60);
+                    const estimatedRenderedMinutes = (scenePrompts.length * 8) / 60;
                     const requiredCredits = estimateCreditsForRenderedMinutes(estimatedRenderedMinutes);
                     const estimatedCost = calculateCreditPrice(requiredCredits);
                     const hasEnough = balance && hasCredits(requiredCredits);
@@ -697,7 +697,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
                       <div className="p-4 bg-muted/50 rounded-[10px] space-y-2">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Estimated rendered:</span>
-                          <span className="font-medium">{estimatedRenderedMinutes} minutes</span>
+                          <span className="font-medium">{estimatedRenderedMinutes.toFixed(2)} minutes</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Estimated credits:</span>
@@ -740,7 +740,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
               
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating || (scenePrompts.length > 0 && balance && !hasCredits(estimateCreditsForRenderedMinutes(Math.ceil(scenePrompts.length * 8 / 60))))}
+                disabled={isGenerating || (scenePrompts.length > 0 && balance && !hasCredits(estimateCreditsForRenderedMinutes((scenePrompts.length * 8) / 60)))}
                 className="w-full"
                 size="lg"
               >
