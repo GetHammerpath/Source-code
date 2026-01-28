@@ -188,24 +188,64 @@ serve(async (req) => {
           
           // Charge credits for completed generation
           try {
-            // Calculate actual rendered minutes (8 seconds per scene = ~0.133 minutes per scene)
-            const actualRenderedMinutes = (numberOfScenes * 8) / 60;
-            const creditsPerMinute = 1; // 1 credit = 1 minute
-            const actualCredits = Math.ceil(actualRenderedMinutes * creditsPerMinute);
+            // Idempotency: if we already recorded a debit for this generation, skip re-charging
+            const { data: existingTx } = await supabase
+              .from('credit_transactions')
+              .select('id, amount')
+              .eq('type', 'debit')
+              .eq('metadata->>generation_id', generation.id)
+              .order('created_at', { ascending: false })
+              .limit(1);
 
-            console.log(`💰 Charging credits for ${numberOfScenes} scenes: ${actualCredits} credits (${actualRenderedMinutes.toFixed(2)} minutes)`);
+            if (existingTx && existingTx.length > 0) {
+              console.log('ℹ️ Credits already charged for generation (skipping):', generation.id);
+              // Still mark any pending job as completed for tracking.
+              const { data: pendingJob } = await supabase
+                .from('video_jobs')
+                .select('id')
+                .eq('generation_id', generation.id)
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (pendingJob?.id) {
+                await supabase
+                  .from('video_jobs')
+                  .update({
+                    status: 'completed',
+                    credits_reserved: 0,
+                    credits_charged: Math.abs(existingTx[0].amount ?? 0),
+                    completed_at: new Date().toISOString(),
+                  })
+                  .eq('id', pendingJob.id);
+              }
+            } else {
 
-            // Find video_job for this generation (optional - charge even if it doesn't exist)
+            const fallbackRenderedMinutes = (numberOfScenes * 8) / 60;
+
+            // Prefer charging the reserved/estimated credits from the job record (created on generation start)
             const { data: videoJob, error: jobError } = await supabase
               .from('video_jobs')
               .select('*')
               .eq('generation_id', generation.id)
               .eq('status', 'pending')
-              .single();
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
 
             if (jobError && jobError.code !== 'PGRST116') {
               console.warn('⚠️ Could not find video_jobs record:', jobError.message);
             }
+
+            const actualRenderedMinutes = videoJob?.estimated_minutes ?? fallbackRenderedMinutes;
+            const actualCredits =
+              (videoJob?.credits_reserved ?? videoJob?.estimated_credits ?? Math.ceil(actualRenderedMinutes)) || 0;
+
+            console.log(`💰 Charging credits for ${numberOfScenes} scenes: ${actualCredits} credits (${actualRenderedMinutes.toFixed(2)} minutes)`);
+
+            if (actualCredits <= 0) {
+              console.warn('⚠️ No credits to charge (skipping). generation:', generation.id);
+            } else {
 
             // Get current credit balance
             const { data: balance, error: balanceError } = await supabase
@@ -290,6 +330,8 @@ serve(async (req) => {
             }
 
             console.log(`✅ Charged ${actualCredits} credits (${actualRenderedMinutes.toFixed(2)} minutes) for ${numberOfScenes} scenes. Balance: ${currentBalance} → ${newBalance}`);
+            }
+            }
           } catch (creditError) {
             console.error('❌ Error charging credits:', creditError);
             // Don't fail the callback if credit charging fails, but log it
@@ -316,24 +358,43 @@ serve(async (req) => {
         // Single scene - charge credits when initial scene completes
         if (isInitial && videoUrl && successFlag === 1) {
           try {
-            // Single scene: 8 seconds = ~0.133 minutes
-            const actualRenderedMinutes = 8 / 60;
-            const creditsPerMinute = 1;
-            const actualCredits = Math.ceil(actualRenderedMinutes * creditsPerMinute);
+            // Idempotency: if we already recorded a debit for this generation, skip re-charging
+            const { data: existingTx } = await supabase
+              .from('credit_transactions')
+              .select('id, amount')
+              .eq('type', 'debit')
+              .eq('metadata->>generation_id', generation.id)
+              .order('created_at', { ascending: false })
+              .limit(1);
 
-            console.log(`💰 Charging credits for single scene: ${actualCredits} credits (${actualRenderedMinutes.toFixed(2)} minutes)`);
+            if (existingTx && existingTx.length > 0) {
+              console.log('ℹ️ Credits already charged for generation (skipping):', generation.id);
+            } else {
+              const fallbackRenderedMinutes = 8 / 60; // single 8s clip
 
-            // Find video_job for this generation (optional - charge even if it doesn't exist)
-            const { data: videoJob, error: jobError } = await supabase
-              .from('video_jobs')
-              .select('*')
-              .eq('generation_id', generation.id)
-              .eq('status', 'pending')
-              .single();
+              // Prefer charging the reserved/estimated credits from the job record (created on generation start)
+              const { data: videoJob, error: jobError } = await supabase
+                .from('video_jobs')
+                .select('*')
+                .eq('generation_id', generation.id)
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
 
-            if (jobError && jobError.code !== 'PGRST116') {
-              console.warn('⚠️ Could not find video_jobs record:', jobError.message);
-            }
+              if (jobError && jobError.code !== 'PGRST116') {
+                console.warn('⚠️ Could not find video_jobs record:', jobError.message);
+              }
+
+              const actualRenderedMinutes = videoJob?.estimated_minutes ?? fallbackRenderedMinutes;
+              const actualCredits =
+                (videoJob?.credits_reserved ?? videoJob?.estimated_credits ?? Math.ceil(actualRenderedMinutes)) || 0;
+
+              console.log(`💰 Charging credits for single scene: ${actualCredits} credits (${actualRenderedMinutes.toFixed(2)} minutes)`);
+
+              if (actualCredits <= 0) {
+                console.warn('⚠️ No credits to charge (skipping). generation:', generation.id);
+              } else {
 
             // Get current credit balance
             const { data: balance, error: balanceError } = await supabase
@@ -418,6 +479,8 @@ serve(async (req) => {
             }
 
             console.log(`✅ Charged ${actualCredits} credits for single scene completion. Balance: ${currentBalance} → ${newBalance}`);
+              }
+            }
           } catch (creditError) {
             console.error('❌ Error charging credits:', creditError);
             // Don't fail the callback if credit charging fails, but log it

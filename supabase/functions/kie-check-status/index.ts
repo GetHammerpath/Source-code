@@ -6,6 +6,140 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+async function maybeChargeCreditsForGeneration(
+  supabase: any,
+  generation: any,
+  generationId: string
+) {
+  // Don't charge here for multi-scene jobs (handled in `kie-callback`).
+  // This function exists primarily to cover cases where the Kie callback
+  // never arrives and the UI relies on polling via `kie-check-status`.
+  const isMultiScene = !!generation?.is_multi_scene || (generation?.number_of_scenes ?? 1) > 1;
+  if (isMultiScene) {
+    console.log('ℹ️ Skipping credit charge in kie-check-status for multi-scene generation:', generationId);
+    return;
+  }
+
+  // Idempotency: skip if we already recorded a debit for this generation
+  const { data: existingTx, error: txCheckError } = await supabase
+    .from('credit_transactions')
+    .select('id')
+    .eq('type', 'debit')
+    .eq('metadata->>generation_id', generationId)
+    .limit(1);
+
+  if (txCheckError) {
+    console.warn('⚠️ Failed to check existing credit transaction:', txCheckError);
+  }
+  if (existingTx && existingTx.length > 0) {
+    console.log('ℹ️ Credits already charged for generation (skipping):', generationId);
+    return;
+  }
+
+  // Prefer charging the reserved/estimated credits from the job record
+  const { data: pendingJob, error: jobErr } = await supabase
+    .from('video_jobs')
+    .select('*')
+    .eq('generation_id', generationId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (jobErr && jobErr.code !== 'PGRST116') {
+    console.warn('⚠️ Could not fetch pending video_job:', jobErr);
+  }
+
+  const renderedMinutes = 8 / 60; // single 8s clip
+  const creditsToCharge =
+    (pendingJob?.credits_reserved ?? pendingJob?.estimated_credits ?? Math.ceil(renderedMinutes)) || 0;
+
+  if (creditsToCharge <= 0) {
+    console.warn('⚠️ No credits to charge for generation:', generationId);
+    return;
+  }
+
+  const userId = generation.user_id;
+
+  // Get current balance
+  const { data: balance, error: balanceError } = await supabase
+    .from('credit_balance')
+    .select('credits')
+    .eq('user_id', userId)
+    .single();
+
+  if (balanceError) {
+    console.error('❌ Failed to get credit balance:', balanceError);
+    return;
+  }
+
+  const currentBalance = balance?.credits || 0;
+  const newBalance = Math.max(0, currentBalance - creditsToCharge);
+
+  // Update balance
+  const { error: updateError } = await supabase
+    .from('credit_balance')
+    .update({ credits: newBalance })
+    .eq('user_id', userId);
+
+  if (updateError) {
+    console.error('❌ Failed to update credit balance:', updateError);
+    return;
+  }
+
+  // Record transaction
+  const { error: txError } = await supabase.from('credit_transactions').insert({
+    user_id: userId,
+    type: 'debit',
+    amount: -creditsToCharge,
+    balance_after: newBalance,
+    metadata: {
+      job_id: pendingJob?.id ?? null,
+      generation_id: generationId,
+      actual_minutes: pendingJob?.estimated_minutes ?? renderedMinutes,
+      charged_by: 'kie-check-status',
+    },
+  });
+
+  if (txError) {
+    console.error('❌ Failed to insert credit transaction:', txError);
+    // Balance already updated; do not throw.
+  }
+
+  // Mark job completed (or create a retroactive one for tracking)
+  if (pendingJob?.id) {
+    await supabase
+      .from('video_jobs')
+      .update({
+        status: 'completed',
+        actual_minutes: pendingJob?.estimated_minutes ?? renderedMinutes,
+        credits_charged: creditsToCharge,
+        credits_reserved: 0,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', pendingJob.id);
+  } else {
+    await supabase
+      .from('video_jobs')
+      .insert({
+        user_id: userId,
+        generation_id: generationId,
+        provider: 'kie',
+        estimated_minutes: renderedMinutes,
+        actual_minutes: renderedMinutes,
+        estimated_credits: creditsToCharge,
+        credits_reserved: 0,
+        credits_charged: creditsToCharge,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        metadata: { created_retroactively: true, source: 'kie-check-status' },
+      })
+      .catch((e: any) => console.warn('⚠️ Failed to create retroactive video_job:', e));
+  }
+
+  console.log(`✅ Charged ${creditsToCharge} credits via kie-check-status. Balance: ${currentBalance} → ${newBalance}`);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -131,6 +265,18 @@ serve(async (req) => {
       if (updateError) {
         console.error('❌ Database update error:', updateError);
         throw updateError;
+      }
+
+      // If a non-multi-scene video just completed, charge credits here (covers polling path).
+      const initialJustCompleted = generation.initial_status !== 'completed' && updates.initial_status === 'completed';
+      const extendedJustCompleted = generation.extended_status !== 'completed' && updates.extended_status === 'completed';
+      if (initialJustCompleted || extendedJustCompleted) {
+        try {
+          await maybeChargeCreditsForGeneration(supabase, generation, generation_id);
+        } catch (e) {
+          console.error('❌ Error charging credits in kie-check-status:', e);
+          // Don't fail status check due to billing issues.
+        }
       }
 
       // If initial just completed, trigger extend

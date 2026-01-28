@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Plus, ExternalLink, Calendar, CreditCard, RefreshCw } from "lucide-react";
 import { useStudioAccess } from "@/hooks/useStudioAccess";
@@ -34,6 +32,7 @@ const Billing = () => {
   const [syncingSubscription, setSyncingSubscription] = useState(false);
   const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
   const syncAttemptedRef = useRef(false);
+  const creditsFixAttemptedRef = useRef(false);
   const [chargingRetroactive, setChargingRetroactive] = useState(false);
   const { toast } = useToast();
 
@@ -119,6 +118,15 @@ const Billing = () => {
     runSyncSubscription();
   }, [subLoading, subscription, syncingSubscription]);
 
+  // Auto-fix missing credit charges once per mount (no user action required).
+  useEffect(() => {
+    if (creditsLoading || chargingRetroactive || creditsFixAttemptedRef.current) return;
+    creditsFixAttemptedRef.current = true;
+    // Silent on "no-op" so it doesn't spam toasts on every visit.
+    handleRetroactivelyChargeCredits({ silentIfNoop: true, silentOnError: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creditsLoading]);
+
   const fetchTransactions = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -157,19 +165,23 @@ const Billing = () => {
     }
   };
 
-  const handleRetroactivelyChargeCredits = async () => {
+  const handleRetroactivelyChargeCredits = async (opts?: { silentIfNoop?: boolean; silentOnError?: boolean }) => {
     setChargingRetroactive(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast({ title: "Error", description: "Not authenticated.", variant: "destructive" });
+        if (!opts?.silentOnError) {
+          toast({ title: "Error", description: "Not authenticated.", variant: "destructive" });
+        }
         return;
       }
       console.log("🔄 Calling retroactively-charge-credits...");
       const url = import.meta.env.VITE_SUPABASE_URL;
       const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       if (!url || !anon) {
-        toast({ title: "Config missing", description: "App config missing.", variant: "destructive" });
+        if (!opts?.silentOnError) {
+          toast({ title: "Config missing", description: "App config missing.", variant: "destructive" });
+        }
         return;
       }
       const res = await fetch(`${url}/functions/v1/retroactively-charge-credits`, {
@@ -208,7 +220,7 @@ const Billing = () => {
           title: "Credits charged",
           description: `Charged ${totalCredits} credits for ${charged} completed video${charged !== 1 ? "s" : ""}.`,
         });
-      } else {
+      } else if (!opts?.silentIfNoop) {
         toast({
           title: "No charges needed",
           description: data.message || "All completed videos have already been charged.",
@@ -219,12 +231,14 @@ const Billing = () => {
       await fetchTransactions();
     } catch (e) {
       console.error("❌ Retroactively charge credits error:", e);
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      toast({
-        title: "Error",
-        description: errorMessage.length > 100 ? `${errorMessage.substring(0, 100)}...` : errorMessage,
-        variant: "destructive",
-      });
+      if (!opts?.silentOnError) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        toast({
+          title: "Error",
+          description: errorMessage.length > 100 ? `${errorMessage.substring(0, 100)}...` : errorMessage,
+          variant: "destructive",
+        });
+      }
     } finally {
       setChargingRetroactive(false);
     }
