@@ -124,7 +124,6 @@ const Billing = () => {
     creditsFixAttemptedRef.current = true;
     // Silent on "no-op" so it doesn't spam toasts on every visit.
     handleRetroactivelyChargeCredits({ silentIfNoop: true, silentOnError: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [creditsLoading]);
 
   const fetchTransactions = async () => {

@@ -135,7 +135,9 @@ serve(async (req) => {
               reason: 'Admin refreshed provider balance',
             },
           });
-        } catch (_) {}
+        } catch (e) {
+          console.warn('admin-audit-log failed:', e);
+        }
       }
     } else {
       kieBalance = {

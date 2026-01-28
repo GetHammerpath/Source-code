@@ -18,7 +18,9 @@
     "set:stripe-customer": "node --env-file=.env scripts/set-stripe-customer-id.mjs",
     "redeploy": "node --env-file=.env scripts/trigger-vercel-deploy.mjs",
     "charge:retroactive": "node --env-file=.env scripts/retroactively-charge-credits.mjs",
-    "check:credits": "node --env-file=.env scripts/check-video-credits.mjs"
+    "check:credits": "node --env-file=.env scripts/check-video-credits.mjs",
+    "test:smoke:dev": "npx playwright test -c playwright.dev.config.ts",
+    "test:smoke:preview": "npx playwright test -c playwright.preview.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -76,6 +78,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.58.0",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.16.5",
     "@types/react": "^18.3.23",

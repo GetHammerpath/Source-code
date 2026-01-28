@@ -83,7 +83,7 @@ const AdminAudit = () => {
     if (dateFilter !== "all") {
       const logDate = new Date(log.created_at);
       const now = new Date();
-      let cutoffDate = new Date();
+      const cutoffDate = new Date();
 
       switch (dateFilter) {
         case "today":

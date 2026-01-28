@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Search, Loader2, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { useNavigate } from "react-router-dom";
 
 interface User {
   id: string;

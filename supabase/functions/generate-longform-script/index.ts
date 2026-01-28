@@ -26,7 +26,7 @@ serve(async (req) => {
     }
 
     // Build prompt based on input type
-    let systemPrompt = `You are an expert video script writer. Your task is to create a complete, professional video script from limited input.
+    const systemPrompt = `You are an expert video script writer. Your task is to create a complete, professional video script from limited input.
 
 The script should:
 - Be engaging and professional
