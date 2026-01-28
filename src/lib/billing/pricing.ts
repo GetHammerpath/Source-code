@@ -13,7 +13,7 @@ export const KIE_COST_PER_MINUTE = parseFloat(
 // - 3 segments (24s) = 3 credits and should be >= $10
 //
 // Credit consumption rate:
-// 60 seconds / 8 seconds = 7.5 credits per rendered minute
+// With 1 credit ≈ 1 segment (~8s), that's 7.5 credits per rendered minute.
 export const CREDITS_PER_MINUTE = parseFloat(import.meta.env.VITE_CREDITS_PER_MINUTE || "7.5");
 
 // Price per credit:

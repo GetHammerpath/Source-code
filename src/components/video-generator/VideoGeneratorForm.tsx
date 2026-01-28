@@ -701,10 +701,6 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
                           <span className="text-muted-foreground">Estimated segments:</span>
                           <span className="font-medium">{segmentCount}</span>
                         </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>≈ rendered time:</span>
-                          <span>{estimatedRenderedMinutes.toFixed(2)} min</span>
-                        </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Estimated credits:</span>
                           <span className={`font-semibold ${hasEnough ? 'text-foreground' : 'text-destructive'}`}>

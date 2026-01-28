@@ -170,8 +170,8 @@
 // };
 
 // export default Auth;
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,7 +187,98 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  const PENDING_AVATAR_KEY = "hp:pending_avatar";
+
+  const defaultTab = useMemo<"signin" | "signup">(() => {
+    if (location.pathname === "/signup") return "signup";
+    const qs = new URLSearchParams(location.search);
+    const hasBridgeParams = !!(qs.get("selected_image_url") || qs.get("avatar_name"));
+    return hasBridgeParams ? "signup" : "signin";
+  }, [location.pathname, location.search]);
+
+  const [tab, setTab] = useState<"signin" | "signup">(defaultTab);
+
+  // Capture reverse-onboarding state from URL params (or keep existing localStorage draft).
+  useEffect(() => {
+    const qs = new URLSearchParams(location.search);
+    const selectedImageUrl = (qs.get("selected_image_url") || "").trim();
+    const avatarName = (qs.get("avatar_name") || "").trim();
+
+    if (selectedImageUrl || avatarName) {
+      const raw = localStorage.getItem(PENDING_AVATAR_KEY);
+      let existing: { selected_image_url?: string; avatar_name?: string } = {};
+      try {
+        existing = raw ? (JSON.parse(raw) as typeof existing) : {};
+      } catch {
+        existing = {};
+      }
+      localStorage.setItem(
+        PENDING_AVATAR_KEY,
+        JSON.stringify({
+          selected_image_url: selectedImageUrl || existing.selected_image_url,
+          avatar_name: avatarName || existing.avatar_name,
+        })
+      );
+      setTab("signup");
+    }
+  }, [location.search, location.pathname]);
+
+  const maybeCreateAvatarFromPending = async () => {
+    const raw = localStorage.getItem(PENDING_AVATAR_KEY);
+    if (!raw) return;
+
+    let draft: { selected_image_url?: string; avatar_name?: string } | null = null;
+    try {
+      draft = JSON.parse(raw) as typeof draft;
+    } catch {
+      localStorage.removeItem(PENDING_AVATAR_KEY);
+      return;
+    }
+
+    const selectedImageUrl = (draft?.selected_image_url || "").trim();
+    const avatarName = (draft?.avatar_name || "").trim();
+    if (!selectedImageUrl || !avatarName) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Best-effort idempotency: if we already created this exact avatar, don't create again.
+    const { data: existing, error: existingError } = await (supabase as any)
+      .from("avatars")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("name", avatarName)
+      .eq("seed_image_url", selectedImageUrl)
+      .limit(1);
+
+    if (!existingError && Array.isArray(existing) && existing.length > 0) {
+      localStorage.removeItem(PENDING_AVATAR_KEY);
+      return;
+    }
+
+    const { error: insertError } = await (supabase as any)
+      .from("avatars")
+      .insert({
+        user_id: user.id,
+        name: avatarName,
+        seed_image_url: selectedImageUrl,
+        voice_id: null,
+      });
+
+    if (insertError) {
+      console.warn("Failed to create avatar from pending draft:", insertError);
+      return;
+    }
+
+    localStorage.removeItem(PENDING_AVATAR_KEY);
+    toast({
+      title: "Avatar created",
+      description: `Created "${avatarName}" for your account.`,
+    });
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,6 +296,7 @@ const Auth = () => {
         variant: "destructive",
       });
     } else {
+      await maybeCreateAvatarFromPending();
       toast({
         title: "Success",
         description: "Logged in successfully",
@@ -219,7 +311,7 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -237,10 +329,21 @@ const Auth = () => {
         variant: "destructive",
       });
     } else {
+      // If a session was created immediately, we can create the avatar right now.
+      // If email confirmation is required and no session exists, we'll create it after sign-in.
+      if (data?.session) {
+        await maybeCreateAvatarFromPending();
+        toast({
+          title: "Success",
+          description: "Account created successfully!",
+        });
+        navigate("/dashboard");
+      } else {
       toast({
         title: "Success",
-        description: "Account created successfully! You can now log in.",
+        description: "Account created successfully! Please check your email to confirm, then log in.",
       });
+      }
     }
 
     setLoading(false);
@@ -259,7 +362,7 @@ const Auth = () => {
           <CardDescription>Access your video production workflow</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as "signin" | "signup")} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>

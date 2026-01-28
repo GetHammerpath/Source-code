@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, ArrowRight, CreditCard } from "lucide-react";
-import { STUDIO_ACCESS, PRICE_PER_CREDIT, CREDITS_PER_MINUTE, calculateCreditPrice } from "@/lib/billing/pricing";
+import { STUDIO_ACCESS, PRICE_PER_CREDIT, calculateCreditPrice } from "@/lib/billing/pricing";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudioAccess } from "@/hooks/useStudioAccess";
 import { useCredits } from "@/hooks/useCredits";
@@ -51,9 +51,6 @@ const Checkout = () => {
   }, [navigate]);
 
   const totalPrice = calculateCreditPrice(creditAmount);
-  const secondsPerCredit = 60 / CREDITS_PER_MINUTE;
-  const approxSeconds = creditAmount * secondsPerCredit;
-  const approxMinutes = approxSeconds / 60;
 
   const handleCheckout = async () => {
     setLoading(true);
@@ -185,12 +182,6 @@ const Checkout = () => {
                       <span className="text-muted-foreground">Price per segment credit:</span>
                       <span className="font-medium">${PRICE_PER_CREDIT.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Approx rendered time:</span>
-                      <span>
-                        ~{Math.round(approxSeconds)}s ({approxMinutes.toFixed(2)} min)
-                      </span>
-                    </div>
                     <div className="flex justify-between text-xl font-semibold pt-2 border-t">
                       <span>Total:</span>
                       <span>${totalPrice.toFixed(2)}</span>
@@ -260,10 +251,6 @@ const Checkout = () => {
                     <div className="flex justify-between mb-1">
                       <span className="text-muted-foreground">Price per segment credit:</span>
                       <span className="font-medium">${PRICE_PER_CREDIT.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between mb-1 text-xs text-muted-foreground">
-                      <span>Approx rendered time:</span>
-                      <span>~{Math.round(approxSeconds)}s</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total:</span>

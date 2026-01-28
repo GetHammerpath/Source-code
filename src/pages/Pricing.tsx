@@ -16,7 +16,6 @@ const Pricing = () => {
   const [subscribing, setSubscribing] = useState(false);
   const { subscription } = useStudioAccess();
   const { balance } = useCredits();
-  const secondsPerCredit = 60 / CREDITS_PER_MINUTE;
   const starterCredits = 3;
   const starterTotal = starterCredits * PRICE_PER_CREDIT;
   const tenPackCredits = 10;
@@ -182,7 +181,7 @@ const Pricing = () => {
                   <div className="flex items-center justify-between p-4 bg-muted/50 rounded-[10px]">
                     <div>
                       <div className="font-semibold">
-                        1 credit ≈ 1 segment (~{Math.round(secondsPerCredit)}s)
+                        1 credit = 1 segment
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
                         Credits are consumed when rendering videos (charged per completed segment)
@@ -190,7 +189,7 @@ const Pricing = () => {
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold">${starterTotal.toFixed(2)}</div>
-                      <div className="text-sm text-muted-foreground">{starterCredits} segments (~{Math.round(starterCredits * secondsPerCredit)}s)</div>
+                      <div className="text-sm text-muted-foreground">{starterCredits} segments</div>
                     </div>
                   </div>
 

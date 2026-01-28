@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Wand2, Film, Zap, Sparkles, Layers, Check, Play, 
   ArrowRight, Video, Users, Clock, Shield, Star, Menu,
@@ -16,9 +19,85 @@ const Landing = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeStep, setActiveStep] = useState("ingest");
-  const secondsPerCredit = 60 / CREDITS_PER_MINUTE;
   const starterCredits = 3;
   const starterTotal = starterCredits * PRICE_PER_CREDIT;
+
+  // Reverse onboarding (Casting Interface)
+  const [castingPrompt, setCastingPrompt] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [generatedUrls, setGeneratedUrls] = useState<string[]>([]);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generateNotice, setGenerateNotice] = useState<string | null>(null);
+  const [nameDialogOpen, setNameDialogOpen] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [talentName, setTalentName] = useState("");
+
+  const canGenerate = castingPrompt.trim().length > 0 && !generating;
+  const canContinue = !!selectedImageUrl && talentName.trim().length > 0;
+
+  const pendingSignupUrl = useMemo(() => {
+    const qs = new URLSearchParams();
+    if (selectedImageUrl) qs.set("selected_image_url", selectedImageUrl);
+    if (talentName.trim()) qs.set("avatar_name", talentName.trim());
+    return `/signup?${qs.toString()}`;
+  }, [selectedImageUrl, talentName]);
+
+  const generateAvatars = async () => {
+    setGenerateError(null);
+    setGenerateNotice(null);
+    setGenerating(true);
+    setGeneratedUrls([]);
+    try {
+      const res = await fetch("/api/generate-avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: castingPrompt.trim() }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { urls?: string[]; error?: string };
+      if (!res.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`);
+      }
+      const urls = Array.isArray(data?.urls) ? data.urls.filter(Boolean) : [];
+      if (urls.length === 0) throw new Error("No images returned");
+      setGeneratedUrls(urls.slice(0, 4));
+    } catch (e) {
+      // Dev convenience: Vite doesn't run Vercel serverless functions.
+      // If /api isn't available locally, fall back to a deterministic client-side mock.
+      if (import.meta.env.DEV) {
+        const prompt = castingPrompt.trim();
+        let h = 7;
+        for (let i = 0; i < prompt.length; i++) h = (h * 31 + prompt.charCodeAt(i)) >>> 0;
+        const seed = h.toString(16);
+        setGeneratedUrls([
+          `https://picsum.photos/seed/${seed}-1/1024/1024`,
+          `https://picsum.photos/seed/${seed}-2/1024/1024`,
+          `https://picsum.photos/seed/${seed}-3/1024/1024`,
+          `https://picsum.photos/seed/${seed}-4/1024/1024`,
+        ]);
+        setGenerateNotice("Dev mode: using local mock generator.");
+      } else {
+        setGenerateError(e instanceof Error ? e.message : "Failed to generate images");
+      }
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const onPickImage = (url: string) => {
+    setSelectedImageUrl(url);
+    setTalentName("");
+    setNameDialogOpen(true);
+  };
+
+  const onSignupBridge = () => {
+    if (!canContinue || !selectedImageUrl) return;
+    // Persist bridge data (in addition to URL params)
+    localStorage.setItem(
+      "hp:pending_avatar",
+      JSON.stringify({ selected_image_url: selectedImageUrl, avatar_name: talentName.trim() })
+    );
+    navigate(pendingSignupUrl);
+  };
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -96,92 +175,122 @@ const Landing = () => {
 
       {/* Hero Section */}
       <section className="container mx-auto px-6 md:px-8 py-20 md:py-32">
-        <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
-          <div className="space-y-8">
-            <div className="space-y-6">
-              <h1 className="text-4xl md:text-6xl font-semibold tracking-tight text-foreground leading-[1.1]">
-                Generate long-form videos with AI orchestration
-              </h1>
-              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-xl">
-                Orchestrate workflows across providers to create minutes-to-hours of video. Compliance-safe, repeatable pipelines with quality control built-in.
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                onClick={() => navigate("/auth")} 
-                size="lg"
-                className="rounded-[14px] shadow-sm hover:shadow-md transition-all duration-150 text-base px-8 h-12"
-              >
-                Generate a Long-Form Video
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="lg"
-                onClick={() => scrollToSection("integrations")}
-                className="rounded-[14px] border-border/50 text-base px-8 h-12"
-              >
-                <Link2 className="mr-2 h-4 w-4" />
-                View Integrations
-              </Button>
-            </div>
-
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              Provider-agnostic architecture • Compliance-ready workflows
+        <div className="max-w-3xl mx-auto text-center space-y-8">
+          <div className="space-y-3">
+            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground leading-[1.1]">
+              The Casting Interface
+            </h1>
+            <p className="text-lg text-muted-foreground">
+              Generate an avatar before you sign up. Pick a look, name your talent, then create your account.
             </p>
           </div>
 
-          {/* Long-Form Studio Mock Panel */}
-          <div className="relative">
-            <div className="rounded-[20px] bg-gradient-to-br from-primary/20 via-accent/20 to-primary/10 p-6 border border-border/50 shadow-lg">
-              <div className="bg-muted/40 rounded-[14px] backdrop-blur-sm border border-border/50 p-6 space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm">Long-Form Studio</h3>
-                  <div className="text-xs text-muted-foreground">12:34 / 15:00</div>
-                </div>
-
-                {/* Timeline */}
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground mb-2">Timeline</div>
-                  <div className="h-2 bg-border/50 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-primary to-accent rounded-full" style={{ width: "82%" }} />
-                  </div>
-                </div>
-
-                {/* Scene List */}
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground mb-2">Scene List (18 scenes)</div>
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs bg-background/50 p-2 rounded-[8px] border border-border/30">
-                        <div className="w-6 text-center font-medium text-muted-foreground">{i}</div>
-                        <div className="flex-1 text-foreground/80">Scene {i} description</div>
-                        <div className="px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-medium">Kie</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Render Queue */}
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground mb-2">Render Queue</div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <div className="flex-1 bg-background/50 p-2 rounded-[8px] border border-border/30">
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                        <span className="text-foreground/80">Rendering scene 5/18...</span>
-                      </div>
-                    </div>
-                    <div className="px-2 py-1 bg-muted rounded text-[10px]">3 queued</div>
-                  </div>
-                </div>
-              </div>
+          <div className="text-left space-y-3">
+            <Label htmlFor="casting-prompt" className="text-sm font-medium">
+              Describe your ideal spokesperson
+            </Label>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Input
+                id="casting-prompt"
+                value={castingPrompt}
+                onChange={(e) => setCastingPrompt(e.target.value)}
+                placeholder="e.g. confident, friendly, modern, studio lighting, clean background..."
+                className="rounded-[14px] h-12"
+              />
+              <Button
+                onClick={generateAvatars}
+                disabled={!canGenerate}
+                className="rounded-[14px] h-12 px-6"
+              >
+                {generating ? "Generating..." : "Generate"}
+              </Button>
             </div>
+            {generateError && (
+              <div className="text-sm text-destructive">
+                {generateError}
+              </div>
+            )}
+            {generateNotice && !generateError && (
+              <div className="text-xs text-muted-foreground">
+                {generateNotice}
+              </div>
+            )}
+          </div>
+
+          {generatedUrls.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {generatedUrls.map((url) => (
+                <button
+                  key={url}
+                  type="button"
+                  onClick={() => onPickImage(url)}
+                  className="group relative overflow-hidden rounded-[14px] border border-border/50 bg-muted/20 hover:shadow-md transition-all duration-150"
+                >
+                  <img
+                    src={url}
+                    alt="Generated avatar option"
+                    className="h-40 w-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+            <Shield className="h-4 w-4" />
+            No signup required to generate. Sign up only when you’re ready to hire.
           </div>
         </div>
+
+        <Dialog open={nameDialogOpen} onOpenChange={setNameDialogOpen}>
+          <DialogContent className="rounded-[14px]">
+            <DialogHeader>
+              <DialogTitle>Name Your Talent</DialogTitle>
+              <DialogDescription>
+                Give your spokesperson a name. We’ll save it to your account after signup.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {selectedImageUrl && (
+                <div className="overflow-hidden rounded-[14px] border border-border/50">
+                  <img src={selectedImageUrl} alt="Selected avatar" className="w-full h-56 object-cover" />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="talent-name">Talent name</Label>
+                <Input
+                  id="talent-name"
+                  value={talentName}
+                  onChange={(e) => setTalentName(e.target.value)}
+                  placeholder="e.g. Mike"
+                  className="rounded-[14px]"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button
+                variant="outline"
+                className="rounded-[14px]"
+                onClick={() => setNameDialogOpen(false)}
+              >
+                Not now
+              </Button>
+              <Button
+                className="rounded-[14px]"
+                disabled={!canContinue}
+                onClick={onSignupBridge}
+              >
+                Sign up to hire {talentName.trim() ? `"${talentName.trim()}"` : "your talent"}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </section>
 
       {/* Logo Strip */}
@@ -625,7 +734,7 @@ const Landing = () => {
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  `1 credit ≈ 1 segment (~${Math.round(secondsPerCredit)}s)`,
+                  "1 credit = 1 segment",
                   "Credits never expire",
                   "Buy what you need",
                   "No monthly minimums",
