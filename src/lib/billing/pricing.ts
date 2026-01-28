@@ -23,6 +23,14 @@ export const PRICE_PER_CREDIT = parseFloat(import.meta.env.VITE_PRICE_PER_CREDIT
 
 export const MINUTES_PER_CREDIT = 1 / CREDITS_PER_MINUTE;
 
+/**
+ * Estimate credits needed for a given number of rendered segments.
+ * Under the default schema, 1 segment (~8s) = 1 credit.
+ */
+export function estimateCreditsForSegments(segments: number): number {
+  return Math.max(0, Math.ceil(segments));
+}
+
 // Keep these for reference/analytics (not used for default pricing anymore).
 export const CREDIT_MARKUP_MULTIPLIER = parseFloat(import.meta.env.VITE_CREDIT_MARKUP_MULTIPLIER || "1");
 
@@ -59,6 +67,7 @@ export function calculateCreditPrice(credits: number): number {
 
 /**
  * Estimate credits needed for a given number of rendered minutes
+ * (based on CREDITS_PER_MINUTE; default schema makes this equivalent to segments).
  */
 export function estimateCreditsForRenderedMinutes(renderedMinutes: number): number {
   return Math.ceil(renderedMinutes * CREDITS_PER_MINUTE);

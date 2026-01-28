@@ -10,6 +10,7 @@ import {
   Workflow, Settings, CheckCircle2, FileText, List, Rocket,
   Database, Webhook, Link2, GitBranch, Globe
 } from "lucide-react";
+import { PRICE_PER_CREDIT, CREDITS_PER_MINUTE } from "@/lib/billing/pricing";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -610,7 +611,7 @@ const Landing = () => {
             <div className="p-8 rounded-[14px] border border-border/50 bg-card hover:shadow-md transition-all duration-150">
               <h3 className="text-2xl font-semibold mb-2">Credits</h3>
               <div className="mb-6">
-                <span className="text-4xl font-semibold">$0.60</span>
+                <span className="text-4xl font-semibold">${PRICE_PER_CREDIT.toFixed(2)}</span>
                 <span className="text-muted-foreground">/credit</span>
               </div>
               <p className="text-sm text-muted-foreground mb-6">
@@ -618,7 +619,7 @@ const Landing = () => {
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  "1 credit = 1 rendered minute",
+                  `1 credit ≈ ${Math.round((60 / CREDITS_PER_MINUTE) * 10) / 10}s of rendered video`,
                   "Credits never expire",
                   "Buy what you need",
                   "No monthly minimums",

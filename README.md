@@ -14,7 +14,7 @@ This app includes a full Stripe integration with a credits-based payment system.
 ### Key Features
 
 - **Studio Access**: $99/month subscription (unlocks studio features - includes 0 credits)
-- **Credits**: Pay-as-you-go credit purchases (1 credit = 1 rendered minute)
+- **Credits**: Pay-as-you-go credit purchases (1 credit ≈ 1 segment / ~8 seconds)
 - **Credit Gating**: Automatic credit checks before video generation
 - **Billing Management**: Full Stripe Customer Portal integration
 - **Transaction Ledger**: Complete history of credit purchases and usage
@@ -37,9 +37,9 @@ This app includes a full Stripe integration with a credits-based payment system.
    - **Includes 0 credits** - Credits are purchased separately
 
 2. **Credits** - Pay-as-you-go usage:
-   - 1 credit = 1 rendered minute
+   - 1 credit ≈ 1 segment (~8 seconds)
    - Credits do not expire
-   - Price per credit: $0.60 (3× Kie.ai cost)
+   - Price per credit: configurable (defaults to ~$3.34)
    - Buy any quantity you need
 
 ### Credit Flow

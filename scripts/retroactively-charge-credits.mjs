@@ -82,9 +82,9 @@ async function retroactivelyChargeCredits() {
         (gen.initial_status === 'completed' ? 1 : 0) + (gen.extended_status === 'completed' ? 1 : 0)
       );
 
-      // Calculate credits (8 seconds per scene = ~0.133 minutes per scene)
+      // Credit model: 1 segment/scene (~8s) = 1 credit
       const actualRenderedMinutes = (scenesCompleted * 8) / 60;
-      const actualCredits = Math.ceil(actualRenderedMinutes);
+      const actualCredits = scenesCompleted;
 
       console.log(`\n🎬 Generation ${gen.id.substring(0, 8)}...`);
       console.log(`   Scenes: ${scenesCompleted}, Credits: ${actualCredits}`);

@@ -3,7 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export interface MinuteBalance {
-  minutes: number; // Displayed as minutes, stored as credits internally
+  // NOTE: Credits are now segment-based (1 credit ≈ 8 seconds).
+  // This hook converts credits -> approximate minutes for display only.
+  minutes: number;
   updated_at: string;
 }
 
@@ -55,9 +57,9 @@ export function useMinutes() {
         throw error;
       }
 
-      // Convert credits to minutes (1:1 mapping)
+      // Convert credits (segments) to approximate minutes (8 seconds per credit)
       setBalance(data ? { 
-        minutes: data.credits, // 1 credit = 1 minute
+        minutes: (data.credits * 8) / 60,
         updated_at: data.updated_at 
       } : { minutes: 0, updated_at: new Date().toISOString() });
     } catch (error) {

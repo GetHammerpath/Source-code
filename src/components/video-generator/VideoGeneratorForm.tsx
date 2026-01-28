@@ -15,7 +15,7 @@ import FormTips from "./FormTips";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCredits } from "@/hooks/useCredits";
 import { checkCredits, reserveCredits } from "@/lib/billing/credits";
-import { estimateCreditsForRenderedMinutes, PRICE_PER_CREDIT, calculateCreditPrice } from "@/lib/billing/pricing";
+import { estimateCreditsForRenderedMinutes, estimateCreditsForSegments, PRICE_PER_CREDIT, calculateCreditPrice } from "@/lib/billing/pricing";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface VideoGeneratorFormProps {
@@ -214,9 +214,10 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
       return;
     }
 
-    // Estimate rendered minutes: each scene is ~8 seconds (keep as float; credits math handles rounding)
-    const estimatedRenderedMinutes = (scenePrompts.length * 8) / 60; // 8 seconds per scene
-    const requiredCredits = estimateCreditsForRenderedMinutes(estimatedRenderedMinutes);
+    // Credit model: 1 segment/scene (~8s) = 1 credit
+    const segmentCount = scenePrompts.length;
+    const estimatedRenderedMinutes = (segmentCount * 8) / 60; // for reporting only
+    const requiredCredits = estimateCreditsForSegments(segmentCount);
 
     // Check credits before starting
     try {
@@ -688,16 +689,21 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
               {scenePrompts.length > 0 && (
                 <div className="space-y-2">
                   {(() => {
-                    const estimatedRenderedMinutes = (scenePrompts.length * 8) / 60;
-                    const requiredCredits = estimateCreditsForRenderedMinutes(estimatedRenderedMinutes);
+                    const segmentCount = scenePrompts.length;
+                    const estimatedRenderedMinutes = (segmentCount * 8) / 60;
+                    const requiredCredits = estimateCreditsForSegments(segmentCount);
                     const estimatedCost = calculateCreditPrice(requiredCredits);
                     const hasEnough = balance && hasCredits(requiredCredits);
                     
                     return (
                       <div className="p-4 bg-muted/50 rounded-[10px] space-y-2">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Estimated rendered:</span>
-                          <span className="font-medium">{estimatedRenderedMinutes.toFixed(2)} minutes</span>
+                          <span className="text-muted-foreground">Estimated segments:</span>
+                          <span className="font-medium">{segmentCount}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>≈ rendered time:</span>
+                          <span>{estimatedRenderedMinutes.toFixed(2)} min</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Estimated credits:</span>

@@ -117,9 +117,9 @@ async function checkVideoCredits() {
       console.log(`   Videos: initial=${video.hasVideos.initial}, extended=${video.hasVideos.extended}, final=${video.hasVideos.final}`);
       console.log(`   Segments: ${video.segments}, Scenes: ${video.scenes}`);
       
-      // Calculate expected credits
+      // Calculate expected credits (credit model: 1 segment/scene = 1 credit)
       const scenesCompleted = Math.max(video.segments, video.scenes, 1);
-      const credits = Math.ceil((scenesCompleted * 8) / 60);
+      const credits = scenesCompleted;
       console.log(`   Expected credits: ${credits}`);
     });
   }
