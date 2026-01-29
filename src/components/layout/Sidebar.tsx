@@ -86,7 +86,7 @@ const Sidebar = () => {
 
       const navItems = [
         { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-        { to: "/long-form", icon: Film, label: "Casting", premium: true },
+        { to: "/create-avatar", icon: Film, label: "Casting", premium: true },
         { to: "/video-generator", icon: Wand2, label: "Studio" },
         { to: "/bulk-video", icon: Layers, label: "Batch Jobs", premium: true },
         { to: "/api-keys", icon: KeyRound, label: "API Keys" },

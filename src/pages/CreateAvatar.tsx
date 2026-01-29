@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Lock, Loader2 } from "lucide-react";
+import { ArrowLeft, Lock, Loader2, Shield } from "lucide-react";
 import { buildPrompts } from "@/lib/nano-banana-prompt-builder";
 
 const CreateAvatar = () => {
@@ -153,28 +153,38 @@ const CreateAvatar = () => {
         Dashboard
       </Button>
 
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Create new avatar</h1>
-        <p className="text-sm text-slate-600 mt-1">Describe your spokesperson, generate options, then save one to your dashboard.</p>
-      </div>
-
-      <Card className="border-slate-200">
+      <Card className="border-slate-200 shadow-lg overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-slate-50/50">
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-red-500" />
+            <div className="h-3 w-3 rounded-full bg-yellow-500" />
+            <div className="h-3 w-3 rounded-full bg-green-500" />
+            <span className="ml-2 text-xs font-mono text-slate-500">casting-interface</span>
+          </div>
+          <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+            Nano Banana Pro
+          </span>
+        </div>
         <CardHeader>
-          <CardTitle className="text-lg">Describe your spokesperson</CardTitle>
-          <CardDescription>Use a short description (e.g. &quot;black cowboy&quot;, &quot;female chef&quot;). The prompt builder will fill in details.</CardDescription>
+          <CardTitle className="text-lg">Describe your ideal spokesperson</CardTitle>
+          <CardDescription>Tip: Try short descriptions like &quot;black cowboy&quot; or &quot;female chef&quot;. The prompt builder will auto-fill details.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <Input
               value={castingPrompt}
               onChange={(e) => setCastingPrompt(e.target.value)}
-              placeholder="e.g. photorealistic portrait, professional headshot..."
+              placeholder="e.g. photorealistic portrait, professional headshot, realistic spokesperson..."
               className="rounded-md h-10"
             />
             <Button onClick={generateAvatars} disabled={!canGenerate} className="bg-blue-600 hover:bg-blue-700 text-white rounded-md h-10 px-6">
               {generating ? "Generating..." : "Generate"}
             </Button>
           </div>
+          <p className="text-xs text-slate-500 flex items-center gap-1.5">
+            <Shield className="h-3.5 w-3.5" />
+            No signup required to generate. Sign up only when you&apos;re ready to hire.
+          </p>
           {generateError && (
             <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-2">{generateError}</div>
           )}
