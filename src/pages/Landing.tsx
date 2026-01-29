@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Check, X, ArrowRight, Menu, Shield } from "lucide-react";
+import { Check, X, ArrowRight, Menu, Shield, Copy, ChevronDown, ChevronUp } from "lucide-react";
+import { buildPrompts } from "@/lib/nano-banana-prompt-builder";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -20,9 +22,41 @@ const Landing = () => {
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [talentName, setTalentName] = useState("");
+  
+  // Nano Banana Prompt Builder
+  const [showAdvancedPrompt, setShowAdvancedPrompt] = useState(false);
+  const [positivePrompt, setPositivePrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
+  const [editedPositivePrompt, setEditedPositivePrompt] = useState("");
+  const [editedNegativePrompt, setEditedNegativePrompt] = useState("");
 
   const canGenerate = castingPrompt.trim().length > 0 && !generating;
   const canContinue = !!selectedImageUrl && talentName.trim().length > 0;
+
+  // Auto-generate prompts when user types
+  useEffect(() => {
+    if (castingPrompt.trim()) {
+      const { positive, negative } = buildPrompts(castingPrompt.trim());
+      setPositivePrompt(positive);
+      setNegativePrompt(negative);
+      setEditedPositivePrompt(positive);
+      setEditedNegativePrompt(negative);
+    } else {
+      setPositivePrompt("");
+      setNegativePrompt("");
+      setEditedPositivePrompt("");
+      setEditedNegativePrompt("");
+    }
+  }, [castingPrompt]);
+
+  const copyToClipboard = async (text: string, type: "positive" | "negative") => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // Could add toast here if needed
+    } catch (e) {
+      console.error("Failed to copy:", e);
+    }
+  };
 
   const pendingSignupUrl = useMemo(() => {
     const qs = new URLSearchParams();
@@ -37,10 +71,12 @@ const Landing = () => {
     setGenerating(true);
     setGeneratedUrls([]);
     try {
+      // Use edited prompt if available, otherwise use auto-generated positive prompt
+      const promptToUse = editedPositivePrompt.trim() || positivePrompt.trim() || castingPrompt.trim();
       const res = await fetch("/api/generate-avatar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: castingPrompt.trim() }),
+        body: JSON.stringify({ prompt: promptToUse }),
       });
       const data = (await res.json().catch(() => ({}))) as { urls?: string[]; error?: string };
       if (!res.ok) {
@@ -181,8 +217,69 @@ const Landing = () => {
                 {generateNotice && !generateError && (
                   <div className="text-xs text-slate-500">{generateNotice}</div>
                 )}
+                {positivePrompt && (
+                  <div className="space-y-2 pt-2 border-t border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedPrompt(!showAdvancedPrompt)}
+                      className="flex items-center justify-between w-full text-xs font-medium text-slate-700 hover:text-slate-900"
+                    >
+                      <span>Advanced Prompt Editor</span>
+                      {showAdvancedPrompt ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </button>
+                    {showAdvancedPrompt && (
+                      <div className="space-y-3 pt-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-medium text-slate-700">POSITIVE_PROMPT</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => copyToClipboard(editedPositivePrompt, "positive")}
+                            >
+                              <Copy className="h-3 w-3 mr-1" />
+                              Copy
+                            </Button>
+                          </div>
+                          <Textarea
+                            value={editedPositivePrompt}
+                            onChange={(e) => setEditedPositivePrompt(e.target.value)}
+                            className="text-xs font-mono min-h-[80px] border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Auto-generated prompt..."
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-medium text-slate-700">NEGATIVE_PROMPT</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => copyToClipboard(editedNegativePrompt, "negative")}
+                            >
+                              <Copy className="h-3 w-3 mr-1" />
+                              Copy
+                            </Button>
+                          </div>
+                          <Textarea
+                            value={editedNegativePrompt}
+                            onChange={(e) => setEditedNegativePrompt(e.target.value)}
+                            className="text-xs font-mono min-h-[60px] border-slate-300 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Auto-generated negative prompt..."
+                          />
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Prompts auto-filled from your description. Edit as needed. The positive prompt will be used for generation.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-slate-500">
-                  Tip: Use &quot;photorealistic&quot;, &quot;realistic portrait&quot;, or &quot;professional headshot&quot; for best results with Nano Banana Engine.
+                  Tip: Try short descriptions like &quot;black cowboy&quot; or &quot;female chef&quot;. The prompt builder will auto-fill details.
                 </p>
               </div>
 
