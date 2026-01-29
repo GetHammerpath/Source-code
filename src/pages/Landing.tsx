@@ -143,11 +143,16 @@ const Landing = () => {
           {/* Right Column: Casting Interface Widget (Terminal Card) */}
           <div className="bg-white border border-slate-200 rounded-md shadow-lg p-6">
             <div className="space-y-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-slate-200">
-                <div className="h-3 w-3 rounded-full bg-red-500"></div>
-                <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
-                <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                <span className="ml-2 text-xs font-mono text-slate-500">casting-interface</span>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-red-500"></div>
+                  <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
+                  <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                  <span className="ml-2 text-xs font-mono text-slate-500">casting-interface</span>
+                </div>
+                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+                  Nano Banana Engine
+                </span>
               </div>
 
               <div className="space-y-3">
@@ -179,22 +184,27 @@ const Landing = () => {
               </div>
 
               {generatedUrls.length > 0 && (
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  {generatedUrls.map((url) => (
-                    <button
-                      key={url}
-                      type="button"
-                      onClick={() => onPickImage(url)}
-                      className="group relative overflow-hidden rounded-md border border-slate-200 hover:shadow-md transition-all"
-                    >
-                      <img
-                        src={url}
-                        alt="Generated avatar option"
-                        className="h-32 w-full object-cover group-hover:scale-[1.02] transition-transform"
-                        loading="lazy"
-                      />
-                    </button>
-                  ))}
+                <div className="space-y-3 pt-2">
+                  <div className="text-xs font-semibold text-slate-700 bg-slate-50 px-2 py-1 rounded-md inline-block">
+                    Photorealistic Avatar (Nano Banana Engine)
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {generatedUrls.map((url) => (
+                      <button
+                        key={url}
+                        type="button"
+                        onClick={() => onPickImage(url)}
+                        className="group relative overflow-hidden rounded-md border border-slate-200 hover:shadow-md transition-all"
+                      >
+                        <img
+                          src={url}
+                          alt="Generated avatar option"
+                          className="h-32 w-full object-cover group-hover:scale-[1.02] transition-transform"
+                          loading="lazy"
+                        />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 

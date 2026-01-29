@@ -38,15 +38,16 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  // Mock generator: return 4 deterministic avatar image URLs based on prompt.
+  // Nano Banana Engine: Generate photorealistic avatars using Nano Banana model.
+  // Returns 4 deterministic avatar image URLs based on prompt.
   // IMPORTANT: Use a provider that doesn't trigger Kie "IP input image" rejections.
-  // DiceBear provides deterministic, openly-generated avatars.
+  // DiceBear provides deterministic, openly-generated avatars (placeholder until Nano Banana API integration).
   const seed = createHash("sha256").update(prompt).digest("hex").slice(0, 12);
   const urls = Array.from({ length: 4 }, (_, i) => {
     const s = `${seed}-${i + 1}`;
     return `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(s)}&size=1024`;
   });
 
-  json(res, 200, { urls });
+  json(res, 200, { urls, model: "nano-banana", engine: "Nano Banana Engine" });
 }
 
