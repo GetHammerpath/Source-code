@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,14 @@ import { buildPrompts } from "@/lib/nano-banana-prompt-builder";
 
 const Landing = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Scroll to pricing when opening /#pricing
+  useEffect(() => {
+    if (location.hash === "#pricing") {
+      document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [location.pathname, location.hash]);
 
   // Reverse onboarding (Casting Interface) - ALL LOGIC PRESERVED
   const [castingPrompt, setCastingPrompt] = useState("");
@@ -136,7 +144,7 @@ const Landing = () => {
               The Infrastructure for Infinite Identity
             </h1>
             <p className="text-xl text-slate-600 leading-relaxed">
-              Create, manage, and scale AI avatars with enterprise-grade infrastructure. Build once, deploy everywhere.
+              Generate <strong className="text-slate-900">2,000+ unique, consistent avatars</strong> in minutes. Solve ad fatigue with programmatic video creation that scales.
             </p>
           </div>
 
@@ -170,7 +178,7 @@ const Landing = () => {
                   <Button
                     onClick={generateAvatars}
                     disabled={!canGenerate}
-                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-md h-10 px-6"
+                    className="bg-[#002FA7] hover:bg-[#002080] text-white rounded-md h-10 px-6 shadow-sm"
                   >
                     {generating ? "Generating..." : "Generate"}
                   </Button>
@@ -256,7 +264,7 @@ const Landing = () => {
               {generatedUrls.length > 0 && (
                 <div className="space-y-3 pt-2">
                   <div className="text-xs font-semibold text-slate-700 bg-slate-50 px-2 py-1 rounded-md inline-block">
-                    Photorealistic Avatar (Nano Banana Pro)
+                    Photorealistic Avatar (Nano Banana Engine)
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {generatedUrls.map((url) => (
@@ -278,10 +286,6 @@ const Landing = () => {
                 </div>
               )}
 
-              <div className="text-xs text-slate-500 flex items-center gap-2 pt-2 border-t border-slate-200">
-                <Shield className="h-3 w-3" />
-                No signup required to generate. Sign up only when you're ready to hire.
-              </div>
             </div>
           </div>
         </div>
@@ -346,7 +350,7 @@ const Landing = () => {
       </section>
 
       {/* Pricing Section */}
-      <section className="py-20 md:py-32">
+      <section id="pricing" className="py-20 md:py-32 scroll-mt-20">
         <div className="container mx-auto px-6 md:px-8">
           <div className="max-w-5xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-12">
@@ -435,8 +439,10 @@ const Landing = () => {
               <span className="font-semibold text-lg tracking-tight text-slate-900">DiuDiu</span>
             </div>
             <div className="flex flex-wrap items-center gap-6 text-sm text-slate-600">
-              <button className="hover:text-slate-900 transition-colors">API Docs</button>
-              <button onClick={() => navigate("/auth")} className="hover:text-slate-900 transition-colors">
+              <button type="button" onClick={() => navigate("/api-keys")} className="hover:text-slate-900 transition-colors">
+                API Docs
+              </button>
+              <button type="button" onClick={() => navigate("/auth")} className="hover:text-slate-900 transition-colors">
                 Login
               </button>
             </div>

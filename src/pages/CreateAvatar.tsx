@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Lock, Loader2, Shield } from "lucide-react";
+import { ArrowLeft, Lock, Loader2, User } from "lucide-react";
 import { buildPrompts } from "@/lib/nano-banana-prompt-builder";
 
 const CreateAvatar = () => {
@@ -29,6 +29,9 @@ const CreateAvatar = () => {
   const [positivePrompt, setPositivePrompt] = useState("");
   const [editedPositivePrompt, setEditedPositivePrompt] = useState("");
 
+  const [avatars, setAvatars] = useState<{ id: string; name: string; seed_image_url: string; created_at: string }[]>([]);
+  const [avatarsLoading, setAvatarsLoading] = useState(true);
+
   const canGenerate = castingPrompt.trim().length > 0 && !generating;
   const canSave = !!selectedImageUrl && talentName.trim().length > 0;
 
@@ -42,6 +45,33 @@ const CreateAvatar = () => {
       setEditedPositivePrompt("");
     }
   }, [castingPrompt]);
+
+  const fetchAvatars = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setAvatars([]);
+      setAvatarsLoading(false);
+      return;
+    }
+    setAvatarsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("avatars")
+        .select("id, name, seed_image_url, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setAvatars(data || []);
+    } catch {
+      setAvatars([]);
+    } finally {
+      setAvatarsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (hasAccess) fetchAvatars();
+  }, [hasAccess]);
 
   const generateAvatars = async () => {
     setGenerateError(null);
@@ -90,9 +120,9 @@ const CreateAvatar = () => {
         voice_id: null,
       });
       if (error) throw error;
-      toast({ title: "Avatar created", description: `"${talentName.trim()}" was added to your dashboard.` });
+      toast({ title: "Avatar created", description: `"${talentName.trim()}" was added to your avatars.` });
       setNameDialogOpen(false);
-      navigate("/dashboard");
+      fetchAvatars();
     } catch (e) {
       toast({
         title: "Failed to save",
@@ -181,10 +211,6 @@ const CreateAvatar = () => {
               {generating ? "Generating..." : "Generate"}
             </Button>
           </div>
-          <p className="text-xs text-slate-500 flex items-center gap-1.5">
-            <Shield className="h-3.5 w-3.5" />
-            No signup required to generate. Sign up only when you&apos;re ready to hire.
-          </p>
           {generateError && (
             <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-2">{generateError}</div>
           )}
@@ -245,6 +271,53 @@ const CreateAvatar = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {hasAccess && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">Made avatars</h2>
+          {avatarsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-500 py-6">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading avatars...
+            </div>
+          ) : avatars.length === 0 ? (
+            <Card className="rounded-md border border-slate-200 shadow-sm">
+              <CardContent className="p-8 text-center space-y-2">
+                <User className="h-10 w-10 mx-auto text-slate-400" />
+                <p className="text-sm text-slate-600">No avatars yet. Generate above and save one to see it here.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {avatars.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => navigate(`/avatar/${a.id}`)}
+                  className="text-left"
+                >
+                  <Card className="rounded-md border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden bg-white">
+                    <div className="h-36 bg-slate-50">
+                      <img
+                        src={a.seed_image_url}
+                        alt={a.name}
+                        className="h-36 w-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    <CardContent className="p-3">
+                      <div className="font-medium truncate text-slate-900 text-sm">{a.name}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {a.created_at ? new Date(a.created_at).toLocaleDateString() : ""}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 };

@@ -77,6 +77,26 @@ const parseKieError = (status: number, errorText: string) => {
   };
 };
 
+// Resolve user from API key (Bearer duidui_xxx) for programmatic access to this platform
+async function resolveApiKeyUser(
+  authHeader: string,
+  supabaseAdmin: ReturnType<typeof createClient>
+): Promise<{ id: string } | null> {
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader;
+  const validPrefix = bearer.startsWith('duidui_') || bearer.startsWith('kie_');
+  if (!validPrefix || bearer.length < 12) return null;
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(bearer));
+  const keyHash = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  const { data: row } = await supabaseAdmin
+    .from('user_api_keys')
+    .select('user_id')
+    .eq('key_hash', keyHash)
+    .single();
+  if (!row?.user_id) return null;
+  await supabaseAdmin.from('user_api_keys').update({ last_used_at: new Date().toISOString() }).eq('key_hash', keyHash);
+  return { id: row.user_id };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -99,17 +119,47 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-    // Verify authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Unauthorized: Invalid or missing authentication'
-      }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    // Resolve user: JWT or API key (Bearer duidui_xxx)
+    const isApiKeyAuth = (h: string) => {
+      const b = h.startsWith('Bearer ') ? h.slice(7).trim() : h;
+      return b.startsWith('duidui_') || b.startsWith('kie_');
+    };
+    let user: { id: string } | null = await resolveApiKeyUser(authHeader, supabaseAdmin);
+    if (!user) {
+      const { data: { user: jwtUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !jwtUser) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Unauthorized: Invalid or missing authentication'
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      user = jwtUser;
+    }
+
+    // If authenticated via API key, enforce api_access_allowed
+    if (isApiKeyAuth(authHeader)) {
+      const { data: limits } = await supabaseAdmin
+        .from('user_limits')
+        .select('api_access_allowed')
+        .eq('user_id', user.id)
+        .single();
+      if (limits?.api_access_allowed === false) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'API access has been revoked for this account. Contact support.'
+        }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     const body = await req.json();

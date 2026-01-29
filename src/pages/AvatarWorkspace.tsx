@@ -395,26 +395,26 @@ export default function AvatarWorkspace() {
 
             {/* Right Column: Director Tools */}
             <div className="space-y-6">
-              <Card className="rounded-[14px] border-border/50">
+              <Card className="rounded-md border border-slate-200 shadow-sm bg-white">
                 <CardHeader>
-                  <CardTitle className="text-lg">The Director Tools</CardTitle>
+                  <CardTitle className="text-lg text-slate-900">The Director Tools</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
                   <div className="space-y-2">
-                    <Label>Script</Label>
+                    <Label className="text-slate-900">Script</Label>
                     <Textarea
                       value={scriptPrompt}
                       onChange={(e) => setScriptPrompt(e.target.value)}
                       placeholder="Write what the avatar should say and do..."
-                      className="rounded-[14px] min-h-[140px]"
+                      className="rounded-md min-h-[140px] border-slate-300 focus:ring-[#002FA7] focus:border-[#002FA7]"
                     />
                   </div>
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Tone</Label>
+                      <Label className="text-slate-900">Tone</Label>
                       <Select value={tone} onValueChange={setTone}>
-                        <SelectTrigger className="rounded-[14px]">
+                        <SelectTrigger className="rounded-md border-slate-300 focus:ring-[#002FA7] focus:border-[#002FA7]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -426,9 +426,9 @@ export default function AvatarWorkspace() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Background</Label>
+                      <Label className="text-slate-900">Background</Label>
                       <Select value={background} onValueChange={setBackground}>
-                        <SelectTrigger className="rounded-[14px]">
+                        <SelectTrigger className="rounded-md border-slate-300 focus:ring-[#002FA7] focus:border-[#002FA7]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -442,15 +442,15 @@ export default function AvatarWorkspace() {
 
                   {background === "upload" && (
                     <div className="space-y-2">
-                      <Label>Upload background</Label>
+                      <Label className="text-slate-900">Upload background</Label>
                       <div className="flex items-center gap-3">
                         <Input
                           type="file"
                           accept="image/*"
-                          className="rounded-[14px]"
+                          className="rounded-md border-slate-300 focus:ring-[#002FA7] focus:border-[#002FA7]"
                           onChange={(e) => setBackgroundFile(e.target.files?.[0] ?? null)}
                         />
-                        <Button variant="outline" className="rounded-[14px]" disabled>
+                        <Button variant="outline" className="rounded-md border-slate-200" disabled>
                           <Upload className="h-4 w-4 mr-2" />
                           Coming soon
                         </Button>
@@ -465,7 +465,7 @@ export default function AvatarWorkspace() {
                     <Button
                       onClick={() => startSingleVideo()}
                       disabled={!canGenerate}
-                      className="bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm"
+                      className="bg-[#002FA7] hover:bg-[#002080] text-white rounded-md shadow-sm"
                     >
                       {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
                       Generate
@@ -503,12 +503,12 @@ export default function AvatarWorkspace() {
                         </div>
                       )}
                       {csvRows.length > 0 && (
-                        <div className="mt-4 border border-slate-200 rounded-md overflow-hidden">
-                          <table className="w-full border-collapse">
+                        <div className="mt-4 border border-slate-200 rounded-md overflow-hidden bg-white">
+                          <table className="w-full border-collapse" cellPadding={0} cellSpacing={0}>
                             <thead>
                               <tr className="border-b border-slate-200 bg-slate-50">
                                 {Object.keys(csvRows[0] || {}).map((header) => (
-                                  <th key={header} className="text-left p-3 text-xs font-semibold text-slate-900">
+                                  <th key={header} className="text-left p-3 text-xs font-semibold text-slate-900 border-b border-slate-200">
                                     {header}
                                   </th>
                                 ))}
@@ -516,9 +516,9 @@ export default function AvatarWorkspace() {
                             </thead>
                             <tbody>
                               {csvRows.slice(0, 5).map((row, i) => (
-                                <tr key={i} className="border-b border-slate-200 last:border-b-0">
+                                <tr key={i} className="border-b border-slate-200 last:border-b-0 hover:bg-slate-50/50">
                                   {Object.values(row).map((cell, j) => (
-                                    <td key={j} className="p-3 text-xs text-slate-600 font-mono">
+                                    <td key={j} className="p-3 text-xs text-slate-600 font-mono border-b border-slate-100">
                                       {String(cell).slice(0, 30)}
                                     </td>
                                   ))}
@@ -552,7 +552,7 @@ export default function AvatarWorkspace() {
                               Row #1 has been queued. Approve to run the rest.
                             </div>
                             <div className="flex justify-end">
-                              <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm" onClick={approveAndRunRest}>
+                              <Button className="bg-[#002FA7] hover:bg-[#002080] text-white rounded-md shadow-sm" onClick={approveAndRunRest}>
                                 Approve &amp; run remaining rows
                               </Button>
                             </div>

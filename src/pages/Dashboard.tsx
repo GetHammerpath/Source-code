@@ -151,9 +151,9 @@ const Dashboard = () => {
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
             <p className="text-sm text-slate-600 mt-1">Your avatars and videos in one place.</p>
           </div>
-          <Button onClick={() => navigate("/create-avatar")} className="bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm" size="sm">
+          <Button onClick={() => navigate("/create-avatar")} className="bg-[#002FA7] hover:bg-[#002080] text-white rounded-md shadow-sm" size="sm">
             <Plus className="h-4 w-4 mr-1.5" />
-            Create New
+            Create new Avatar
           </Button>
         </div>
 
@@ -170,7 +170,7 @@ const Dashboard = () => {
                   Create your first avatar to unlock the workspace.
                 </div>
                 <div>
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-md" onClick={() => navigate("/create-avatar")}>
+                  <Button className="bg-[#002FA7] hover:bg-[#002080] text-white rounded-md shadow-sm" onClick={() => navigate("/create-avatar")}>
                     Create an avatar
                   </Button>
                 </div>
@@ -220,7 +220,7 @@ const Dashboard = () => {
                 <div className="text-sm text-slate-600">
                   Create a video from AI Video (Veo) or another generator.
                 </div>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-md" onClick={() => navigate("/video-generator")}>
+                <Button className="bg-[#002FA7] hover:bg-[#002080] text-white rounded-md shadow-sm" onClick={() => navigate("/video-generator")}>
                   Go to AI Video (Veo)
                 </Button>
               </CardContent>

@@ -18,7 +18,11 @@ const Navbar = () => {
       <button
         type="button"
         onClick={() => {
-          navigate("/pricing");
+          if (location.pathname === "/") {
+            document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+          } else {
+            navigate("/#pricing");
+          }
           if (mobile) setMobileMenuOpen(false);
         }}
         className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"

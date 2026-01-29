@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, LogOut, Video, Users, FileText, Wand2, Sparkles, Zap, Film, Layers, Shuffle, CreditCard, Shield, Wallet, User, Loader2, KeyRound } from "lucide-react";
+import { LayoutDashboard, LogOut, Video, Users, FileText, Scissors, Server, UserCheck, Film, Terminal, CreditCard, Shield, Wallet, User, Loader2 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -84,95 +84,87 @@ const Sidebar = () => {
     }
   };
 
-      const navItems = [
-        { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-        { to: "/create-avatar", icon: Film, label: "Casting", premium: true },
-        { to: "/video-generator", icon: Wand2, label: "Studio" },
-        { to: "/bulk-video", icon: Layers, label: "Batch Jobs", premium: true },
-        { to: "/api-keys", icon: KeyRound, label: "API Keys" },
-        { to: "/account/billing", icon: CreditCard, label: "Usage & Billing" },
-      ];
+  // Mandatory Sidebar Structure: Production, Assets, System
+  const productionItems = [
+    { to: "/create-avatar", icon: Users, label: "Casting" },
+    { to: "/video-generator", icon: Scissors, label: "Studio" },
+    { to: "/bulk-video", icon: Server, label: "Batch Jobs" },
+  ];
+  const assetsItems = [
+    { to: "/dashboard", icon: UserCheck, label: "Talent Pool" },
+    { to: "/dashboard", icon: Film, label: "Exports" },
+  ];
+  const systemItems = [
+    { to: "/api-keys", icon: Terminal, label: "API Keys" },
+    { to: "/account/billing", icon: CreditCard, label: "Usage & Billing" },
+  ];
 
+  const linkClass = (isActive: boolean) =>
+    `flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 ${
+      isActive ? "bg-[#002FA7] text-white font-medium shadow-sm" : "text-slate-700 hover:bg-slate-100"
+    }`;
 
   return (
-    <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-full">
-      <div className="p-6 border-b border-sidebar-border">
+    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-full shadow-sm">
+      <div className="p-4 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-[14px] bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-sm">
-            <Video className="h-5 w-5 text-white" />
-          </div>
-          <div className="flex-1">
-            <h1 className="text-base font-semibold text-sidebar-foreground tracking-tight">Video Portal</h1>
-            <p className="text-xs text-sidebar-foreground/60 mt-0.5">Production Hub</p>
+          <img src="/images/diudiu_logo.png" alt="DiuDiu" className="h-10 w-10 object-contain flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-base font-semibold text-slate-900 tracking-tight truncate">DiuDiu</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Production Hub</p>
           </div>
         </div>
         {role && (
-          <Badge variant="outline" className="mt-4 capitalize text-xs font-medium">
+          <Badge variant="outline" className="mt-3 capitalize text-xs font-medium border-slate-200 text-slate-600">
             {role}
           </Badge>
         )}
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
         {isAdminContext && canManageUsers ? (
-          // Show admin nav items when in admin context
           <div className="space-y-1">
             {adminNavItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/admin"}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-[10px] transition-all duration-150 ${
-                    isActive
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent/60"
-                  }`
-                }
-              >
-                <item.icon className="h-4 w-4" />
+              <NavLink key={item.to} to={item.to} end={item.to === "/admin"} className={({ isActive }) => linkClass(isActive)}>
+                <item.icon className="h-4 w-4 flex-shrink-0" />
                 <span className="text-sm">{item.label}</span>
               </NavLink>
             ))}
           </div>
         ) : (
-          // Show regular nav items
           <>
             <div className="space-y-1">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === "/"}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-[10px] transition-all duration-150 ${
-                      (item as any).premium ? "bg-gradient-to-r from-amber-500/8 to-orange-500/8 " : ""
-                    }${
-                      isActive
-                        ? "bg-primary text-primary-foreground font-medium shadow-sm"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/80"
-                    }`
-                  }
-                >
-                  <item.icon className="h-4 w-4" />
+              <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Production</p>
+              {productionItems.map((item) => (
+                <NavLink key={item.to + item.label} to={item.to} className={({ isActive }) => linkClass(isActive)}>
+                  <item.icon className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+            <div className="space-y-1">
+              <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Assets</p>
+              {assetsItems.map((item) => (
+                <NavLink key={item.to + item.label} to={item.to} className={({ isActive }) => linkClass(isActive)}>
+                  <item.icon className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+            <div className="space-y-1">
+              <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">System</p>
+              {systemItems.map((item) => (
+                <NavLink key={item.to} to={item.to} className={({ isActive }) => linkClass(isActive)}>
+                  <item.icon className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm">{item.label}</span>
                 </NavLink>
               ))}
             </div>
 
             {canManageUsers && (
-              <div className="space-y-1 mt-4 pt-4 border-t border-sidebar-border">
-                <NavLink
-                  to="/admin"
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-[10px] transition-all duration-150 ${
-                      isActive
-                        ? "bg-primary text-primary-foreground font-medium shadow-sm"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/80"
-                    }`
-                  }
-                >
-                  <Shield className="h-4 w-4" />
+              <div className="space-y-1 pt-4 border-t border-slate-200">
+                <NavLink to="/admin" className={({ isActive }) => linkClass(isActive)}>
+                  <Shield className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm">Admin</span>
                 </NavLink>
               </div>
@@ -181,7 +173,7 @@ const Sidebar = () => {
         )}
       </nav>
 
-      <div className="p-4 border-t border-sidebar-border space-y-2">
+      <div className="p-4 border-t border-slate-200 space-y-2">
         {/* Role Toggle Button - Show for admins or mershard@icloud.com */}
         {(isAdmin || userEmail === 'mershard@icloud.com' || (role === null && isAdminContext)) && (
           <Button

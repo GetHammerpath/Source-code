@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* JetBrains Mono for API/docs code (Swiss SaaS design) */
+.font-mono,
+.api-docs pre,
+.api-docs code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */

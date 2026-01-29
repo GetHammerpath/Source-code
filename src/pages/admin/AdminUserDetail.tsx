@@ -35,6 +35,7 @@ import {
   Check,
   UserX,
   Wallet,
+  KeyRound,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -46,6 +47,7 @@ interface UserDetail {
   email_verified: boolean;
   role: string;
   status: string;
+  api_access_allowed: boolean;
   created_at: string;
   last_login: string | null;
   stripe_customer_id: string | null;
@@ -68,6 +70,7 @@ const AdminUserDetail = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [showRoleDialog, setShowRoleDialog] = useState(false);
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
+  const [showApiAccessDialog, setShowApiAccessDialog] = useState(false);
   const [showPasswordResetDialog, setShowPasswordResetDialog] = useState(false);
   const [reason, setReason] = useState("");
 
@@ -99,10 +102,10 @@ const AdminUserDetail = () => {
         .eq("user_id", id)
         .single();
 
-      // Fetch user limits (status)
+      // Fetch user limits (status, api_access_allowed)
       const { data: limitsData } = await supabase
         .from("user_limits")
-        .select("status")
+        .select("status, api_access_allowed")
         .eq("user_id", id)
         .single();
 
@@ -128,6 +131,7 @@ const AdminUserDetail = () => {
         email_verified: profile.email_verified || false,
         role: roleData?.role || "contributor",
         status: limitsData?.status || "active",
+        api_access_allowed: limitsData?.api_access_allowed !== false,
         created_at: profile.created_at,
         last_login: profile.last_login,
         stripe_customer_id: profile.stripe_customer_id,
@@ -359,6 +363,61 @@ const AdminUserDetail = () => {
     }
   };
 
+  const handleApiAccessToggle = async () => {
+    if (!id || !reason.trim()) {
+      toast({
+        title: "Reason Required",
+        description: "Please provide a reason for this action",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const revoking = user?.api_access_allowed === true;
+      const newValue = !revoking;
+
+      const { error } = await supabase
+        .from("user_limits")
+        .update({
+          api_access_allowed: newValue,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", id);
+
+      if (error) throw error;
+
+      await supabase.functions.invoke("admin-audit-log", {
+        body: {
+          action_type: revoking ? "api_access_revoked" : "api_access_granted",
+          target_type: "user",
+          target_id: id,
+          before_json: { api_access_allowed: user?.api_access_allowed },
+          after_json: { api_access_allowed: newValue },
+          reason,
+        },
+      });
+
+      toast({
+        title: "Success",
+        description: revoking ? "API access revoked" : "API access granted",
+      });
+
+      setShowApiAccessDialog(false);
+      setReason("");
+      fetchUserDetail();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update API access",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const failedLoginCount = loginHistory.filter((e) => !e.success).length;
 
   if (loading) {
@@ -469,7 +528,26 @@ const AdminUserDetail = () => {
                     </Alert>
                   )}
                 </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">API access</div>
+                  <Badge
+                    variant={user.api_access_allowed ? "default" : "destructive"}
+                    className="mt-1"
+                  >
+                    {user.api_access_allowed ? "Allowed" : "Revoked"}
+                  </Badge>
+                </div>
                 <div className="space-y-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowApiAccessDialog(true)}
+                    className="w-full rounded-[10px]"
+                    disabled={actionLoading}
+                  >
+                    <KeyRound className="h-4 w-4 mr-2" />
+                    {user.api_access_allowed ? "Revoke API access" : "Grant API access"}
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -749,6 +827,62 @@ const AdminUserDetail = () => {
                           </>
                         ) : (
                           "Send Reset Email"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={showApiAccessDialog} onOpenChange={setShowApiAccessDialog}>
+                  <DialogContent className="rounded-[14px]">
+                    <DialogHeader>
+                      <DialogTitle>
+                        {user.api_access_allowed ? "Revoke API access" : "Grant API access"}
+                      </DialogTitle>
+                      <DialogDescription>
+                        {user.api_access_allowed
+                          ? "This user will no longer be able to use API keys (duidui_xxx) to call the platform. Web login is unaffected."
+                          : "This user will be able to use API keys again."}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div>
+                        <Label>Reason *</Label>
+                        <Textarea
+                          value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                          placeholder="Provide a reason for this action..."
+                          className="rounded-[10px]"
+                          rows={4}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowApiAccessDialog(false);
+                          setReason("");
+                        }}
+                        className="rounded-[10px]"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleApiAccessToggle}
+                        disabled={actionLoading || !reason.trim()}
+                        variant={user.api_access_allowed ? "destructive" : "default"}
+                        className="rounded-[10px]"
+                      >
+                        {actionLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : user.api_access_allowed ? (
+                          "Revoke API access"
+                        ) : (
+                          "Grant API access"
                         )}
                       </Button>
                     </DialogFooter>
