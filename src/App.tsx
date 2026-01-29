@@ -30,10 +30,10 @@ import RunwayExtendGenerator from "./pages/RunwayExtendGenerator";
 import BulkVideoGenerator from "./pages/BulkVideoGenerator";
 import SmartBulkGenerator from "./pages/SmartBulkGenerator";
 import LongFormGenerator from "./pages/LongFormGenerator";
-import AssetLibrary from "./pages/AssetLibrary";
 import Pricing from "./pages/Pricing";
 import Checkout from "./pages/Checkout";
 import Billing from "./pages/Billing";
+import ApiKeys from "./pages/ApiKeys";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
 import CheckoutCancel from "./pages/CheckoutCancel";
 import NotFound from "./pages/NotFound";
@@ -158,14 +158,6 @@ const App = () => (
             } 
           />
           <Route 
-            path="/assets" 
-            element={
-              <AuthWrapper>
-                <AssetLibrary />
-              </AuthWrapper>
-            } 
-          />
-          <Route 
             path="/admin" 
             element={
               <AuthWrapper>
@@ -258,6 +250,14 @@ const App = () => (
             element={
               <AuthWrapper>
                 <CheckoutCancel />
+              </AuthWrapper>
+            } 
+          />
+          <Route 
+            path="/api-keys" 
+            element={
+              <AuthWrapper>
+                <ApiKeys />
               </AuthWrapper>
             } 
           />
