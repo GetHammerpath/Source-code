@@ -4,14 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Check, X, ArrowRight, Menu, Shield, Copy, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, X, ArrowRight, Shield, Copy, ChevronDown, ChevronUp } from "lucide-react";
 import { buildPrompts } from "@/lib/nano-banana-prompt-builder";
 
 const Landing = () => {
   const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Reverse onboarding (Casting Interface) - ALL LOGIC PRESERVED
   const [castingPrompt, setCastingPrompt] = useState("");
@@ -129,46 +127,6 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="container mx-auto px-6 md:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="font-semibold text-lg tracking-tight text-slate-900">DiuDiu</span>
-            </div>
-            
-            <div className="hidden md:flex items-center gap-8">
-              <button onClick={() => navigate("/auth")} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
-                Login
-              </button>
-              <Button onClick={() => navigate("/auth")} className="bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm">
-                Get Started
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-4 md:hidden">
-              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9">
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[280px]">
-                  <div className="flex flex-col gap-4 mt-8">
-                    <button onClick={() => navigate("/auth")} className="text-left text-base font-medium text-slate-900">
-                      Login
-                    </button>
-                    <Button onClick={() => navigate("/auth")} className="bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-                      Get Started
-                    </Button>
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </div>
-          </div>
-        </div>
-      </nav>
-
       {/* Hero Section */}
       <section className="container mx-auto px-6 md:px-8 py-20 md:py-32">
         <div className="grid md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">

@@ -161,7 +161,7 @@ export function inferDefaults(userText: string, overrides: Partial<PromptFields>
     build: overrides.build ?? "athletic/average",
     hair: overrides.hair ?? "short, well-groomed hair",
     expression: overrides.expression ?? "calm confident expression",
-    framing: overrides.framing ?? "full-body",
+    framing: overrides.framing ?? "headshot, face only, tight crop from shoulders up, face fills frame",
     clothing: overrides.clothing ?? (preset?.clothing ?? "professional attire, realistic materials, minimal logos"),
     accessories: overrides.accessories ?? (preset?.accessories ?? "1-2 relevant items"),
     action: overrides.action ?? (preset?.action ?? "standing naturally"),
@@ -175,12 +175,12 @@ export function inferDefaults(userText: string, overrides: Partial<PromptFields>
 export function generatePositivePrompt(fields: PromptFields): string {
   const ethnicityPart = fields.ethnicity ? ` ${fields.ethnicity}` : "";
   const genderLabel = fields.gender === "female" ? "woman" : "man";
-  
-  return `Photorealistic full-body photo of a ${fields.age}-year-old ${fields.gender}${ethnicityPart} ${genderLabel}, ${fields.build}, ${fields.hair}, ${fields.expression}, wearing ${fields.clothing} with ${fields.accessories}, ${fields.action}. Location: ${fields.location}. Background: ${fields.background}. Lighting: ${fields.lighting}. Camera: ${fields.lens}, shallow depth of field, sharp focus on the subject, natural skin texture, realistic proportions, high detail, natural colors, no stylization.`;
+  // Lead with headshot framing so the model prioritizes face crop over body
+  return `Headshot. ${fields.framing}. Tight crop from shoulders up, face centered, no body below shoulders. Photorealistic portrait of a ${fields.age}-year-old ${fields.gender}${ethnicityPart} ${genderLabel}, ${fields.build}, ${fields.hair}, ${fields.expression}. ${fields.clothing}. Background: ${fields.background}. Lighting: ${fields.lighting}. ${fields.lens} lens, shallow depth of field, sharp focus on eyes and face, natural skin texture, high detail, natural colors, no stylization.`;
 }
 
 export function generateNegativePrompt(): string {
-  return "Avoid cartoon, anime, illustration, CGI, painting, stylized skin, over-smoothed/waxy skin, low-res, blurry, noisy, bad anatomy, extra fingers, deformed hands, crossed eyes, duplicate people, text, watermark, logo.";
+  return "Avoid cartoon, anime, illustration, CGI, painting, stylized skin, over-smoothed/waxy skin, low-res, blurry, noisy, bad anatomy, extra fingers, deformed hands, crossed eyes, duplicate people, text, watermark, logo. No full body, no body shot, no torso, no full length, no mid shot, no waist up, no legs, no arms below shoulders.";
 }
 
 export function buildPrompts(userText: string, overrides: Partial<PromptFields> = {}): {

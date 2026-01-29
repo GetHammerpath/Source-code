@@ -59,16 +59,19 @@ serve(async (req) => {
 
     const { data: existing } = await supabase
       .from('stripe_event_log')
-      .select('id')
+      .select('id, status')
       .eq('stripe_event_id', eventId)
       .maybeSingle();
 
-    if (existing) {
-      console.log(`Event ${eventId} already processed (idempotent)`);
+    if (existing?.status === 'success') {
+      console.log(`Event ${eventId} already processed successfully (idempotent)`);
       return new Response(
         JSON.stringify({ received: true }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+    if (existing?.status === 'failed') {
+      console.log(`Event ${eventId} previously failed; retrying handler`);
     }
 
     try {
@@ -103,20 +106,24 @@ serve(async (req) => {
           console.log(`Unhandled event type: ${eventType}`);
       }
 
-      await supabase.from('stripe_event_log').insert({
+      await supabase.from('stripe_event_log').upsert({
         stripe_event_id: eventId,
         event_type: eventType,
         status: 'success',
         metadata: { type: eventType },
+      }, {
+        onConflict: 'stripe_event_id',
       });
     } catch (handlerErr: unknown) {
       const errMsg = handlerErr instanceof Error ? handlerErr.message : String(handlerErr);
-      await supabase.from('stripe_event_log').insert({
+      await supabase.from('stripe_event_log').upsert({
         stripe_event_id: eventId,
         event_type: eventType,
         status: 'failed',
         error_message: errMsg,
         metadata: { type: eventType },
+      }, {
+        onConflict: 'stripe_event_id',
       });
       throw handlerErr;
     }

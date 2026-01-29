@@ -56,7 +56,7 @@ serve(async (req) => {
       });
     }
     
-    const { image_url, industry, avatar_name, city, story_idea, number_of_scenes = 1, generation_mode } = body;
+    const { image_url, background_image_url, industry, avatar_name, avatar_description: user_avatar_description, city, story_idea, number_of_scenes = 1, generation_mode } = body;
 
     // Validate required fields
     if (!industry || !avatar_name || !city || !story_idea) {
@@ -72,7 +72,7 @@ serve(async (req) => {
     // Detect text-only mode (no image provided or generation_mode is 'text')
     const isTextOnlyMode = generation_mode === 'text' || !image_url || image_url === null || image_url === '';
     console.log('🎬 Mode:', isTextOnlyMode ? 'TEXT_ONLY (no image)' : 'IMAGE_ANALYSIS');
-    console.log('📝 Details:', { industry, avatar_name, city, story_idea, number_of_scenes, generation_mode, has_image: !!image_url });
+    console.log('📝 Details:', { industry, avatar_name, city, story_idea, number_of_scenes, generation_mode, has_image: !!image_url, has_background_image: !!background_image_url });
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
@@ -89,6 +89,17 @@ serve(async (req) => {
     // Build system prompt based on number of scenes and mode
     let systemPrompt = '';
     
+    const defaultAvatarDescription = isTextOnlyMode 
+      ? `Imagine ${avatar_name} as a confident, professional ${industry} expert. They wear polished business attire appropriate for ${industry}, have a warm and approachable demeanor, and exude expertise and trustworthiness.`
+      : `Note the presenter's professional appearance, attire, and style from the reference image for video continuity`;
+    const avatarDescription = (user_avatar_description && typeof user_avatar_description === 'string' && user_avatar_description.trim())
+      ? user_avatar_description.trim()
+      : defaultAvatarDescription;
+
+    const backgroundSceneNote = (background_image_url && typeof background_image_url === 'string' && background_image_url.trim())
+      ? `\n- SCENE/BACKGROUND: The user provided a separate background or scene reference image. Describe the setting, environment, lighting, and atmosphere to match a professional ${industry} context in ${city} that would pair well with the spokesperson (e.g. office, jobsite, storefront, or relevant location).`
+      : '';
+
     if (number_of_scenes === 1) {
       // Single scene prompt
       systemPrompt = `You are an expert video prompt writer specializing in creating compelling, cinematic 8-second video descriptions. Your goal is to create a prompt that will generate an engaging business video.
@@ -100,14 +111,12 @@ Key requirements:
 - Style: Professional, cinematic, dynamic
 - Action: Include specific movements and activities
 - Details: Mention lighting, camera angles, and atmosphere
-${isTextOnlyMode ? `- Avatar: Imagine ${avatar_name} as a confident, professional ${industry} expert with polished business attire` : ''}
+- Avatar (use this description in the video): ${avatarDescription}
+${backgroundSceneNote}
 
 Create a single, detailed prompt that describes a complete 8-second video scene.`;
     } else {
       // Multi-scene prompt with avatar consistency and marketing focus
-      const avatarDescription = isTextOnlyMode 
-        ? `Imagine ${avatar_name} as a confident, professional ${industry} expert. They wear polished business attire appropriate for ${industry}, have a warm and approachable demeanor, and exude expertise and trustworthiness.`
-        : `Note the presenter's professional appearance, attire, and style from the reference image for video continuity`;
 
       systemPrompt = `You are an expert digital marketing video creator specializing in compelling, conversion-focused video stories with SEAMLESS CINEMATIC TRANSITIONS and PERSUASIVE NARRATION.
 
@@ -150,6 +159,8 @@ CRITICAL - Avatar & Visual Consistency:
 2. EVERY scene must feature THE SAME presenter: "${avatar_name}" maintaining their exact professional look and attire
 3. Maintain consistent appearance across ALL scenes through clothing, style, and professional presence
 4. **SOLO FOCUS**: ${avatar_name} must be the ONLY person in every scene - NO additional people, groups, or extras
+${backgroundSceneNote ? `
+SCENE/BACKGROUND REFERENCE: The user provided a separate background or scene image. Describe the setting, environment, lighting, and atmosphere in each scene to match a professional ${industry} context in ${city} that would pair well with the spokesperson (e.g. office, jobsite, storefront).` : ''}
 
 SEAMLESS TRANSITION REQUIREMENTS (CRITICAL):
 Each scene must be designed for perfect video-to-video flow:

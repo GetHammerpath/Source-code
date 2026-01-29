@@ -52,6 +52,15 @@ const parseKieError = (status: number, errorText: string) => {
       userAction: 'Check your API token configuration.'
     };
   }
+
+  // Kie rejects script/audio that triggers their content filter (400 PUBLIC_ERROR_AUDIO_FILTERED)
+  if (status === 400 && (lowerError.includes('audio_filtered') || lowerError.includes('public_error_audio_filtered'))) {
+    return {
+      type: 'AUDIO_FILTERED',
+      message: 'The script or dialogue was filtered by Kie.ai. Their audio policy rejected some of the text.',
+      userAction: 'Simplify the avatar script: use neutral, professional language; avoid medical/legal/financial claims, brand names, or sensitive terms. Try shorter dialogue or rephrase and generate again.'
+    };
+  }
   
   if (lowerError.includes('invalid') || lowerError.includes('parameter')) {
     return {
@@ -104,7 +113,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { generation_id, prompt, image_url, model, aspect_ratio, watermark, avatar_name, industry, script, generation_type } = body;
+    const { generation_id, prompt, image_url, model, aspect_ratio, watermark, avatar_name, avatar_description, industry, script, generation_type } = body;
 
     // Validate required fields
     if (!generation_id) {
@@ -200,8 +209,12 @@ NATURAL SPEECH PATTERNS:
 
 `;
 
+    // Prepend avatar/spokesperson description so the video model uses it for visual consistency
+    const avatarVisualBlock = (avatar_description && typeof avatar_description === 'string' && avatar_description.trim())
+      ? `SPOKESPERSON VISUAL (use this description in the video): ${avatar_description.trim()}\n\n`
+      : '';
     // Build enhanced prompt with voice instructions
-    let enhancedPrompt = `${voiceIdentityBlock}${prompt}`;
+    let enhancedPrompt = `${voiceIdentityBlock}${avatarVisualBlock}${prompt}`;
     
     // Add dialogue delivery instructions if script is provided
     if (script) {

@@ -85,7 +85,7 @@ const Dashboard = () => {
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
             <p className="text-sm text-slate-600 mt-1">Choose an avatar to start creating.</p>
           </div>
-          <Button onClick={() => navigate("/")} className="bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm" size="sm">
+          <Button onClick={() => navigate("/create-avatar")} className="bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm" size="sm">
             <Plus className="h-4 w-4 mr-1.5" />
             Create New
           </Button>
@@ -101,7 +101,7 @@ const Dashboard = () => {
                 Create your first avatar to unlock the workspace.
               </div>
               <div>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-md" onClick={() => navigate("/")}>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-md" onClick={() => navigate("/create-avatar")}>
                   Create an avatar
                 </Button>
               </div>

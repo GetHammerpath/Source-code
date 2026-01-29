@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,20 +32,27 @@ const getErrorTitle = (errorType?: string) => {
       return '🔑 Authentication Error';
     case 'INVALID_PARAMS':
       return '⚙️ Invalid Parameters';
+    case 'AUDIO_FILTERED':
+      return '🔊 Script filtered';
     default:
       return 'Generation Failed';
   }
 };
 
+type AvatarOption = { id: string; name: string; seed_image_url: string };
+
 const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { balance, hasCredits } = useCredits();
+  const [avatars, setAvatars] = useState<AvatarOption[]>([]);
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [generationMode, setGenerationMode] = useState<'image' | 'text'>('image');
   const [formData, setFormData] = useState({
     industry: "",
     avatarName: "",
+    avatarDescription: "",
     city: "",
     storyIdea: "",
     model: "veo3_fast",
@@ -61,6 +68,21 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  useEffect(() => {
+    if (!userId) return;
+    const load = async () => {
+      const { data, error } = await supabase
+        .from("avatars")
+        .select("id, name, seed_image_url")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      if (!error) setAvatars(data || []);
+    };
+    load();
+  }, [userId]);
+
+  const selectedAvatar = selectedAvatarId ? avatars.find((a) => a.id === selectedAvatarId) : null;
+
   // Calculate current step
   const getCurrentStep = () => {
     if (scenePrompts.length > 0) return 3;
@@ -68,8 +90,9 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
       if (formData.industry && formData.avatarName && formData.city) return 2;
       return 1;
     }
-    if (selectedPhotoId && formData.industry && formData.avatarName && formData.city) return 2;
-    if (selectedPhotoId) return 1;
+    const hasImage = selectedAvatarId || selectedPhotoId;
+    if (hasImage && formData.industry && formData.avatarName && formData.city) return 2;
+    if (hasImage) return 1;
     return 1;
   };
 
@@ -81,13 +104,21 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
     }
   };
 
+  const handleSelectAvatar = (avatarId: string | null) => {
+    setSelectedAvatarId(avatarId);
+    if (avatarId) {
+      const a = avatars.find((x) => x.id === avatarId);
+      if (a) setFormData((prev) => ({ ...prev, avatarName: a.name }));
+    }
+  };
+
   const currentStep = getCurrentStep();
 
   const handleAnalyze = async () => {
-    if (generationMode === 'image' && !selectedPhotoId) {
+    if (generationMode === 'image' && !selectedAvatarId && !selectedPhotoId) {
       toast({
         title: "Image Required",
-        description: "Please upload or select an image first.",
+        description: "Please select an existing avatar or upload/select a business image.",
         variant: "destructive"
       });
       return;
@@ -106,25 +137,32 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
 
     try {
       let imageUrl: string | null = null;
-      
-      if (generationMode === 'image' && selectedPhotoId) {
-        const { data: photoData, error: photoError } = await supabase
-          .from('jobsite_photos')
-          .select('file_url')
-          .eq('id', selectedPhotoId)
-          .single();
+      let backgroundImageUrl: string | null = null;
 
-        if (photoError || !photoData) {
-          throw new Error('Failed to get image URL');
+      if (generationMode === 'image') {
+        if (selectedAvatarId && selectedAvatar) {
+          imageUrl = selectedAvatar.seed_image_url;
         }
-        imageUrl = photoData.file_url;
+        if (selectedPhotoId) {
+          const { data: photoData, error: photoError } = await supabase
+            .from('jobsite_photos')
+            .select('file_url')
+            .eq('id', selectedPhotoId)
+            .single();
+          if (photoError || !photoData) throw new Error('Failed to get image URL');
+          const photoUrl = photoData.file_url;
+          if (!imageUrl) imageUrl = photoUrl;
+          else backgroundImageUrl = photoUrl;
+        }
       }
 
       const { data: responseData, error: responseError } = await supabase.functions.invoke('analyze-image-kie', {
         body: {
           image_url: imageUrl,
+          background_image_url: backgroundImageUrl || undefined,
           industry: formData.industry,
           avatar_name: formData.avatarName,
+          avatar_description: formData.avatarDescription?.trim() || undefined,
           city: formData.city,
           story_idea: formData.storyIdea,
           number_of_scenes: formData.numberOfScenes,
@@ -248,18 +286,20 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
 
     try {
       let imageUrl: string | null = null;
-      
-      if (generationMode === 'image' && selectedPhotoId) {
-        const { data: photoData, error: photoError } = await supabase
-          .from('jobsite_photos')
-          .select('file_url')
-          .eq('id', selectedPhotoId)
-          .single();
 
-        if (photoError || !photoData) {
-          throw new Error('Failed to get image URL');
+      if (generationMode === 'image') {
+        if (selectedAvatarId && selectedAvatar) {
+          imageUrl = selectedAvatar.seed_image_url;
         }
-        imageUrl = photoData.file_url;
+        if (!imageUrl && selectedPhotoId) {
+          const { data: photoData, error: photoError } = await supabase
+            .from('jobsite_photos')
+            .select('file_url')
+            .eq('id', selectedPhotoId)
+            .single();
+          if (photoError || !photoData) throw new Error('Failed to get image URL');
+          imageUrl = photoData.file_url;
+        }
       }
 
       const isMultiScene = scenePrompts.length > 1;
@@ -282,7 +322,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
           scene_prompts: scenePrompts,
           current_scene: 1,
           is_multi_scene: isMultiScene,
-          metadata: { generation_type: generationType }
+          metadata: { generation_type: generationType, avatar_description: formData.avatarDescription?.trim() || undefined }
         })
         .select()
         .single();
@@ -320,7 +360,8 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
           model: formData.model,
           aspect_ratio: formData.aspectRatio,
           watermark: formData.watermark || '',
-          generation_type: generationType
+          generation_type: generationType,
+          avatar_description: formData.avatarDescription?.trim() || undefined
         }
       });
 
@@ -352,10 +393,12 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
       });
 
       // Reset form
+      setSelectedAvatarId(null);
       setSelectedPhotoId(null);
       setFormData({
         industry: "",
         avatarName: "",
+        avatarDescription: "",
         city: "",
         storyIdea: "",
         model: "veo3_fast",
@@ -430,19 +473,58 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
             </RadioGroup>
           </div>
 
-          {/* Image Upload Section - Only show for image mode */}
-          {generationMode === 'image' && (
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
+          {/* Use existing avatar - optional; when selected, name + (in image mode) image come from avatar */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">Use existing avatar (optional)</Label>
+            <Select
+              value={selectedAvatarId || "none"}
+              onValueChange={(v) => handleSelectAvatar(v === "none" ? null : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="None – I'll enter details manually or use a business image" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None – enter details / use business image</SelectItem>
+                {avatars.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    <span className="flex items-center gap-2">
+                      <img src={a.seed_image_url} alt="" className="h-6 w-6 rounded object-cover" />
+                      {a.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedAvatar && (
+              <div className="flex items-center gap-3 rounded-lg border border-muted bg-muted/30 p-3">
+                <img src={selectedAvatar.seed_image_url} alt={selectedAvatar.name} className="h-14 w-14 rounded object-cover" />
+                <div>
+                  <p className="font-medium text-sm">{selectedAvatar.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {generationMode === "image"
+                      ? "Avatar (person) reference. Add a background/scene image below."
+                      : "Name prefilled; prompt-only mode uses your story and description."}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Business or scene image - ALWAYS in Image Reference mode, directly under avatar so "use business image" is obvious */}
+          {generationMode === "image" && (
+            <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-4" data-section="background-scene-image">
+              <Label className="flex items-center gap-2 text-base font-medium">
                 <Image className="h-4 w-4" />
-                Business Image *
+                {selectedAvatarId ? "Background / scene image (optional)" : "Business or scene image *"}
               </Label>
               <SinglePhotoSelector
                 selectedPhotoId={selectedPhotoId}
                 onPhotoSelect={setSelectedPhotoId}
               />
               <p className="text-xs text-muted-foreground">
-                Use a high-resolution image with good lighting for best results
+                {selectedAvatarId
+                  ? "Optional. Use as scene or setting reference alongside your avatar."
+                  : "Upload or pick a photo. Use a high-resolution image with good lighting for best results."}
               </p>
             </div>
           )}
@@ -470,6 +552,21 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
                 onChange={(e) => setFormData({ ...formData, avatarName: e.target.value })}
                 placeholder="e.g., John Smith"
               />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="avatarDescription">Avatar / Spokesperson Description (optional)</Label>
+              <Textarea
+                id="avatarDescription"
+                value={formData.avatarDescription}
+                onChange={(e) => setFormData({ ...formData, avatarDescription: e.target.value })}
+                placeholder="e.g., Professional woman in business attire, warm smile, 40s. This description is used in the video so the spokesperson matches your vision."
+                rows={2}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                Describe how the spokesperson should look and appear in the video (appearance, attire, demeanor). Used for prompt-only mode and to guide scene prompts.
+              </p>
             </div>
 
             <div className="space-y-2">

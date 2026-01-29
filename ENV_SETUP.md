@@ -31,11 +31,13 @@ VITE_SITE_URL=http://localhost:8080
 
 ## Vercel API Routes (Serverless)
 
-The landing-page casting interface calls `/api/generate-avatar`, which uses **Kie Nano Banana** (image generation) when configured. Set in Vercel Dashboard → Project → Settings → Environment Variables:
+The landing-page casting interface calls `/api/generate-avatar`, which uses **Kie Nano Banana Pro** (image generation) when configured. Set in Vercel so photorealistic avatars work instead of placeholders.
 
 | Variable | Purpose |
 |----------|---------|
-| `KIE_AI_API_TOKEN` or `KIE_API_KEY` | Kie.ai API key for Nano Banana avatar images. If unset, the API falls back to placeholder avatars. |
+| `KIE_AI_API_TOKEN` or `KIE_API_KEY` | Kie.ai API key for Nano Banana Pro avatar images. If unset, the API falls back to placeholder avatars. |
+
+**Step-by-step:** See **[VERCEL_KIE_TOKEN_SETUP.md](./VERCEL_KIE_TOKEN_SETUP.md)** for setting `KIE_AI_API_TOKEN` in Vercel (Dashboard or CLI).
 
 The same Kie.ai key used for Edge Functions can be used here. For long-running generation (4 images), ensure the function timeout is at least 60s (Vercel Pro; Hobby may cap at 10s).
 

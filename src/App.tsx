@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AuthWrapper from "@/components/layout/AuthWrapper";
+import Navbar from "@/components/layout/Navbar";
 import Auth from "./pages/Auth";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
@@ -22,6 +23,7 @@ import AdminAudit from "./pages/admin/AdminAudit";
 import Templates from "./pages/Templates";
 import VideoGenerator from "./pages/VideoGenerator";
 import AvatarWorkspace from "./pages/AvatarWorkspace";
+import CreateAvatar from "./pages/CreateAvatar";
 import SoraStoryboardGenerator from "./pages/SoraStoryboardGenerator";
 import Sora2LatestGenerator from "./pages/Sora2LatestGenerator";
 import RunwayExtendGenerator from "./pages/RunwayExtendGenerator";
@@ -46,6 +48,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <Navbar />
             <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
@@ -63,6 +66,14 @@ const App = () => (
             element={
               <AuthWrapper>
                 <AvatarWorkspace />
+              </AuthWrapper>
+            }
+          />
+          <Route
+            path="/create-avatar"
+            element={
+              <AuthWrapper>
+                <CreateAvatar />
               </AuthWrapper>
             }
           />
