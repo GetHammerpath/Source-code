@@ -164,7 +164,7 @@ const Landing = () => {
                     id="casting-prompt"
                     value={castingPrompt}
                     onChange={(e) => setCastingPrompt(e.target.value)}
-                    placeholder="e.g. confident, friendly, modern..."
+                    placeholder="e.g. photorealistic portrait, professional headshot, realistic spokesperson..."
                     className="rounded-md h-10 border-slate-300 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <Button
@@ -181,6 +181,9 @@ const Landing = () => {
                 {generateNotice && !generateError && (
                   <div className="text-xs text-slate-500">{generateNotice}</div>
                 )}
+                <p className="text-xs text-slate-500">
+                  Tip: Use &quot;photorealistic&quot;, &quot;realistic portrait&quot;, or &quot;professional headshot&quot; for best results with Nano Banana Engine.
+                </p>
               </div>
 
               {generatedUrls.length > 0 && (

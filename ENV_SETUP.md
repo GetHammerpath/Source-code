@@ -29,6 +29,16 @@ VITE_CREDITS_PER_MINUTE=1
 VITE_SITE_URL=http://localhost:8080
 ```
 
+## Vercel API Routes (Serverless)
+
+The landing-page casting interface calls `/api/generate-avatar`, which uses **Kie Nano Banana** (image generation) when configured. Set in Vercel Dashboard → Project → Settings → Environment Variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `KIE_AI_API_TOKEN` or `KIE_API_KEY` | Kie.ai API key for Nano Banana avatar images. If unset, the API falls back to placeholder avatars. |
+
+The same Kie.ai key used for Edge Functions can be used here. For long-running generation (4 images), ensure the function timeout is at least 60s (Vercel Pro; Hobby may cap at 10s).
+
 ## Supabase Edge Function Secrets
 
 These need to be set in Supabase Dashboard or via CLI. **They are NOT in the .env file** for security.
@@ -137,7 +147,7 @@ After setting all secrets, verify they're working:
 | `VITE_SUPABASE_URL` | Frontend (.env) | Supabase project URL |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Frontend (.env) | Supabase anon/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Edge Functions | Full database access |
-| `KIE_AI_API_TOKEN` | Edge Functions | Kie.ai video generation |
+| `KIE_AI_API_TOKEN` | Edge Functions, Vercel API | Kie.ai video + Nano Banana image (avatar) generation |
 | `OPENAI_API_KEY` | Edge Functions | OpenAI script/prompt generation |
 | `STRIPE_SECRET_KEY` | Edge Functions | Stripe payment processing |
 | `STRIPE_WEBHOOK_SECRET` | Edge Functions | Webhook signature verification |
