@@ -212,7 +212,7 @@ const Landing = () => {
         <div className="container mx-auto px-6 md:px-8">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-12">
-              DiuDiu vs. Competitors
+              DiuDiu vs. HeyGen / Synthesia
             </h2>
             <div className="bg-white border border-slate-200 rounded-md shadow-sm overflow-hidden">
               <table className="w-full border-collapse">
@@ -220,18 +220,18 @@ const Landing = () => {
                   <tr className="border-b border-slate-200 bg-slate-50">
                     <th className="text-left p-4 font-semibold text-slate-900">Feature</th>
                     <th className="text-center p-4 font-semibold text-slate-900">DiuDiu</th>
-                    <th className="text-center p-4 font-semibold text-slate-900">Competitor A</th>
-                    <th className="text-center p-4 font-semibold text-slate-900">Competitor B</th>
+                    <th className="text-center p-4 font-semibold text-slate-900">HeyGen</th>
+                    <th className="text-center p-4 font-semibold text-slate-900">Synthesia</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    { feature: "Infinite Identity Creation", diudiu: true, a: false, b: false },
-                    { feature: "Enterprise-Grade Infrastructure", diudiu: true, a: false, b: true },
-                    { feature: "API-First Architecture", diudiu: true, a: true, b: false },
-                    { feature: "Multi-Provider Support", diudiu: true, a: false, b: false },
-                    { feature: "Golden Sample Safety Gates", diudiu: true, a: false, b: false },
-                    { feature: "Bulk Processing", diudiu: true, a: true, b: true },
+                    { feature: "Infinite Identity Creation", diudiu: true, heygen: false, synthesia: false },
+                    { feature: "Enterprise-Grade Infrastructure", diudiu: true, heygen: false, synthesia: true },
+                    { feature: "API-First Architecture", diudiu: true, heygen: true, synthesia: false },
+                    { feature: "Multi-Provider Support", diudiu: true, heygen: false, synthesia: false },
+                    { feature: "Golden Sample Safety Gates", diudiu: true, heygen: false, synthesia: false },
+                    { feature: "Bulk Processing", diudiu: true, heygen: true, synthesia: true },
                   ].map((row, i) => (
                     <tr key={i} className="border-b border-slate-200 last:border-b-0">
                       <td className="p-4 text-slate-900">{row.feature}</td>
@@ -243,14 +243,14 @@ const Landing = () => {
                         )}
                       </td>
                       <td className="p-4 text-center">
-                        {row.a ? (
+                        {row.heygen ? (
                           <Check className="h-5 w-5 text-green-600 mx-auto" />
                         ) : (
                           <X className="h-5 w-5 text-red-600 mx-auto" />
                         )}
                       </td>
                       <td className="p-4 text-center">
-                        {row.b ? (
+                        {row.synthesia ? (
                           <Check className="h-5 w-5 text-green-600 mx-auto" />
                         ) : (
                           <X className="h-5 w-5 text-red-600 mx-auto" />
