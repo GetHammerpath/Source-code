@@ -193,7 +193,7 @@ const Landing = () => {
                   <span className="ml-2 text-xs font-mono text-slate-500">casting-interface</span>
                 </div>
                 <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
-                  Nano Banana Engine
+                  Nano Banana Pro
                 </span>
               </div>
 
@@ -298,7 +298,7 @@ const Landing = () => {
               {generatedUrls.length > 0 && (
                 <div className="space-y-3 pt-2">
                   <div className="text-xs font-semibold text-slate-700 bg-slate-50 px-2 py-1 rounded-md inline-block">
-                    Photorealistic Avatar (Nano Banana Engine)
+                    Photorealistic Avatar (Nano Banana Pro)
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {generatedUrls.map((url) => (

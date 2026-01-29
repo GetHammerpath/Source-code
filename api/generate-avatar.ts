@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 
-// Allow up to 60s for Kie Nano Banana polling (Vercel Pro; hobby may still cap at 10s)
+// Allow up to 60s for Kie Nano Banana Pro polling (Vercel Pro; hobby may still cap at 10s)
 export const config = { maxDuration: 60 };
 
 function json(res: any, status: number, body: unknown) {
@@ -27,7 +27,7 @@ type KieRecordInfoResponse = {
   };
 };
 
-async function createNanoBananaTask(
+async function createNanoBananaProTask(
   token: string,
   prompt: string,
   variationIndex: number
@@ -45,18 +45,20 @@ async function createNanoBananaTask(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      model: "google/nano-banana",
+      model: "nano-banana-pro",
       input: {
         prompt: finalPrompt,
+        aspect_ratio: "1:1",
+        resolution: "2K", // Use 2K for high-quality avatars (1K, 2K, or 4K available)
         output_format: "png",
-        image_size: "1:1",
+        image_input: [], // Empty array for text-to-image (can add up to 8 images for image-to-image)
       },
     }),
   });
   
   const data = (await res.json().catch(() => ({}))) as KieCreateTaskResponse;
   if (!res.ok || data.code !== 200) {
-    console.error(`[createNanoBananaTask] Failed: ${res.status} - ${JSON.stringify(data)}`);
+    console.error(`[createNanoBananaProTask] Failed: ${res.status} - ${JSON.stringify(data)}`);
     return null;
   }
   return data.data?.taskId ?? null;
@@ -132,9 +134,9 @@ export default async function handler(req: any, res: any) {
   const token = process.env.KIE_AI_API_TOKEN || process.env.KIE_API_KEY;
   if (token) {
     try {
-      console.log(`[generate-avatar] Attempting Kie Nano Banana with prompt: ${prompt.substring(0, 100)}...`);
+      console.log(`[generate-avatar] Attempting Kie Nano Banana Pro with prompt: ${prompt.substring(0, 100)}...`);
       const taskIds: (string | null)[] = await Promise.all(
-        [0, 1, 2, 3].map((i) => createNanoBananaTask(token, prompt, i))
+        [0, 1, 2, 3].map((i) => createNanoBananaProTask(token, prompt, i))
       );
       const validTaskIds = taskIds.filter((id): id is string => !!id);
       console.log(`[generate-avatar] Created ${validTaskIds.length}/4 tasks`);
@@ -153,8 +155,8 @@ export default async function handler(req: any, res: any) {
           while (result.length < 4) result.push(fallback[result.length]);
           json(res, 200, {
             urls: result.slice(0, 4),
-            model: "nano-banana",
-            engine: "Nano Banana Engine",
+            model: "nano-banana-pro",
+            engine: "Nano Banana Pro Engine",
             warning: successUrls.length < 4 ? `Only ${successUrls.length} photorealistic images generated; ${4 - successUrls.length} placeholder(s) added` : undefined,
           });
           return;
@@ -174,8 +176,8 @@ export default async function handler(req: any, res: any) {
   const urls = fallbackDiceBear(prompt);
   json(res, 200, { 
     urls, 
-    model: "nano-banana", 
-    engine: "Nano Banana Engine",
+    model: "nano-banana-pro", 
+    engine: "Nano Banana Pro Engine",
     warning: "Using placeholder avatars. Set KIE_AI_API_TOKEN in Vercel environment variables for photorealistic generation.",
   });
 }
