@@ -38,12 +38,13 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  // Mock generator: return 4 deterministic image URLs based on prompt.
-  // Replace later with DALL·E 3 / your image provider.
+  // Mock generator: return 4 deterministic avatar image URLs based on prompt.
+  // IMPORTANT: Use a provider that doesn't trigger Kie "IP input image" rejections.
+  // DiceBear provides deterministic, openly-generated avatars.
   const seed = createHash("sha256").update(prompt).digest("hex").slice(0, 12);
   const urls = Array.from({ length: 4 }, (_, i) => {
-    // Public placeholder images (stable per prompt)
-    return `https://picsum.photos/seed/${seed}-${i + 1}/1024/1024`;
+    const s = `${seed}-${i + 1}`;
+    return `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(s)}&size=1024`;
   });
 
   json(res, 200, { urls });

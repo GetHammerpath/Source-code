@@ -53,11 +53,21 @@ serve(async (req) => {
 
     // Update the appropriate fields based on which task completed
     const updates: any = {};
-    const status = successFlag === 1 && videoUrl ? 'completed' : 'failed';
+    const isSuccess = successFlag === 1;
+    const metaBase =
+      generation?.metadata && typeof generation.metadata === "object" && !Array.isArray(generation.metadata)
+        ? generation.metadata
+        : {};
+    // Always capture last callback payload for debugging.
+    updates.metadata = {
+      ...metaBase,
+      last_kie_callback: data,
+      last_kie_callback_received_at: new Date().toISOString(),
+    };
     
     if (isInitial) {
-      updates.initial_status = status;
-      if (videoUrl) {
+      if (isSuccess && videoUrl) {
+        updates.initial_status = 'completed';
         updates.initial_video_url = videoUrl;
         updates.initial_completed_at = new Date().toISOString();
         updates.initial_error = null; // Clear any previous error
@@ -77,12 +87,20 @@ serve(async (req) => {
           }
         ];
       }
-      if (errorMessage || successFlag !== 1) {
+      // If Kie reports success but doesn't include a URL yet, don't mark failed.
+      // Some providers will send multiple callbacks or finalize URLs slightly later.
+      if (isSuccess && !videoUrl) {
+        console.warn('⏳ Initial callback success without URL (keeping generating):', { taskId, generation_id: generation.id });
+        // Keep existing status if set; otherwise keep generating.
+        updates.initial_status = generation.initial_status === 'completed' ? 'completed' : 'generating';
+      } else if (errorMessage || successFlag !== 1) {
         const errorDetail = errorMessage || 'Unknown generation failure';
-        // Provide user-friendly message for audio filtering errors
+        // Provide user-friendly message for common policy errors
         let userMessage = errorDetail;
         if (errorDetail.includes('AUDIO_FILTERED') || errorDetail.includes('audio') && errorDetail.includes('filter')) {
           userMessage = 'Audio content was filtered by KIE. Try simplifying the avatar script or removing business-specific terms.';
+        } else if (errorDetail.includes('IP_INPUT_IMAGE')) {
+          userMessage = 'Input image was rejected by KIE (IP policy). Use a photo you own, or generate without a reference image (text-to-video).';
         }
         updates.initial_error = `Generation failed at Kie.ai: ${userMessage}`;
         console.error('❌ Initial generation failed:', {
@@ -91,10 +109,11 @@ serve(async (req) => {
           errorMessage: errorDetail,
           successFlag
         });
+        updates.initial_status = 'failed';
       }
     } else if (isExtended) {
-      updates.extended_status = status;
-      if (videoUrl) {
+      if (isSuccess && videoUrl) {
+        updates.extended_status = 'completed';
         updates.extended_video_url = videoUrl;
         updates.extended_completed_at = new Date().toISOString();
         updates.extended_error = null; // Clear any previous error
@@ -116,12 +135,17 @@ serve(async (req) => {
           }
         ];
       }
-      if (errorMessage || successFlag !== 1) {
+      if (isSuccess && !videoUrl) {
+        console.warn('⏳ Extended callback success without URL (keeping generating):', { taskId, generation_id: generation.id });
+        updates.extended_status = generation.extended_status === 'completed' ? 'completed' : 'generating';
+      } else if (errorMessage || successFlag !== 1) {
         const errorDetail = errorMessage || 'Unknown generation failure';
-        // Provide user-friendly message for audio filtering errors
+        // Provide user-friendly message for common policy errors
         let userMessage = errorDetail;
         if (errorDetail.includes('AUDIO_FILTERED') || errorDetail.includes('audio') && errorDetail.includes('filter')) {
           userMessage = 'Audio content was filtered by KIE. Try simplifying the avatar script or removing business-specific terms.';
+        } else if (errorDetail.includes('IP_INPUT_IMAGE')) {
+          userMessage = 'Input image was rejected by KIE (IP policy). Use a photo you own, or generate without a reference image (text-to-video).';
         }
         updates.extended_error = `Scene ${generation.current_scene}: Generation failed at Kie.ai: ${userMessage}`;
         console.error('❌ Extended generation failed:', {
@@ -131,6 +155,7 @@ serve(async (req) => {
           errorMessage: errorDetail,
           successFlag
         });
+        updates.extended_status = 'failed';
       }
     }
 

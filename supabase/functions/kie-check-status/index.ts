@@ -199,6 +199,13 @@ serve(async (req) => {
         const videoUrl = info.resultUrls?.[0] || data.response?.resultUrls?.[0] || data.resultUrls?.[0];
         const successFlag = info.successFlag ?? data.successFlag ?? statusData.successFlag;
         const errorMessage = info.errorMessage || data.errorMessage || statusData.errorMessage;
+        const normalizedError =
+          typeof errorMessage === "string" && /IP_INPUT_IMAGE/i.test(errorMessage)
+            ? `Input image rejected by Kie policy (${errorMessage}). Use a photo you own, or generate without a reference image (text-to-video).`
+            : errorMessage;
+        const completeTime = info.completeTime ?? data.completeTime ?? statusData.completeTime;
+        const stateRaw = info.state ?? data.state ?? info.status ?? data.status ?? null;
+        const state = typeof stateRaw === "string" ? stateRaw.toLowerCase() : null;
         
         if (successFlag === 1 && videoUrl) {
           updates.initial_status = 'completed';
@@ -206,11 +213,29 @@ serve(async (req) => {
           updates.initial_completed_at = new Date().toISOString();
           needsUpdate = true;
           console.log('✅ Initial video completed:', updates.initial_video_url);
-        } else if (successFlag === 0 || errorMessage) {
+        } else if (normalizedError || state === "failed" || state === "error" || (completeTime && successFlag === 0)) {
+          const fallbackDetail = (() => {
+            try {
+              const raw = JSON.stringify(statusData);
+              return raw.length > 4000 ? `${raw.slice(0, 4000)}…(truncated)` : raw;
+            } catch {
+              return null;
+            }
+          })();
           updates.initial_status = 'failed';
-          updates.initial_error = errorMessage || 'Video generation failed';
+          updates.initial_error =
+            normalizedError ||
+            (fallbackDetail ? `Video generation failed. Details: ${fallbackDetail}` : 'Video generation failed');
           needsUpdate = true;
           console.log('❌ Initial video failed:', updates.initial_error);
+        } else {
+          // Likely still processing (some Kie responses report successFlag=0 with no error while running)
+          console.log('⏳ Initial video still processing:', {
+            taskId: generation.initial_task_id,
+            successFlag,
+            state: stateRaw ?? null,
+            hasVideoUrl: !!videoUrl,
+          });
         }
       }
     }
@@ -238,6 +263,13 @@ serve(async (req) => {
         const videoUrl = info.resultUrls?.[0] || data.response?.resultUrls?.[0] || data.resultUrls?.[0];
         const successFlag = info.successFlag ?? data.successFlag ?? statusData.successFlag;
         const errorMessage = info.errorMessage || data.errorMessage || statusData.errorMessage;
+        const normalizedError =
+          typeof errorMessage === "string" && /IP_INPUT_IMAGE/i.test(errorMessage)
+            ? `Input image rejected by Kie policy (${errorMessage}). Use a photo you own, or generate without a reference image (text-to-video).`
+            : errorMessage;
+        const completeTime = info.completeTime ?? data.completeTime ?? statusData.completeTime;
+        const stateRaw = info.state ?? data.state ?? info.status ?? data.status ?? null;
+        const state = typeof stateRaw === "string" ? stateRaw.toLowerCase() : null;
         
         if (successFlag === 1 && videoUrl) {
           updates.extended_status = 'completed';
@@ -245,11 +277,28 @@ serve(async (req) => {
           updates.extended_completed_at = new Date().toISOString();
           needsUpdate = true;
           console.log('✅ Extended video completed:', updates.extended_video_url);
-        } else if (successFlag === 0 || errorMessage) {
+        } else if (normalizedError || state === "failed" || state === "error" || (completeTime && successFlag === 0)) {
+          const fallbackDetail = (() => {
+            try {
+              const raw = JSON.stringify(statusData);
+              return raw.length > 4000 ? `${raw.slice(0, 4000)}…(truncated)` : raw;
+            } catch {
+              return null;
+            }
+          })();
           updates.extended_status = 'failed';
-          updates.extended_error = errorMessage || 'Video generation failed';
+          updates.extended_error =
+            normalizedError ||
+            (fallbackDetail ? `Video generation failed. Details: ${fallbackDetail}` : 'Video generation failed');
           needsUpdate = true;
           console.log('❌ Extended video failed:', updates.extended_error);
+        } else {
+          console.log('⏳ Extended video still processing:', {
+            taskId: generation.extended_task_id,
+            successFlag,
+            state: stateRaw ?? null,
+            hasVideoUrl: !!videoUrl,
+          });
         }
       }
     }

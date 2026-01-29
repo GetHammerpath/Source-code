@@ -21,6 +21,7 @@ import AdminRenders from "./pages/admin/AdminRenders";
 import AdminAudit from "./pages/admin/AdminAudit";
 import Templates from "./pages/Templates";
 import VideoGenerator from "./pages/VideoGenerator";
+import AvatarWorkspace from "./pages/AvatarWorkspace";
 import SoraStoryboardGenerator from "./pages/SoraStoryboardGenerator";
 import Sora2LatestGenerator from "./pages/Sora2LatestGenerator";
 import RunwayExtendGenerator from "./pages/RunwayExtendGenerator";
@@ -38,13 +39,14 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
+  <div className="min-h-screen bg-white font-sans text-slate-900">
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/signup" element={<Auth />} />
@@ -55,6 +57,14 @@ const App = () => (
                 <Dashboard />
               </AuthWrapper>
             } 
+          />
+          <Route
+            path="/avatar/:id"
+            element={
+              <AuthWrapper>
+                <AvatarWorkspace />
+              </AuthWrapper>
+            }
           />
           <Route 
             path="/new-request" 
@@ -256,11 +266,12 @@ const App = () => (
               </AuthWrapper>
             } 
           />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </ErrorBoundary>
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  </div>
 );
 
 export default App;
