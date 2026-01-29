@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Video, Users, FileText, Scissors, Server, UserCheck, Film, Terminal, CreditCard, Shield, Wallet, User, Loader2 } from "lucide-react";
+import { LayoutDashboard, LogOut, Video, Users, FileText, Scissors, Server, UserCheck, Film, Terminal, CreditCard, Shield, Wallet, User, Loader2, Zap } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -110,7 +110,7 @@ const Sidebar = () => {
         <div className="flex items-center gap-3">
           <img src="/images/diudiu_logo.png" alt="DiuDiu" className="h-10 w-10 object-contain flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-base font-semibold text-slate-900 tracking-tight truncate">DiuDiu</h1>
+            <h1 className="text-base font-semibold text-slate-900 tracking-tight truncate">Video Portal</h1>
             <p className="text-xs text-slate-500 mt-0.5">Production Hub</p>
           </div>
         </div>

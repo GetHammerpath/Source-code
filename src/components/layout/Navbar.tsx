@@ -13,59 +13,33 @@ const Navbar = () => {
 
   if (!PUBLIC_ROUTES.includes(location.pathname)) return null;
 
-  const nav = (mobile = false) => (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          if (location.pathname === "/") {
-            document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
-          } else {
-            navigate("/#pricing");
-          }
-          if (mobile) setMobileMenuOpen(false);
-        }}
-        className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
-      >
-        Pricing
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          navigate("/auth");
-          if (mobile) setMobileMenuOpen(false);
-        }}
-        className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
-      >
-        Login
-      </button>
-      <Button
-        onClick={() => {
-          navigate("/auth");
-          if (mobile) setMobileMenuOpen(false);
-        }}
-        className="bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm"
-      >
-        Get Started
-      </Button>
-    </>
-  );
+  const scrollTo = (id: string) => {
+    if (location.pathname === "/") document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    else navigate(`/#${id}`);
+    setMobileMenuOpen(false);
+  };
+  const goAuth = () => { navigate("/auth"); setMobileMenuOpen(false); };
+  const goApi = () => { navigate("/api-keys"); setMobileMenuOpen(false); };
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
       <div className="container mx-auto px-6 md:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="font-semibold text-lg tracking-tight text-slate-900 hover:text-slate-700 transition-colors"
-            >
-              DiuDiu
+            <button type="button" onClick={() => navigate("/")} className="flex items-center gap-2.5">
+              <img src="/images/diudiu_logo.png" alt="DiuDiu" className="h-8 w-8 object-contain flex-shrink-0" />
+              <span className="font-semibold text-lg tracking-tight text-slate-900 hover:text-slate-700 transition-colors">DiuDiu</span>
             </button>
           </div>
 
-          <div className="hidden md:flex items-center gap-8">{nav()}</div>
+          <div className="hidden md:flex items-center gap-8">
+            <button type="button" onClick={() => scrollTo("solutions")} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Solutions</button>
+            <button type="button" onClick={() => scrollTo("platform")} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Platform</button>
+            <button type="button" onClick={() => scrollTo("pricing")} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Pricing</button>
+            <button type="button" onClick={goApi} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">API</button>
+            <Button variant="ghost" onClick={() => navigate("/auth")} className="text-slate-600 hover:text-slate-900">Log in</Button>
+            <Button onClick={() => navigate("/auth")} className="bg-[#002FA7] hover:bg-[#002080] text-white rounded-md shadow-sm">Start Generating</Button>
+          </div>
 
           <div className="flex items-center gap-4 md:hidden">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -75,7 +49,14 @@ const Navbar = () => {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[280px]">
-                <div className="flex flex-col gap-4 mt-8">{nav(true)}</div>
+                <div className="flex flex-col gap-4 mt-8">
+                  <button type="button" onClick={() => scrollTo("solutions")} className="text-sm font-medium text-slate-600 hover:text-slate-900 text-left">Solutions</button>
+                  <button type="button" onClick={() => scrollTo("platform")} className="text-sm font-medium text-slate-600 hover:text-slate-900 text-left">Platform</button>
+                  <button type="button" onClick={() => scrollTo("pricing")} className="text-sm font-medium text-slate-600 hover:text-slate-900 text-left">Pricing</button>
+                  <button type="button" onClick={goApi} className="text-sm font-medium text-slate-600 hover:text-slate-900 text-left">API</button>
+                  <Button variant="ghost" onClick={goAuth} className="justify-start text-slate-600">Log in</Button>
+                  <Button onClick={goAuth} className="bg-[#002FA7] hover:bg-[#002080] text-white rounded-md shadow-sm justify-start">Start Generating</Button>
+                </div>
               </SheetContent>
             </Sheet>
           </div>

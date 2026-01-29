@@ -136,7 +136,9 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="container mx-auto px-6 md:px-8 py-20 md:py-32">
+      <section id="solutions" className="relative bg-slate-50 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url(/images/hero_nano_banana.png)" }}>
+        <div className="absolute inset-0 bg-white/80 z-0" aria-hidden />
+        <div className="container mx-auto px-6 md:px-8 py-20 md:py-32 relative z-10">
         <div className="grid md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
           {/* Left Column: Headline */}
           <div className="space-y-6">
@@ -292,7 +294,7 @@ const Landing = () => {
       </section>
 
       {/* Comparison Section */}
-      <section className="bg-slate-50 py-20 md:py-32">
+      <section id="platform" className="bg-slate-50 py-20 md:py-32">
         <div className="container mx-auto px-6 md:px-8">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-12">
