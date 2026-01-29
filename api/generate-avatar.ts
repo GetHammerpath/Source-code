@@ -32,10 +32,12 @@ async function createNanoBananaTask(
   prompt: string,
   variationIndex: number
 ): Promise<string | null> {
-  const variationPrompt =
-    variationIndex === 0
-      ? prompt
-      : `Photorealistic portrait, variation ${variationIndex + 1}: ${prompt}`;
+  // Use the prompt as-is (it should already be the full positive prompt from the builder)
+  // Only add variation prefix if not the first one
+  const finalPrompt = variationIndex === 0 
+    ? prompt 
+    : `${prompt}, variation ${variationIndex + 1}`;
+  
   const res = await fetch(`${KIE_BASE}/createTask`, {
     method: "POST",
     headers: {
@@ -45,14 +47,16 @@ async function createNanoBananaTask(
     body: JSON.stringify({
       model: "google/nano-banana",
       input: {
-        prompt: `Photorealistic avatar headshot, professional quality: ${variationPrompt}`,
+        prompt: finalPrompt,
         output_format: "png",
         image_size: "1:1",
       },
     }),
   });
+  
   const data = (await res.json().catch(() => ({}))) as KieCreateTaskResponse;
   if (!res.ok || data.code !== 200) {
+    console.error(`[createNanoBananaTask] Failed: ${res.status} - ${JSON.stringify(data)}`);
     return null;
   }
   return data.data?.taskId ?? null;
@@ -128,15 +132,20 @@ export default async function handler(req: any, res: any) {
   const token = process.env.KIE_AI_API_TOKEN || process.env.KIE_API_KEY;
   if (token) {
     try {
+      console.log(`[generate-avatar] Attempting Kie Nano Banana with prompt: ${prompt.substring(0, 100)}...`);
       const taskIds: (string | null)[] = await Promise.all(
         [0, 1, 2, 3].map((i) => createNanoBananaTask(token, prompt, i))
       );
       const validTaskIds = taskIds.filter((id): id is string => !!id);
+      console.log(`[generate-avatar] Created ${validTaskIds.length}/4 tasks`);
+      
       if (validTaskIds.length > 0) {
         const urls = await Promise.all(
           validTaskIds.map((id) => pollTaskResult(token, id))
         );
         const successUrls = urls.filter((u): u is string => !!u);
+        console.log(`[generate-avatar] Got ${successUrls.length}/${validTaskIds.length} successful images`);
+        
         if (successUrls.length >= 1) {
           // If we got at least one Kie image, pad with fallback so we always return 4
           const fallback = fallbackDiceBear(prompt);
@@ -146,15 +155,27 @@ export default async function handler(req: any, res: any) {
             urls: result.slice(0, 4),
             model: "nano-banana",
             engine: "Nano Banana Engine",
+            warning: successUrls.length < 4 ? `Only ${successUrls.length} photorealistic images generated; ${4 - successUrls.length} placeholder(s) added` : undefined,
           });
           return;
         }
+      } else {
+        console.error(`[generate-avatar] Failed to create any Kie tasks. Check API token and credits.`);
       }
     } catch (e) {
+      console.error(`[generate-avatar] Kie API error:`, e);
       // fall through to DiceBear
     }
+  } else {
+    console.warn(`[generate-avatar] KIE_AI_API_TOKEN not set. Using placeholder avatars.`);
   }
 
+  // Fallback to DiceBear (placeholder)
   const urls = fallbackDiceBear(prompt);
-  json(res, 200, { urls, model: "nano-banana", engine: "Nano Banana Engine" });
+  json(res, 200, { 
+    urls, 
+    model: "nano-banana", 
+    engine: "Nano Banana Engine",
+    warning: "Using placeholder avatars. Set KIE_AI_API_TOKEN in Vercel environment variables for photorealistic generation.",
+  });
 }

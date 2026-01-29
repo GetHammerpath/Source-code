@@ -78,12 +78,18 @@ const Landing = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: promptToUse }),
       });
-      const data = (await res.json().catch(() => ({}))) as { urls?: string[]; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { urls?: string[]; error?: string; warning?: string };
       if (!res.ok) {
         throw new Error(data?.error || `Request failed (${res.status})`);
       }
       const urls = Array.isArray(data?.urls) ? data.urls.filter(Boolean) : [];
       if (urls.length === 0) throw new Error("No images returned");
+      
+      // Show warning if using placeholders
+      if (data?.warning) {
+        setGenerateNotice(data.warning);
+      }
+      
       setGeneratedUrls(urls.slice(0, 4));
     } catch (e) {
       if (import.meta.env.DEV) {
@@ -212,10 +218,16 @@ const Landing = () => {
                   </Button>
                 </div>
                 {generateError && (
-                  <div className="text-sm text-red-600">{generateError}</div>
+                  <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-2">{generateError}</div>
                 )}
                 {generateNotice && !generateError && (
-                  <div className="text-xs text-slate-500">{generateNotice}</div>
+                  <div className={`text-xs p-2 rounded-md border ${
+                    generateNotice.includes("placeholder") || generateNotice.includes("KIE_AI_API_TOKEN")
+                      ? "bg-yellow-50 border-yellow-200 text-yellow-800"
+                      : "bg-slate-50 border-slate-200 text-slate-500"
+                  }`}>
+                    {generateNotice}
+                  </div>
                 )}
                 {positivePrompt && (
                   <div className="space-y-2 pt-2 border-t border-slate-200">
