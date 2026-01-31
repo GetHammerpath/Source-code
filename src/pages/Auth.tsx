@@ -353,7 +353,7 @@ const Auth = () => {
       <Card className="w-full max-w-md shadow-elegant">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src="/images/suosuo_logo.png" alt="Suosuo" className="h-14 w-auto object-contain" />
+            <img src="/images/suosuo_logo.png" alt="Suosuo" className="h-12 w-auto object-contain" />
           </div>
           <CardTitle className="text-2xl font-bold">Suosuo</CardTitle>
           <CardDescription>Access your video production workflow</CardDescription>

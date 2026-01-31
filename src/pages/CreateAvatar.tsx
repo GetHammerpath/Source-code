@@ -192,7 +192,7 @@ const CreateAvatar = () => {
             <span className="ml-2 text-xs font-mono text-slate-500">casting-interface</span>
           </div>
           <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
-            Nano Banana Pro
+            Suosuo Casting Engine v1.0
           </span>
         </div>
         <CardHeader>

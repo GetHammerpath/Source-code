@@ -30,7 +30,7 @@ const Landing = () => {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [talentName, setTalentName] = useState("");
   
-  // Nano Banana Prompt Builder
+  // Suosuo Casting Engine v1.0mpt Builder
   const [showAdvancedPrompt, setShowAdvancedPrompt] = useState(false);
   const [positivePrompt, setPositivePrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
@@ -162,7 +162,7 @@ const Landing = () => {
                   <span className="ml-2 text-xs font-mono text-slate-500">casting-interface</span>
                 </div>
                 <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
-                  Nano Banana Pro
+                  Suosuo Casting Engine v1.0
                 </span>
               </div>
 
@@ -259,6 +259,18 @@ const Landing = () => {
                     )}
                   </div>
                 )}
+                <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
+                  {["Professional Tech CEO", "Casual Lifestyle Vlogger", "Studio News Anchor"].map((starter) => (
+                    <button
+                      key={starter}
+                      type="button"
+                      onClick={() => setCastingPrompt(starter)}
+                      className="text-xs border border-border px-3 py-1 rounded-full hover:bg-muted transition-colors whitespace-nowrap"
+                    >
+                      {starter}
+                    </button>
+                  ))}
+                </div>
                 <p className="text-xs text-slate-500">
                   Tip: Try short descriptions like &quot;black cowboy&quot; or &quot;female chef&quot;. The prompt builder will auto-fill details.
                 </p>
@@ -267,7 +279,7 @@ const Landing = () => {
               {generatedUrls.length > 0 && (
                 <div className="space-y-3 pt-2">
                   <div className="text-xs font-semibold text-slate-700 bg-slate-50 px-2 py-1 rounded-md inline-block">
-                    Photorealistic Avatar (Nano Banana Engine)
+                    Photorealistic Avatar
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {generatedUrls.map((url) => (

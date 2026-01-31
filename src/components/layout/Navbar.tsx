@@ -25,9 +25,8 @@ const Navbar = () => {
       <div className="container mx-auto px-6 md:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <button type="button" onClick={() => navigate("/")} className="flex items-center gap-2.5">
-              <img src="/images/suosuo_logo.png" alt="Suosuo" className="h-8 w-8 object-contain flex-shrink-0" />
-              <span className="font-semibold text-lg tracking-tight text-slate-900 hover:text-slate-700 transition-colors">Suosuo</span>
+            <button type="button" onClick={() => navigate("/")} className="flex items-center">
+              <img src="/images/suosuo_logo.png" alt="Suosuo" className="h-8 w-auto object-contain" />
             </button>
           </div>
 
