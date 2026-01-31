@@ -12,10 +12,11 @@ const Landing = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Scroll to pricing when opening /#pricing
+  // Scroll to section when opening /#section-id
   useEffect(() => {
-    if (location.hash === "#pricing") {
-      document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+    const hash = location.hash?.slice(1);
+    if (hash && ["solutions", "why", "platform", "pricing"].includes(hash)) {
+      document.getElementById(hash)?.scrollIntoView({ behavior: "smooth" });
     }
   }, [location.pathname, location.hash]);
 
@@ -136,7 +137,7 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section id="solutions" className="relative bg-slate-50 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url(/images/hero_nano_banana.png)" }}>
+      <section id="solutions" className="relative bg-slate-50 bg-cover bg-center bg-no-repeat scroll-mt-20" style={{ backgroundImage: "url(/images/hero_nano_banana.png)" }}>
         <div className="absolute inset-0 bg-white/80 z-0" aria-hidden />
         <div className="container mx-auto px-6 md:px-8 py-20 md:py-32 relative z-10">
         <div className="grid md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
@@ -295,7 +296,7 @@ const Landing = () => {
       </section>
 
       {/* Why Suosuo: Visual Explanation */}
-      <section className="py-24 border-t border-border">
+      <section id="why" className="py-24 border-t border-border scroll-mt-20">
         <div className="container mx-auto px-6 md:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
             <h2 className="text-3xl font-bold tracking-tight mb-4">Why Suosuo?</h2>
@@ -308,7 +309,7 @@ const Landing = () => {
             <div className="space-y-6">
               <div className="rounded-xl border border-border bg-muted/20 overflow-hidden aspect-video relative group">
                 <img
-                  src="/images/diagram_single_take.svg"
+                  src="/images/diagram_single_take.png"
                   alt="Single Take vs Jump Cuts Diagram"
                   className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
                 />
@@ -324,7 +325,7 @@ const Landing = () => {
             <div className="space-y-6">
               <div className="rounded-xl border border-border bg-muted/20 overflow-hidden aspect-video relative group">
                 <img
-                  src="/images/diagram_ad_fatigue.svg"
+                  src="/images/diagram_ad_fatigue.png"
                   alt="Ad Fatigue Graph"
                   className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
                 />
@@ -341,7 +342,7 @@ const Landing = () => {
       </section>
 
       {/* Comparison Section */}
-      <section id="platform" className="bg-slate-50 py-24 md:py-32">
+      <section id="platform" className="bg-slate-50 py-24 md:py-32 scroll-mt-20">
         <div className="container mx-auto px-6 md:px-8">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-12">
