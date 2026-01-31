@@ -179,7 +179,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Video } from "lucide-react";
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -354,11 +353,9 @@ const Auth = () => {
       <Card className="w-full max-w-md shadow-elegant">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-gradient-primary rounded-lg">
-              <Video className="h-8 w-8 text-primary-foreground" />
-            </div>
+            <img src="/images/suosuo_logo.png" alt="Suosuo" className="h-14 w-auto object-contain" />
           </div>
-          <CardTitle className="text-2xl font-bold">Video Portal</CardTitle>
+          <CardTitle className="text-2xl font-bold">Suosuo</CardTitle>
           <CardDescription>Access your video production workflow</CardDescription>
         </CardHeader>
         <CardContent>

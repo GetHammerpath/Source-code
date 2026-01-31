@@ -299,31 +299,31 @@ const Landing = () => {
         <div className="container mx-auto px-6 md:px-8">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-12">
-              DiuDiu vs. HeyGen / Synthesia
+              Suosuo vs. HeyGen / Synthesia
             </h2>
             <div className="bg-white border border-slate-200 rounded-md shadow-sm overflow-hidden">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50">
                     <th className="text-left p-4 font-semibold text-slate-900">Feature</th>
-                    <th className="text-center p-4 font-semibold text-slate-900">DiuDiu</th>
+                    <th className="text-center p-4 font-semibold text-slate-900">Suosuo</th>
                     <th className="text-center p-4 font-semibold text-slate-900">HeyGen</th>
                     <th className="text-center p-4 font-semibold text-slate-900">Synthesia</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    { feature: "Infinite Identity Creation", diudiu: true, heygen: false, synthesia: false },
-                    { feature: "Enterprise-Grade Infrastructure", diudiu: true, heygen: false, synthesia: true },
-                    { feature: "API-First Architecture", diudiu: true, heygen: true, synthesia: false },
-                    { feature: "Multi-Provider Support", diudiu: true, heygen: false, synthesia: false },
-                    { feature: "Golden Sample Safety Gates", diudiu: true, heygen: false, synthesia: false },
-                    { feature: "Bulk Processing", diudiu: true, heygen: true, synthesia: true },
+                    { feature: "Infinite Identity Creation", suosuo: true, heygen: false, synthesia: false },
+                    { feature: "Enterprise-Grade Infrastructure", suosuo: true, heygen: false, synthesia: true },
+                    { feature: "API-First Architecture", suosuo: true, heygen: true, synthesia: false },
+                    { feature: "Multi-Provider Support", suosuo: true, heygen: false, synthesia: false },
+                    { feature: "Golden Sample Safety Gates", suosuo: true, heygen: false, synthesia: false },
+                    { feature: "Bulk Processing", suosuo: true, heygen: true, synthesia: true },
                   ].map((row, i) => (
                     <tr key={i} className="border-b border-slate-200 last:border-b-0">
                       <td className="p-4 text-slate-900">{row.feature}</td>
                       <td className="p-4 text-center">
-                        {row.diudiu ? (
+                        {row.suosuo ? (
                           <Check className="h-5 w-5 text-green-600 mx-auto" />
                         ) : (
                           <X className="h-5 w-5 text-red-600 mx-auto" />
@@ -439,7 +439,8 @@ const Landing = () => {
         <div className="container mx-auto px-6 md:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-2.5">
-              <span className="font-semibold text-lg tracking-tight text-slate-900">DiuDiu</span>
+              <img src="/images/suosuo_logo.png" alt="Suosuo" className="h-8 w-8 object-contain" />
+              <span className="font-semibold text-lg tracking-tight text-slate-900">Suosuo</span>
             </div>
             <div className="flex flex-wrap items-center gap-6 text-sm text-slate-600">
               <button type="button" onClick={() => navigate("/api-keys")} className="hover:text-slate-900 transition-colors">
@@ -450,7 +451,7 @@ const Landing = () => {
               </button>
             </div>
             <p className="text-sm text-slate-500">
-              © {new Date().getFullYear()} DiuDiu. All rights reserved.
+              © {new Date().getFullYear()} Suosuo. All rights reserved.
             </p>
           </div>
         </div>

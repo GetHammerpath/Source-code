@@ -108,9 +108,9 @@ const Sidebar = () => {
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-full shadow-sm">
       <div className="p-4 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <img src="/images/diudiu_logo.png" alt="DiuDiu" className="h-10 w-10 object-contain flex-shrink-0" />
+          <img src="/images/suosuo_logo.png" alt="Suosuo" className="h-10 w-10 object-contain flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-base font-semibold text-slate-900 tracking-tight truncate">Video Portal</h1>
+            <h1 className="text-base font-semibold text-slate-900 tracking-tight truncate">Suosuo</h1>
             <p className="text-xs text-slate-500 mt-0.5">Production Hub</p>
           </div>
         </div>

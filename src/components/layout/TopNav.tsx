@@ -62,10 +62,8 @@ const TopNav = ({ onSidebarToggle }: { onSidebarToggle?: () => void }) => {
             </SheetContent>
           </Sheet>
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-sm">
-              <span className="text-white font-bold text-sm">V</span>
-            </div>
-            <span className="font-semibold text-lg tracking-tight hidden sm:inline-block">Video Portal</span>
+            <img src="/images/suosuo_logo.png" alt="Suosuo" className="h-8 w-8 object-contain flex-shrink-0" />
+            <span className="font-semibold text-lg tracking-tight hidden sm:inline-block">Suosuo</span>
           </div>
         </div>
 
