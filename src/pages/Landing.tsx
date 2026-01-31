@@ -143,10 +143,10 @@ const Landing = () => {
         <div className="grid md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
           {/* Left Column: Headline */}
           <div className="space-y-6">
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-foreground leading-[1.1]">
+            <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-foreground leading-[1.1]">
               The Infrastructure for <span className="text-slate-500">Infinite Single Take.</span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-lg leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-lg leading-relaxed">
               Bulk-generate 2,000+ unique videos across diverse avatars—each stitched into a seamless, unbroken stream. Solve ad fatigue with identity, not B-roll.
             </p>
           </div>
@@ -345,55 +345,57 @@ const Landing = () => {
       <section id="platform" className="bg-slate-50 py-24 md:py-32 scroll-mt-20">
         <div className="container mx-auto px-6 md:px-8">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 text-center mb-8 md:mb-12 px-2">
               Suosuo vs. HeyGen / Synthesia
             </h2>
             <div className="bg-white border border-slate-200 rounded-md shadow-sm overflow-hidden">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="text-left p-4 font-semibold text-slate-900">Feature</th>
-                    <th className="text-center p-4 font-semibold text-slate-900">Suosuo</th>
-                    <th className="text-center p-4 font-semibold text-slate-900">HeyGen</th>
-                    <th className="text-center p-4 font-semibold text-slate-900">Synthesia</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { feature: "Infinite Single Take", suosuo: true, heygen: false, synthesia: false },
-                    { feature: "Enterprise-Grade Infrastructure", suosuo: true, heygen: false, synthesia: true },
-                    { feature: "API-First Architecture", suosuo: true, heygen: true, synthesia: false },
-                    { feature: "Multi-Provider Support", suosuo: true, heygen: false, synthesia: false },
-                    { feature: "Golden Sample Safety Gates", suosuo: true, heygen: false, synthesia: false },
-                    { feature: "Bulk Processing", suosuo: true, heygen: true, synthesia: true },
-                  ].map((row, i) => (
-                    <tr key={i} className="border-b border-slate-200 last:border-b-0">
-                      <td className="p-4 text-slate-900">{row.feature}</td>
-                      <td className="p-4 text-center">
-                        {row.suosuo ? (
-                          <Check className="h-5 w-5 text-green-600 mx-auto" />
-                        ) : (
-                          <X className="h-5 w-5 text-red-600 mx-auto" />
-                        )}
-                      </td>
-                      <td className="p-4 text-center">
-                        {row.heygen ? (
-                          <Check className="h-5 w-5 text-green-600 mx-auto" />
-                        ) : (
-                          <X className="h-5 w-5 text-red-600 mx-auto" />
-                        )}
-                      </td>
-                      <td className="p-4 text-center">
-                        {row.synthesia ? (
-                          <Check className="h-5 w-5 text-green-600 mx-auto" />
-                        ) : (
-                          <X className="h-5 w-5 text-red-600 mx-auto" />
-                        )}
-                      </td>
+              <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+                <table className="w-full border-collapse min-w-[480px]">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <th className="text-left p-3 md:p-4 font-semibold text-slate-900 text-sm md:text-base">Feature</th>
+                      <th className="text-center p-3 md:p-4 font-semibold text-slate-900 text-sm md:text-base whitespace-nowrap">Suosuo</th>
+                      <th className="text-center p-3 md:p-4 font-semibold text-slate-900 text-sm md:text-base whitespace-nowrap">HeyGen</th>
+                      <th className="text-center p-3 md:p-4 font-semibold text-slate-900 text-sm md:text-base whitespace-nowrap">Synthesia</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {[
+                      { feature: "Infinite Single Take", suosuo: true, heygen: false, synthesia: false },
+                      { feature: "Enterprise-Grade Infrastructure", suosuo: true, heygen: false, synthesia: true },
+                      { feature: "API-First Architecture", suosuo: true, heygen: true, synthesia: false },
+                      { feature: "Multi-Provider Support", suosuo: true, heygen: false, synthesia: false },
+                      { feature: "Golden Sample Safety Gates", suosuo: true, heygen: false, synthesia: false },
+                      { feature: "Bulk Processing", suosuo: true, heygen: true, synthesia: true },
+                    ].map((row, i) => (
+                      <tr key={i} className="border-b border-slate-200 last:border-b-0">
+                        <td className="p-3 md:p-4 text-slate-900 text-sm md:text-base">{row.feature}</td>
+                        <td className="p-3 md:p-4 text-center">
+                          {row.suosuo ? (
+                            <Check className="h-4 w-4 md:h-5 md:w-5 text-green-600 mx-auto" />
+                          ) : (
+                            <X className="h-4 w-4 md:h-5 md:w-5 text-red-600 mx-auto" />
+                          )}
+                        </td>
+                        <td className="p-3 md:p-4 text-center">
+                          {row.heygen ? (
+                            <Check className="h-4 w-4 md:h-5 md:w-5 text-green-600 mx-auto" />
+                          ) : (
+                            <X className="h-4 w-4 md:h-5 md:w-5 text-red-600 mx-auto" />
+                          )}
+                        </td>
+                        <td className="p-3 md:p-4 text-center">
+                          {row.synthesia ? (
+                            <Check className="h-4 w-4 md:h-5 md:w-5 text-green-600 mx-auto" />
+                          ) : (
+                            <X className="h-4 w-4 md:h-5 md:w-5 text-red-600 mx-auto" />
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
