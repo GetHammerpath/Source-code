@@ -142,11 +142,11 @@ const Landing = () => {
         <div className="grid md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
           {/* Left Column: Headline */}
           <div className="space-y-6">
-            <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-slate-900 leading-[1.1]">
-              The Infrastructure for Infinite Identity
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-foreground leading-[1.1]">
+              The Infrastructure for <span className="text-slate-500">Infinite Single Take.</span>
             </h1>
-            <p className="text-xl text-slate-600 leading-relaxed">
-              Generate <strong className="text-slate-900">2,000+ unique, consistent avatars</strong> in minutes. Solve ad fatigue with programmatic video creation that scales.
+            <p className="text-xl text-muted-foreground max-w-lg leading-relaxed">
+              Bulk-generate 2,000+ unique videos across diverse avatars—each stitched into a seamless, unbroken stream. Solve ad fatigue with identity, not B-roll.
             </p>
           </div>
 
@@ -294,8 +294,54 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* Why Suosuo: Visual Explanation */}
+      <section className="py-24 border-t border-border">
+        <div className="container mx-auto px-6 md:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <h2 className="text-3xl font-bold tracking-tight mb-4">Why Suosuo?</h2>
+            <p className="text-muted-foreground text-lg">
+              We solved the two biggest problems in programmatic video: <b>The Uncanny Valley of Edits</b> and <b>Creative Ad Fatigue</b>.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-12 items-start">
+            <div className="space-y-6">
+              <div className="rounded-xl border border-border bg-muted/20 overflow-hidden aspect-video relative group">
+                <img
+                  src="/images/diagram_single_take.svg"
+                  alt="Single Take vs Jump Cuts Diagram"
+                  className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
+                />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-2">The Infinite Single Take</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  Competitors force you to use jump cuts or B-roll to hide AI seams. Suosuo&apos;s stitching engine creates <b>one continuous, unbroken shot</b> of any length. This is the ultimate trust signal for high-ticket B2B.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="rounded-xl border border-border bg-muted/20 overflow-hidden aspect-video relative group">
+                <img
+                  src="/images/diagram_ad_fatigue.svg"
+                  alt="Ad Fatigue Graph"
+                  className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
+                />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-2">Solving Ad Fatigue</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  Single creatives die in 3 days. Suosuo allows you to bulk-generate <b>100+ variations</b> across diverse avatars instantly. Keep your ROAS high by refreshing creative volume programmatically.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Comparison Section */}
-      <section id="platform" className="bg-slate-50 py-20 md:py-32">
+      <section id="platform" className="bg-slate-50 py-24 md:py-32">
         <div className="container mx-auto px-6 md:px-8">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-12">
@@ -313,7 +359,7 @@ const Landing = () => {
                 </thead>
                 <tbody>
                   {[
-                    { feature: "Infinite Identity Creation", suosuo: true, heygen: false, synthesia: false },
+                    { feature: "Infinite Single Take", suosuo: true, heygen: false, synthesia: false },
                     { feature: "Enterprise-Grade Infrastructure", suosuo: true, heygen: false, synthesia: true },
                     { feature: "API-First Architecture", suosuo: true, heygen: true, synthesia: false },
                     { feature: "Multi-Provider Support", suosuo: true, heygen: false, synthesia: false },

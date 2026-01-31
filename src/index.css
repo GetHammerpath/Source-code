@@ -29,8 +29,8 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 220 13% 18%;
 
-    /* Primary - Electric blue/purple (Runway creative accent) */
-    --primary: 262 83% 58%;
+    /* Primary - International Klein Blue #002FA7 (Swiss SaaS) */
+    --primary: 223 100% 33%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary - Subtle gray */
@@ -41,8 +41,8 @@ All colors MUST be HSL.
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
 
-    /* Accent - Creative accent (cool blue) */
-    --accent: 210 100% 56%;
+    /* Accent - International Klein Blue (Swiss SaaS) */
+    --accent: 223 100% 33%;
     --accent-foreground: 0 0% 100%;
 
     /* Destructive */
@@ -60,7 +60,7 @@ All colors MUST be HSL.
     /* Borders - Very subtle */
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 262 83% 58%;
+    --ring: 223 100% 33%;
 
     /* Border Radius - 14-20px for that premium feel */
     --radius: 1rem;
@@ -125,7 +125,7 @@ All colors MUST be HSL.
 
     --border: 220 13% 20%;
     --input: 220 13% 20%;
-    --ring: 262 83% 58%;
+    --ring: 223 100% 33%;
 
     --sidebar-background: 220 13% 13%;
     --sidebar-foreground: 220 14% 96%;
