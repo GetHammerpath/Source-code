@@ -19,7 +19,6 @@ const Navbar = () => {
     setMobileMenuOpen(false);
   };
   const goAuth = () => { navigate("/auth"); setMobileMenuOpen(false); };
-  const goApi = () => { navigate("/api-keys"); setMobileMenuOpen(false); };
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
@@ -33,11 +32,8 @@ const Navbar = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-8">
-            <button type="button" onClick={() => scrollTo("solutions")} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Solutions</button>
             <button type="button" onClick={() => scrollTo("platform")} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Platform</button>
             <button type="button" onClick={() => scrollTo("pricing")} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Pricing</button>
-            <button type="button" onClick={goApi} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">API</button>
-            <Button variant="ghost" onClick={() => navigate("/auth")} className="text-slate-600 hover:text-slate-900">Log in</Button>
             <Button onClick={() => navigate("/auth")} className="bg-[#002FA7] hover:bg-[#002080] text-white rounded-md shadow-sm">Start Generating</Button>
           </div>
 
@@ -50,11 +46,8 @@ const Navbar = () => {
               </SheetTrigger>
               <SheetContent side="right" className="w-[280px]">
                 <div className="flex flex-col gap-4 mt-8">
-                  <button type="button" onClick={() => scrollTo("solutions")} className="text-sm font-medium text-slate-600 hover:text-slate-900 text-left">Solutions</button>
                   <button type="button" onClick={() => scrollTo("platform")} className="text-sm font-medium text-slate-600 hover:text-slate-900 text-left">Platform</button>
                   <button type="button" onClick={() => scrollTo("pricing")} className="text-sm font-medium text-slate-600 hover:text-slate-900 text-left">Pricing</button>
-                  <button type="button" onClick={goApi} className="text-sm font-medium text-slate-600 hover:text-slate-900 text-left">API</button>
-                  <Button variant="ghost" onClick={goAuth} className="justify-start text-slate-600">Log in</Button>
                   <Button onClick={goAuth} className="bg-[#002FA7] hover:bg-[#002080] text-white rounded-md shadow-sm justify-start">Start Generating</Button>
                 </div>
               </SheetContent>

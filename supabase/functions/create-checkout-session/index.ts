@@ -210,7 +210,9 @@ serve(async (req) => {
         });
       }
       if (mode === 'credits' && credits) {
-        const creditAmount = Math.max(1, parseInt(String(credits), 10));
+        const rawCredits = parseInt(String(credits), 10);
+        if (rawCredits < 30) throw new Error('Minimum purchase is 30 credits');
+        const creditAmount = rawCredits;
         const totalCents = Math.round(creditAmount * PRICE_PER_CREDIT * 100);
         const productName = `${creditAmount.toLocaleString()} Credits`;
         const productDesc = 'Credits for video rendering (1 credit = 1 rendered minute)';

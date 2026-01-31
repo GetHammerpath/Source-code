@@ -22,9 +22,8 @@ const Checkout = () => {
   const { subscription } = useStudioAccess();
   const { balance } = useCredits();
 
-  // Credit purchase state
-  const [creditAmount, setCreditAmount] = useState(500);
-  const quickAmounts = [100, 250, 500, 1000];
+  // Credit purchase state (minimum 30 credits)
+  const [creditAmount, setCreditAmount] = useState(100);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -220,31 +219,14 @@ const Checkout = () => {
                     <Label>Purchase Credits</Label>
                     <Input
                       type="number"
-                      min={1}
+                      min={30}
                       value={creditAmount}
-                      onChange={(e) => setCreditAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={(e) => setCreditAmount(Math.max(30, parseInt(e.target.value) || 30))}
                       className="rounded-[14px]"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Credits are used for rendering videos
+                      Credits are used for rendering videos. Minimum 30 credits.
                     </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Quick Select</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {quickAmounts.map((amount) => (
-                        <Button
-                          key={amount}
-                          variant={creditAmount === amount ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setCreditAmount(amount)}
-                          className="rounded-[10px]"
-                        >
-                          {amount.toLocaleString()}
-                        </Button>
-                      ))}
-                    </div>
                   </div>
 
                   <div className="p-3 bg-muted/50 rounded-[10px] text-sm">
@@ -283,7 +265,7 @@ const Checkout = () => {
 
               <Button
                 onClick={handleCheckout}
-                disabled={loading || (mode === "credits" && creditAmount < 1)}
+                disabled={loading || (mode === "credits" && creditAmount < 30)}
                 className="w-full rounded-[14px] h-12 text-base"
                 size="lg"
               >
