@@ -63,11 +63,9 @@ function isTestLiveCustomerMismatch(err: { message?: string } | null): boolean {
   );
 }
 
-// Pricing (match frontend / Edge Function defaults)
-const KIE_COST_PER_MINUTE = parseFloat(Deno.env.get('KIE_COST_PER_MINUTE') || '0.20');
-const CREDIT_MARKUP_MULTIPLIER = parseFloat(Deno.env.get('CREDIT_MARKUP_MULTIPLIER') || '3');
-const CREDITS_PER_MINUTE = parseFloat(Deno.env.get('CREDITS_PER_MINUTE') || '1');
-const PRICE_PER_CREDIT = (KIE_COST_PER_MINUTE * CREDIT_MARKUP_MULTIPLIER) / CREDITS_PER_MINUTE;
+// Pricing: must match frontend (src/lib/billing/pricing.ts)
+// Default $3.34/credit so 3 credits ≈ $10. Override via PRICE_PER_CREDIT in Supabase secrets.
+const PRICE_PER_CREDIT = parseFloat(Deno.env.get('PRICE_PER_CREDIT') || '3.34');
 
 function getSiteUrl(req: Request): string {
   const fromEnv = Deno.env.get('SITE_URL');
