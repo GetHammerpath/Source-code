@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Video, Loader2, CheckCircle2, XCircle, Clock, Film, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const Dashboard = () => {
   const [userId, setUserId] = useState<string>("");
@@ -213,46 +214,6 @@ const Dashboard = () => {
           )}
         </section>
 
-        {/* Errors section - failed videos */}
-        {videos.some((v) => (v.final_video_status ?? v.initial_status) === "failed") && (
-          <section className="space-y-4">
-            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <XCircle className="h-5 w-5 text-red-500" />
-              Errors
-            </h2>
-            <Card className="rounded-md border-red-200 dark:border-red-900/50 bg-red-50/30 dark:bg-red-950/20 overflow-hidden">
-              <CardContent className="p-0">
-                <ul className="divide-y divide-red-100 dark:divide-red-900/50">
-                  {videos
-                    .filter((v) => (v.final_video_status ?? v.initial_status) === "failed")
-                    .map((v) => {
-                      const err = v.final_video_error ?? v.initial_error ?? v.extended_error ?? "Unknown error";
-                      const title = [v.industry, v.avatar_name].filter(Boolean).join(" – ") || "Video";
-                      return (
-                        <li key={v.id}>
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/video/${v.id}`)}
-                            className="w-full text-left px-4 py-3 hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors flex items-start justify-between gap-4"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium text-slate-900 truncate">{title}</p>
-                              <p className="text-sm text-red-600 dark:text-red-400 line-clamp-2 mt-0.5">{err}</p>
-                              <p className="text-xs text-slate-500 mt-1">
-                                {v.created_at ? new Date(v.created_at).toLocaleString() : ""}
-                              </p>
-                            </div>
-                            <span className="text-xs text-red-600 shrink-0">View →</span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                </ul>
-              </CardContent>
-            </Card>
-          </section>
-        )}
-
         {/* Your Videos */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-slate-900">Your Videos</h2>
@@ -276,14 +237,22 @@ const Dashboard = () => {
               {videos.map((v) => {
                 const thumbUrl = v.final_video_url ?? v.initial_video_url ?? null;
                 const title = [v.industry, v.avatar_name].filter(Boolean).join(" – ") || "Video";
+                const status = v.final_video_status ?? v.initial_status ?? "pending";
+                const isFailed = status === "failed";
+                const errorMsg = isFailed
+                  ? (v.final_video_error ?? v.initial_error ?? v.extended_error ?? "Unknown error")
+                  : null;
                 return (
-                    <button
+                  <button
                     key={v.id}
                     type="button"
                     onClick={() => navigate(`/video/${v.id}`)}
                     className="text-left"
                   >
-                    <Card className="rounded-md border-border/60 border shadow-sm hover:shadow-md transition-all overflow-hidden bg-white">
+                    <Card className={cn(
+                      "rounded-md border-border/60 border shadow-sm hover:shadow-md transition-all overflow-hidden bg-white",
+                      isFailed && "border-red-200 dark:border-red-900/50"
+                    )}>
                       <div className="h-32 bg-slate-100 relative">
                         {thumbUrl ? (
                           <video
@@ -307,6 +276,11 @@ const Dashboard = () => {
                         <div className="text-xs text-slate-500 mt-0.5">
                           {v.created_at ? new Date(v.created_at).toLocaleString() : ""}
                         </div>
+                        {errorMsg && (
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1 line-clamp-2" title={errorMsg}>
+                            {errorMsg}
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                   </button>

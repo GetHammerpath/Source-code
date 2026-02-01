@@ -174,7 +174,7 @@ export default function BulkWizard() {
       </header>
 
       {/* Main */}
-      <main className="flex-1 overflow-auto px-6 py-8">
+      <main className="flex-1 overflow-auto px-6 py-8 pb-24">
         <AnimatePresence mode="wait">
           {currentStep === 0 && (
             <Step1_Strategy key="step1" selected={strategy} onSelect={setStrategy} />
