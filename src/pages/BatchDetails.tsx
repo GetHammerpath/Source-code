@@ -221,6 +221,14 @@ export default function BatchDetails() {
         <StatusBadge status={status.status} />
       </div>
 
+      <div className="mb-6 rounded-lg border bg-muted/50 px-4 py-3 text-sm">
+        <p className="font-medium mb-1">Two-step flow</p>
+        <p className="text-muted-foreground">
+          <span className="font-medium text-foreground">Step 1:</span> Each video (#1, #2, #3…) is created separately below.{" "}
+          <span className="font-medium text-foreground">Step 2:</span> Once they’re done, use “Stitch Batch” to combine them into one seamless clip.
+        </p>
+      </div>
+
       {isPaused && (
         <Card className="mb-6 border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
           <CardContent className="pt-6">
@@ -245,7 +253,7 @@ export default function BatchDetails() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
               <Layers className="h-5 w-5 text-emerald-600" />
-              Stitched Video
+              Step 2 complete — Stitched Video
             </CardTitle>
             <Button asChild variant="default" size="sm" className="gap-2">
               <a href={status.stitched_video_url} download={`batch-${id}-stitched.mp4`}>
@@ -273,9 +281,9 @@ export default function BatchDetails() {
       {canStitch && !status.stitched_video_url && (
         <Card className="mb-6 border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
           <CardContent className="pt-6">
-            <p className="font-medium mb-2">Stitch into one video</p>
+            <p className="font-medium mb-2">Step 2: Stitch into one video</p>
             <p className="text-sm text-muted-foreground mb-3">
-              Combine all {completedCount} completed videos into a single seamless clip—like singular multi-scene videos.
+              Step 1 is done—all {completedCount} videos are ready. Combine them into a single seamless clip.
             </p>
             <Button
               onClick={handleStitchBatch}
@@ -338,7 +346,7 @@ export default function BatchDetails() {
       </Card>
 
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold">Videos</h2>
+        <h2 className="text-lg font-semibold">Step 1: Videos</h2>
         {hasCompletedVideos && (
           <Button
             variant="outline"
