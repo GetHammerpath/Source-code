@@ -365,49 +365,76 @@ export default function BatchDetails() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {status.videos.map((v) => (
-          <Card key={v.id} className="overflow-hidden">
-            <div className="aspect-video bg-muted relative">
-              {v.video_url ? (
-                <video
-                  src={v.video_url}
-                  className="w-full h-full object-cover"
-                  muted
-                  playsInline
-                  preload="metadata"
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  {v.status === "processing" || v.status === "pending" ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  ) : v.status === "failed" ? (
-                    <XCircle className="h-8 w-8 text-destructive" />
-                  ) : (
-                    <Clock className="h-8 w-8 text-muted-foreground" />
-                  )}
-                </div>
-              )}
-            </div>
-            <CardContent className="p-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono">#{v.variation_index + 1}</span>
-                {v.video_url && (
-                  <a
-                    href={v.video_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline flex items-center gap-1"
-                  >
-                    <Video className="h-3 w-3" />
-                    View
-                  </a>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Video × Scene Grid */}
+      {(() => {
+        const maxScenes = Math.max(1, ...status.videos.map((v) => v.scenes?.length ?? 1));
+        return (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="py-2 px-2 text-left font-medium text-muted-foreground w-20">Video</th>
+                  {Array.from({ length: maxScenes }).map((_, i) => (
+                    <th key={i} className="py-2 px-2 text-center font-medium text-muted-foreground min-w-[140px]">
+                      Scene {i + 1}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {status.videos.map((v) => (
+                  <tr key={v.id} className="border-b last:border-b-0">
+                    <td className="py-2 px-2 font-mono text-xs align-top">
+                      #{v.variation_index + 1}
+                    </td>
+                    {Array.from({ length: maxScenes }).map((_, i) => {
+                      const scene = v.scenes?.[i];
+                      const sceneUrl = scene?.url ?? null;
+                      const sceneStatus = scene?.status ?? "pending";
+                      return (
+                        <td key={i} className="py-2 px-2 align-top">
+                          <div className="aspect-video bg-muted rounded-md overflow-hidden relative min-w-[120px]">
+                            {sceneUrl ? (
+                              <video
+                                src={sceneUrl}
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                {sceneStatus === "processing" || sceneStatus === "pending" || sceneStatus === "generating" ? (
+                                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                ) : sceneStatus === "failed" ? (
+                                  <XCircle className="h-6 w-6 text-destructive" />
+                                ) : (
+                                  <Clock className="h-6 w-6 text-muted-foreground" />
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {sceneUrl && (
+                            <a
+                              href={sceneUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline flex items-center gap-1 mt-1"
+                            >
+                              <Video className="h-3 w-3" />
+                              View
+                            </a>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
     </div>
   );
 }

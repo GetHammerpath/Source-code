@@ -51,6 +51,7 @@ export interface BatchStatus {
     status: string;
     video_url: string | null;
     thumbnail_url?: string | null;
+    scenes: Array<{ url: string | null; status: string }>;
   }>;
 }
 
@@ -152,7 +153,7 @@ export async function launchBatch(
 export async function getBatchStatus(batchId: string): Promise<BatchStatus | null> {
   const { data: batch, error: batchError } = await supabase
     .from("bulk_video_batches")
-    .select("id, name, status, source_type, total_variations, completed_variations, failed_variations, metadata")
+    .select("id, name, status, source_type, total_variations, completed_variations, failed_variations, metadata, number_of_scenes")
     .eq("id", batchId)
     .single();
 
@@ -168,7 +169,10 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
         initial_status,
         final_video_status,
         initial_video_url,
-        final_video_url
+        extended_video_url,
+        final_video_url,
+        video_segments,
+        number_of_scenes
       )
     `)
     .eq("batch_id", batchId)
@@ -180,16 +184,35 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
   const progress = total > 0 ? Math.round(((completed + failed) / total) * 100) : 0;
   const pending = Math.max(0, total - completed - failed);
 
+  const batchSceneCount = Math.max(1, batch.number_of_scenes ?? 1);
   const videos = (linkData || []).map((link: Record<string, unknown>) => {
     const gen = (link.generation as Record<string, unknown>) || {};
     const status = (gen.final_video_status as string) || (gen.initial_status as string) || "pending";
     const videoUrl =
       (gen.final_video_url as string) || (gen.initial_video_url as string) || null;
+    const segments = (gen.video_segments as Array<{ url?: string; video_url?: string }>) || [];
+    const numScenes = Math.max(batchSceneCount, (gen.number_of_scenes as number) ?? 1, segments.length, 1);
+    const scenes: Array<{ url: string | null; status: string }> = [];
+    for (let i = 0; i < numScenes; i++) {
+      const seg = segments[i] as { url?: string; video_url?: string } | undefined;
+      const segUrl = seg?.url || seg?.video_url || null;
+      const url =
+        segUrl ||
+        (i === 0 ? (gen.initial_video_url as string) || null : null) ||
+        (i === 1 ? (gen.extended_video_url as string) || null : null) ||
+        (numScenes === 1 ? videoUrl : null);
+      scenes.push({
+        url: url || null,
+        status: url ? "completed" : i === 0 ? status : "pending",
+      });
+    }
+    if (scenes.length === 0 && videoUrl) scenes.push({ url: videoUrl, status });
     return {
       id: (gen.id as string) || "",
       variation_index: (link.variation_index as number) ?? 0,
       status,
       video_url: videoUrl,
+      scenes,
     };
   });
 
