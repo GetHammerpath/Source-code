@@ -172,8 +172,15 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     const list = avatars || [];
-    const sceneCount = Math.min(SCENE_COUNT_MAX, Math.max(1, config.spinnerSceneCount ?? config.sceneCount ?? 3));
-    const prompts = Array(sceneCount).fill("Enter script...");
+    let sceneCount = Math.min(SCENE_COUNT_MAX, Math.max(1, config.spinnerSceneCount ?? config.sceneCount ?? 3));
+    let prompts: string[];
+    if (sampleScript.trim()) {
+      const parsed = parseScriptToSegments(sampleScript.trim());
+      sceneCount = parsed.sceneCount;
+      prompts = parsed.segments;
+    } else {
+      prompts = Array(sceneCount).fill("Enter script...");
+    }
     const rows: BatchRow[] = Array.from({ length: count }, () => {
       const r = createEmptyRow();
       r.id = uuid();
@@ -190,7 +197,7 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
       Object.assign(r, setSegments(r, filled));
       return r;
     });
-    onConfigChange({ sceneCount });
+    onConfigChange({ spinnerSceneCount: sceneCount, sceneCount });
     onRowsReady(rows);
   };
 
@@ -295,54 +302,14 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
 
       {strategy === "csv" && (
         <div className="space-y-4">
-          <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
-            <Label>Check sample script</Label>
-            <p className="text-xs text-muted-foreground">
-              Paste your full script to see how many scenes it requires. Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
-            </p>
-            <Textarea
-              placeholder="Paste your entire script..."
-              value={sampleScript}
-              onChange={(e) => { setSampleScript(e.target.value); setSampleCheck(null); setSceneEstimate(null); }}
-              className="min-h-[100px] text-sm"
-              rows={4}
-            />
-            <div className="flex gap-2 flex-wrap items-center">
-              <Button type="button" onClick={handleEstimateScenes} disabled={!sampleScript.trim()}>
-                Estimate scenes
-              </Button>
-              <span className="text-xs text-muted-foreground">or validate a segment:</span>
-              <Select value={sampleSegmentType} onValueChange={(v: "0" | "1") => { setSampleSegmentType(v); setSampleCheck(null); setSceneEstimate(null); }}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Segment 1 (8s)</SelectItem>
-                  <SelectItem value="1">Segment 2+ (7s)</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button type="button" variant="outline" size="sm" onClick={handleCheckSample} disabled={!sampleScript.trim() || checkingSegment !== null}>
-                {checkingSegment === -1 ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                Check segment
-              </Button>
-            </div>
-            {sceneEstimate && (
-              <div className="rounded-md bg-primary/10 text-primary px-3 py-2 text-sm font-medium flex items-center justify-between gap-2 flex-wrap">
-                <span>
-                  This script requires {sceneEstimate.sceneCount} scene{sceneEstimate.sceneCount !== 1 ? "s" : ""} ({sceneEstimate.wordCount} words total)
-                </span>
-                <Button type="button" variant="secondary" size="sm" onClick={() => onConfigChange({ sceneCount: sceneEstimate.sceneCount })}>
-                  Use {sceneEstimate.sceneCount} scenes
-                </Button>
-              </div>
-            )}
-            {sampleCheck && (
-              <p className={cn("text-sm flex items-center gap-1.5", sampleCheck.result.fitsLimit ? "text-emerald-600" : "text-amber-600")}>
-                {sampleCheck.result.fitsLimit ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                Segment: {sampleCheck.result.wordCount} words, ~{sampleCheck.result.estimatedSeconds}s
-                {sampleCheck.result.fitsLimit ? " ✓" : ` (max ${sampleCheck.result.limitSeconds}s)`}
-              </p>
-            )}
+          <div className="space-y-3 rounded-lg border p-4 bg-muted/30">
+            <Label>CSV format requirements</Label>
+            <ul className="text-sm text-muted-foreground space-y-1.5 list-disc list-inside">
+              <li><strong>Required columns:</strong> <code className="text-xs bg-muted px-1 rounded">avatar_id</code> or <code className="text-xs bg-muted px-1 rounded">avatar</code>; <code className="text-xs bg-muted px-1 rounded">avatar_name</code> or <code className="text-xs bg-muted px-1 rounded">name</code></li>
+              <li><strong>Script columns:</strong> <code className="text-xs bg-muted px-1 rounded">script</code> or <code className="text-xs bg-muted px-1 rounded">prompt</code> (for scene 1) and/or <code className="text-xs bg-muted px-1 rounded">segment1</code>, <code className="text-xs bg-muted px-1 rounded">segment2</code>, <code className="text-xs bg-muted px-1 rounded">segment3</code>, …</li>
+              <li><strong>Word limits per scene:</strong> Scene 1 = 8 sec (~20 words max). Scenes 2+ = 7 sec each (~17 words max)</li>
+              <li>First row must be a header with column names</li>
+            </ul>
           </div>
           <div className="space-y-2 max-w-xs">
             <Label>Number of scenes (1–{SCENE_COUNT_MAX.toLocaleString()})</Label>
@@ -357,7 +324,7 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
               }}
             />
             <p className="text-xs text-muted-foreground">
-              Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
+              Set this to match your CSV. Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
             </p>
           </div>
           <input
@@ -375,7 +342,7 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
             <div className="text-center">
               <p className="font-medium">Drop your CSV here or click to upload</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Columns: avatar_id, avatar_name, script (or segment1), segment2, segment3, …
+                Must include avatar columns and script/segment columns
               </p>
             </div>
             {config.csvFile && (
@@ -387,55 +354,9 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
 
       {strategy === "ai" && (
         <div className="space-y-4 max-w-xl">
-          <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
-            <Label>Check sample script</Label>
-            <p className="text-xs text-muted-foreground">
-              Paste your full script to see how many scenes it requires. Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
-            </p>
-            <Textarea
-              placeholder="Paste your entire script..."
-              value={sampleScript}
-              onChange={(e) => { setSampleScript(e.target.value); setSampleCheck(null); setSceneEstimate(null); }}
-              className="min-h-[100px] text-sm"
-              rows={4}
-            />
-            <div className="flex gap-2 flex-wrap items-center">
-              <Button type="button" onClick={handleEstimateScenes} disabled={!sampleScript.trim()}>
-                Estimate scenes
-              </Button>
-              <span className="text-xs text-muted-foreground">or validate a segment:</span>
-              <Select value={sampleSegmentType} onValueChange={(v: "0" | "1") => { setSampleSegmentType(v); setSampleCheck(null); setSceneEstimate(null); }}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Segment 1 (8s)</SelectItem>
-                  <SelectItem value="1">Segment 2+ (7s)</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button type="button" variant="outline" size="sm" onClick={handleCheckSample} disabled={!sampleScript.trim() || checkingSegment !== null}>
-                {checkingSegment === -1 ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                Check segment
-              </Button>
-            </div>
-            {sceneEstimate && (
-              <div className="rounded-md bg-primary/10 text-primary px-3 py-2 text-sm font-medium flex items-center justify-between gap-2 flex-wrap">
-                <span>
-                  This script requires {sceneEstimate.sceneCount} scene{sceneEstimate.sceneCount !== 1 ? "s" : ""} ({sceneEstimate.wordCount} words total)
-                </span>
-                <Button type="button" variant="secondary" size="sm" onClick={() => onConfigChange({ aiSceneCount: sceneEstimate.sceneCount, sceneCount: sceneEstimate.sceneCount })}>
-                  Use {sceneEstimate.sceneCount} scenes
-                </Button>
-              </div>
-            )}
-            {sampleCheck && (
-              <p className={cn("text-sm flex items-center gap-1.5", sampleCheck.result.fitsLimit ? "text-emerald-600" : "text-amber-600")}>
-                {sampleCheck.result.fitsLimit ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                Segment: {sampleCheck.result.wordCount} words, ~{sampleCheck.result.estimatedSeconds}s
-                {sampleCheck.result.fitsLimit ? " ✓" : ` (max ${sampleCheck.result.limitSeconds}s)`}
-              </p>
-            )}
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Describe your topic and tone below. AI will generate the script for you—no script input needed.
+          </p>
           <div className="space-y-2 max-w-xs">
             <Label>Number of scenes (1–{SCENE_COUNT_MAX.toLocaleString()})</Label>
             <Input
@@ -449,7 +370,7 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
               }}
             />
             <p className="text-xs text-muted-foreground">
-              Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each). Script will populate across all scenes.
+              Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each). AI will generate and split the script across scenes.
             </p>
           </div>
           <div className="space-y-2">
@@ -603,6 +524,9 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
               </Select>
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Paste your script in the box above first, then click Generate Rows—the script will be parsed into segments automatically.
+          </p>
           <Button type="button" onClick={handleSpinnerGenerate} className="gap-2">
             <Upload className="h-4 w-4" />
             Generate Rows
