@@ -183,8 +183,10 @@ export default function BulkWizard() {
               onConfigChange={(updates) => setStep2Config((prev) => ({ ...prev, ...updates }))}
               onRowsReady={(rows, opts) => {
                 setCampaignData(rows);
-                if (opts?.fromEstimateScenes || (strategy && strategy !== "csv")) {
-                  toast({ title: opts?.fromEstimateScenes ? "Script parsed" : "Template ready", description: `${rows.length} row(s) created. Review in Workbench.` });
+                if (opts?.fromEstimateScenes) {
+                  toast({ title: "Scenes estimated", description: `${rows.length} row(s) ready. Click Next to review in Workbench.` });
+                } else if (strategy && strategy !== "csv") {
+                  toast({ title: "Template ready", description: `${rows.length} row(s) created. Review in Workbench.` });
                   setCurrentStep(2);
                 }
               }}
