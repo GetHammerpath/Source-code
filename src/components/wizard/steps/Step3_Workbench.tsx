@@ -7,10 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2 } from "lucide-react";
 import { AvatarSelector, type AvatarOption } from "../AvatarSelector";
 import type { BatchRow } from "@/types/bulk";
-import { batchRowToScript, getSegments, setSegments } from "@/types/bulk";
+import { batchRowToScript, getSegments, setSegments, getVisualSegments, setVisualSegments } from "@/types/bulk";
 import { cn } from "@/lib/utils";
 
 const ROW_HEIGHT = 72;
+const ROW_HEIGHT_WITH_VISUAL = 120;
 const HEADER_HEIGHT = 44;
 
 interface Step3_WorkbenchProps {
@@ -18,6 +19,7 @@ interface Step3_WorkbenchProps {
   onChange: (rows: BatchRow[]) => void;
   avatars: AvatarOption[];
   sceneCount?: number;
+  showVisualContext?: boolean;
 }
 
 import { SCENE_COUNT_MAX } from "@/types/bulk";
@@ -25,15 +27,16 @@ import { SCENE_COUNT_MAX } from "@/types/bulk";
 const SEGMENT_KEYS = ["segment1", "segment2", "segment3", "segment4", "segment5"] as const;
 const DISPLAY_SEGMENT_CAP = 50; // Show max 50 columns; rest accessible via data
 
-export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Step3_WorkbenchProps) {
+export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showVisualContext = false }: Step3_WorkbenchProps) {
   const n = Math.min(SCENE_COUNT_MAX, Math.max(1, sceneCount));
   const displayN = Math.min(n, DISPLAY_SEGMENT_CAP);
   const parentRef = useRef<HTMLDivElement>(null);
+  const rowH = showVisualContext ? ROW_HEIGHT_WITH_VISUAL : ROW_HEIGHT;
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => rowH,
     overscan: 5,
   });
 
@@ -72,6 +75,17 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Ste
     const segs = getSegments(row, n);
     segs[i] = val;
     return setSegments(row, segs);
+  };
+
+  const getVisualValue = (row: BatchRow, i: number): string => {
+    const segs = getVisualSegments(row, n);
+    return segs[i] ?? "";
+  };
+
+  const setVisualValue = (row: BatchRow, i: number, val: string): Partial<BatchRow> => {
+    const segs = getVisualSegments(row, n);
+    segs[i] = val;
+    return setVisualSegments(row, segs);
   };
 
   const copySegmentToAll = (index: number, segmentIndex: number) => {
@@ -132,8 +146,11 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Ste
             <div className="w-12 px-2 shrink-0">#</div>
             <div className="w-36 px-2 shrink-0">Avatar</div>
             {Array.from({ length: displayN }, (_, i) => (
-              <div key={i} className="flex-1 min-w-[100px] px-2">
+              <div key={i} className={cn("flex-1 px-2", showVisualContext ? "min-w-[180px]" : "min-w-[100px]")}>
                 Seg {i + 1}{i === 0 ? " (8s)" : " (7s)"}
+                {showVisualContext && (
+                  <div className="text-[10px] text-muted-foreground font-normal mt-0.5">Script + Visual</div>
+                )}
               </div>
             ))}
             <div className="w-12 px-2 shrink-0" />
@@ -151,7 +168,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Ste
                   invalid && "bg-red-50/50 dark:bg-red-950/20"
                 )}
                 style={{
-                  height: ROW_HEIGHT,
+                  height: rowH,
                   top: virtualRow.start + HEADER_HEIGHT,
                   width: "100%",
                 }}
@@ -169,25 +186,52 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Ste
                 </div>
                 {Array.from({ length: displayN }, (_, i) => {
                   const val = getSegmentValue(row, i);
+                  const visualVal = showVisualContext ? getVisualValue(row, i) : "";
                   return (
-                    <div key={i} className="flex-1 min-w-[100px] px-2 py-1 flex flex-col gap-0.5">
-                      <Textarea
-                        value={val}
-                        onChange={(e) => updateRow(virtualRow.index, setSegmentValue(row, i, e.target.value))}
-                        placeholder="..."
-                        className={cn(
-                          "min-h-[56px] text-sm resize-none",
-                          batchRowToScript(row, n).length > 500 && "border-red-500"
+                    <div key={i} className={cn("flex-1 px-2 py-1 flex flex-col gap-0.5", showVisualContext ? "min-w-[180px]" : "min-w-[100px]")}>
+                      <div className="flex flex-col gap-1">
+                        <div>
+                          <label className="text-[10px] text-muted-foreground">Script (dialogue)</label>
+                          <Textarea
+                            value={val}
+                            onChange={(e) => updateRow(virtualRow.index, setSegmentValue(row, i, e.target.value))}
+                            placeholder={showVisualContext ? "Spoken words..." : "..."}
+                            className={cn(
+                              "min-h-[40px] text-sm resize-none mt-0.5",
+                              batchRowToScript(row, n).length > 500 && "border-red-500"
+                            )}
+                            rows={showVisualContext ? 1 : 2}
+                          />
+                        </div>
+                        {showVisualContext && (
+                          <div>
+                            <label className="text-[10px] text-muted-foreground">Visual (context)</label>
+                            <Textarea
+                              value={visualVal}
+                              onChange={(e) => updateRow(virtualRow.index, setVisualValue(row, i, e.target.value))}
+                              placeholder="Scene description..."
+                              className="min-h-[40px] text-sm resize-none mt-0.5"
+                              rows={1}
+                            />
+                          </div>
                         )}
-                        rows={2}
-                      />
-                      {n > 1 && (
+                      </div>
+                      {n > 1 && !showVisualContext && (
                         <button
                           type="button"
                           onClick={() => copySegmentToAll(virtualRow.index, i)}
                           className="text-[10px] text-muted-foreground hover:text-foreground"
                         >
                           Copy to all
+                        </button>
+                      )}
+                      {n > 1 && showVisualContext && (
+                        <button
+                          type="button"
+                          onClick={() => copySegmentToAll(virtualRow.index, i)}
+                          className="text-[10px] text-muted-foreground hover:text-foreground"
+                        >
+                          Copy script to all
                         </button>
                       )}
                     </div>

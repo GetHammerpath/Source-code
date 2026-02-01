@@ -10,10 +10,17 @@ interface VariableCombination {
   [key: string]: string;
 }
 
+interface ScenePromptItem {
+  scene_number: number;
+  prompt: string;
+  script: string;
+}
+
 interface BulkRow {
   avatar_id?: string;
   avatar_name?: string;
   script?: string;
+  scene_prompts?: ScenePromptItem[];
   background?: string;
   industry?: string;
   city?: string;
@@ -153,29 +160,40 @@ serve(async (req) => {
 
       if (!imageUrl) imageUrl = "text-only-mode";
 
+      const row = useRows ? (item as BulkRow) : null;
+      const preGeneratedScenePrompts = row?.scene_prompts && Array.isArray(row.scene_prompts) && row.scene_prompts.length > 0
+        ? row.scene_prompts
+        : null;
+
+      const insertPayload: Record<string, unknown> = {
+        user_id: userId,
+        image_url: imageUrl,
+        industry,
+        city,
+        avatar_name: avatarName,
+        story_idea: storyIdea || null,
+        model: baseConfig.model,
+        aspect_ratio: baseConfig.aspect_ratio,
+        number_of_scenes: baseConfig.number_of_scenes,
+        is_multi_scene: baseConfig.number_of_scenes > 1,
+        current_scene: 1,
+        initial_status: "pending",
+        is_sample: false,
+        metadata: {
+          bulk_batch_id: batch_id,
+          variable_values: variableValues,
+          generation_type: baseConfig.generation_type || "REFERENCE_2_VIDEO",
+          row_index: i,
+        },
+      };
+      if (preGeneratedScenePrompts) {
+        insertPayload.scene_prompts = preGeneratedScenePrompts;
+        insertPayload.ai_prompt = preGeneratedScenePrompts[0]?.prompt || "";
+      }
+
       const { data: generation, error: genError } = await supabase
         .from("kie_video_generations")
-        .insert({
-          user_id: userId,
-          image_url: imageUrl,
-          industry,
-          city,
-          avatar_name: avatarName,
-          story_idea: storyIdea || null,
-          model: baseConfig.model,
-          aspect_ratio: baseConfig.aspect_ratio,
-          number_of_scenes: baseConfig.number_of_scenes,
-          is_multi_scene: baseConfig.number_of_scenes > 1,
-          current_scene: 1,
-          initial_status: "pending",
-          is_sample: false,
-          metadata: {
-            bulk_batch_id: batch_id,
-            variable_values: variableValues,
-            generation_type: baseConfig.generation_type || "REFERENCE_2_VIDEO",
-            row_index: i,
-          },
-        })
+        .insert(insertPayload)
         .select()
         .single();
 

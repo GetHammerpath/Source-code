@@ -11,7 +11,7 @@ import { Step2_Config, type Step2Config } from "@/components/wizard/steps/Step2_
 import { Step3_Workbench } from "@/components/wizard/steps/Step3_Workbench";
 import { Step4_Launch } from "@/components/wizard/steps/Step4_Launch";
 import type { BatchRow } from "@/types/bulk";
-import { batchRowToScript } from "@/types/bulk";
+import { batchRowToScript, batchRowToScenePrompts } from "@/types/bulk";
 import type { AvatarOption } from "@/components/wizard/AvatarSelector";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -74,12 +74,16 @@ export default function BulkWizard() {
   const rowsToLaunchRows = (rows: BatchRow[]): LaunchRow[] =>
     rows
       .filter((r) => (r.avatar_id || r.avatar_name) && batchRowToScript(r, sceneCount).trim())
-      .map((r) => ({
-        avatar_id: r.avatar_id?.startsWith("__") ? undefined : (r.avatar_id || undefined),
-        avatar_name: r.avatar_name || undefined,
-        script: batchRowToScript(r, sceneCount),
-        aspect_ratio: "16:9",
-      }));
+      .map((r) => {
+        const scenePrompts = batchRowToScenePrompts(r, sceneCount);
+        return {
+          avatar_id: r.avatar_id?.startsWith("__") ? undefined : (r.avatar_id || undefined),
+          avatar_name: r.avatar_name || undefined,
+          script: batchRowToScript(r, sceneCount),
+          scene_prompts: scenePrompts ?? undefined,
+          aspect_ratio: "16:9",
+        };
+      });
 
   const handleLaunch = async (isTestRun: boolean) => {
     if (!userId) return;
@@ -200,6 +204,7 @@ export default function BulkWizard() {
               onChange={setCampaignData}
               avatars={avatars}
               sceneCount={sceneCount}
+              showVisualContext={strategy === "ai"}
             />
           )}
           {currentStep === 3 && (

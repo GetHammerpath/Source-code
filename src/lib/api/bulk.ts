@@ -1,10 +1,18 @@
 import { supabase } from "@/integrations/supabase/client";
 
+/** Scene-level prompt + script (AI Generator path) */
+export interface ScenePrompt {
+  scene_number: number;
+  prompt: string;
+  script: string;
+}
+
 /** Row payload for bulk-generate-videos API */
 export interface LaunchRow {
   avatar_id?: string;
   avatar_name?: string;
   script: string;
+  scene_prompts?: ScenePrompt[];
   background?: string;
   aspect_ratio?: string;
 }
@@ -51,13 +59,17 @@ export interface LaunchResult {
 function toRowsPayload(rows: LaunchRow[]) {
   return rows.map((r) => {
     const isAutoCast = r.avatar_id?.startsWith("__");
-    return {
+    const out: Record<string, unknown> = {
       avatar_id: isAutoCast ? undefined : (r.avatar_id || undefined),
       avatar_name: r.avatar_name || undefined,
       script: r.script,
       background: r.background || undefined,
       aspect_ratio: r.aspect_ratio || "16:9",
     };
+    if (r.scene_prompts && r.scene_prompts.length > 0) {
+      out.scene_prompts = r.scene_prompts;
+    }
+    return out;
   });
 }
 

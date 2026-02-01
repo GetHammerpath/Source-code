@@ -10,11 +10,19 @@ interface VariableCombination {
   [key: string]: string;
 }
 
+/** Pre-generated scene prompts (AI Generator path - skip analyze-image-kie) */
+interface ScenePromptItem {
+  scene_number: number;
+  prompt: string;
+  script: string;
+}
+
 /** Row-based input: 1-to-1 mapping per video */
 interface BulkRow {
   avatar_id?: string;
   avatar_name?: string;
   script?: string;
+  scene_prompts?: ScenePromptItem[];
   background?: string;
   industry?: string;
   city?: string;
@@ -164,31 +172,42 @@ serve(async (req) => {
 
       if (!imageUrl) imageUrl = "text-only-mode";
 
-      console.log(`📝 Creating generation ${i + 1}/${limit}:`, { avatarName, industry, isSampleRun });
+      const row = useRows ? (item as BulkRow) : null;
+      const preGeneratedScenePrompts = row?.scene_prompts && Array.isArray(row.scene_prompts) && row.scene_prompts.length > 0
+        ? row.scene_prompts
+        : null;
+
+      console.log(`📝 Creating generation ${i + 1}/${limit}:`, { avatarName, industry, isSampleRun, hasPreGeneratedPrompts: !!preGeneratedScenePrompts });
+
+      const insertPayload: Record<string, unknown> = {
+        user_id: userId,
+        image_url: imageUrl,
+        industry,
+        city,
+        avatar_name: avatarName,
+        story_idea: storyIdea || null,
+        model: base_config.model,
+        aspect_ratio: base_config.aspect_ratio,
+        number_of_scenes: base_config.number_of_scenes,
+        is_multi_scene: base_config.number_of_scenes > 1,
+        current_scene: 1,
+        initial_status: "pending",
+        is_sample: isSampleRun,
+        metadata: {
+          bulk_batch_id: batch_id,
+          variable_values: variableValues,
+          generation_type: base_config.generation_type || "REFERENCE_2_VIDEO",
+          row_index: i,
+        },
+      };
+      if (preGeneratedScenePrompts) {
+        insertPayload.scene_prompts = preGeneratedScenePrompts;
+        insertPayload.ai_prompt = preGeneratedScenePrompts[0]?.prompt || "";
+      }
 
       const { data: generation, error: genError } = await supabase
         .from("kie_video_generations")
-        .insert({
-          user_id: userId,
-          image_url: imageUrl,
-          industry,
-          city,
-          avatar_name: avatarName,
-          story_idea: storyIdea || null,
-          model: base_config.model,
-          aspect_ratio: base_config.aspect_ratio,
-          number_of_scenes: base_config.number_of_scenes,
-          is_multi_scene: base_config.number_of_scenes > 1,
-          current_scene: 1,
-          initial_status: "pending",
-          is_sample: isSampleRun,
-          metadata: {
-            bulk_batch_id: batch_id,
-            variable_values: variableValues,
-            generation_type: base_config.generation_type || "REFERENCE_2_VIDEO",
-            row_index: i,
-          },
-        })
+        .insert(insertPayload)
         .select()
         .single();
 
@@ -249,39 +268,51 @@ serve(async (req) => {
         const generationType = (genRecord.metadata as { generation_type?: string })?.generation_type || "REFERENCE_2_VIDEO";
         const isTextMode = generationType === "TEXT_2_VIDEO" || genRecord.image_url === "text-only-mode";
 
-        console.log(`🤖 Generating AI prompts for ${genRecord.id} (mode: ${isTextMode ? "TEXT" : "IMAGE"})...`);
-
-        const analyzeResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-image-kie`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${supabaseServiceKey}`,
-          },
-          body: JSON.stringify({
-            image_url: isTextMode ? null : genRecord.image_url,
-            industry: genRecord.industry,
-            avatar_name: genRecord.avatar_name,
-            city: genRecord.city,
-            story_idea: genRecord.story_idea,
-            number_of_scenes: genRecord.number_of_scenes,
-          }),
-        });
-
-        if (!analyzeResponse.ok) {
-          const errorText = await analyzeResponse.text();
-          console.error(`❌ AI analysis failed for ${genRecord.id}:`, errorText);
-          await supabase
-            .from("kie_video_generations")
-            .update({
-              initial_status: "failed",
-              initial_error: `AI prompt generation failed: ${errorText}`,
-            })
-            .eq("id", genRecord.id);
-          failCount++;
-          continue;
+        let scenePrompts: Array<{ scene_number: number; prompt: string; script?: string }> = [];
+        const existingScenePrompts = genRecord.scene_prompts as Array<{ scene_number: number; prompt: string; script?: string }> | null;
+        if (existingScenePrompts && Array.isArray(existingScenePrompts) && existingScenePrompts.length > 0) {
+          scenePrompts = existingScenePrompts.map((s) => ({
+            scene_number: s.scene_number,
+            prompt: s.prompt || "",
+            script: s.script || "",
+          }));
+          console.log(`✓ Using pre-generated scene prompts for ${genRecord.id} (${scenePrompts.length} scenes)`);
         }
 
-        const analysisData = await analyzeResponse.json();
+        if (scenePrompts.length === 0) {
+          console.log(`🤖 Generating AI prompts for ${genRecord.id} (mode: ${isTextMode ? "TEXT" : "IMAGE"})...`);
+
+          const analyzeResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-image-kie`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              image_url: isTextMode ? null : genRecord.image_url,
+              industry: genRecord.industry,
+              avatar_name: genRecord.avatar_name,
+              city: genRecord.city,
+              story_idea: genRecord.story_idea,
+              number_of_scenes: genRecord.number_of_scenes,
+            }),
+          });
+
+          if (!analyzeResponse.ok) {
+            const errorText = await analyzeResponse.text();
+            console.error(`❌ AI analysis failed for ${genRecord.id}:`, errorText);
+            await supabase
+              .from("kie_video_generations")
+              .update({
+                initial_status: "failed",
+                initial_error: `AI prompt generation failed: ${errorText}`,
+              })
+              .eq("id", genRecord.id);
+            failCount++;
+            continue;
+          }
+
+          const analysisData = await analyzeResponse.json();
         if (!analysisData.success) {
           console.error(`❌ AI analysis error for ${genRecord.id}:`, analysisData.error);
           await supabase
@@ -295,24 +326,24 @@ serve(async (req) => {
           continue;
         }
 
-        let scenePrompts: Array<{ scene_number: number; prompt: string; script?: string }> = [];
-        if (genRecord.number_of_scenes === 1) {
-          scenePrompts = [{ scene_number: 1, prompt: analysisData.prompt, script: "" }];
-        } else {
-          scenePrompts = (analysisData.scenes || []).map((s: { scene_number: number; prompt: string; script?: string }) => ({
-            scene_number: s.scene_number,
-            prompt: s.prompt,
-            script: s.script || "",
-          }));
-        }
+          if (genRecord.number_of_scenes === 1) {
+            scenePrompts = [{ scene_number: 1, prompt: analysisData.prompt, script: "" }];
+          } else {
+            scenePrompts = (analysisData.scenes || []).map((s: { scene_number: number; prompt: string; script?: string }) => ({
+              scene_number: s.scene_number,
+              prompt: s.prompt,
+              script: s.script || "",
+            }));
+          }
 
-        await supabase
-          .from("kie_video_generations")
-          .update({
-            scene_prompts: scenePrompts,
-            ai_prompt: scenePrompts[0]?.prompt || "",
-          })
-          .eq("id", genRecord.id);
+          await supabase
+            .from("kie_video_generations")
+            .update({
+              scene_prompts: scenePrompts,
+              ai_prompt: scenePrompts[0]?.prompt || "",
+            })
+            .eq("id", genRecord.id);
+        }
 
         const firstScene = scenePrompts[0];
         const firstScenePrompt = firstScene?.prompt || "";

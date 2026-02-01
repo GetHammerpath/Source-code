@@ -84,14 +84,10 @@ const Sidebar = () => {
     }
   };
 
-  // Mandatory Sidebar Structure: Production, Assets, System
   const productionItems = [
     { to: "/create-avatar", icon: Users, label: "Casting" },
     { to: "/video-generator", icon: Scissors, label: "Studio" },
     { to: "/bulk", icon: Server, label: "Bulk Studio" },
-  ];
-  const assetsItems = [
-    { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   ];
   const systemItems = [
     { to: "/api-keys", icon: Terminal, label: "API Keys" },
@@ -133,17 +129,14 @@ const Sidebar = () => {
         ) : (
           <>
             <div className="space-y-1">
-              <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Production</p>
-              {productionItems.map((item) => (
-                <NavLink key={item.to + item.label} to={item.to} className={({ isActive }) => linkClass(isActive)}>
-                  <item.icon className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm">{item.label}</span>
-                </NavLink>
-              ))}
+              <NavLink to="/dashboard" className={({ isActive }) => linkClass(isActive)}>
+                <LayoutDashboard className="h-4 w-4 flex-shrink-0" />
+                <span className="text-sm">Dashboard</span>
+              </NavLink>
             </div>
             <div className="space-y-1">
-              <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Assets</p>
-              {assetsItems.map((item) => (
+              <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Production</p>
+              {productionItems.map((item) => (
                 <NavLink key={item.to + item.label} to={item.to} className={({ isActive }) => linkClass(isActive)}>
                   <item.icon className="h-4 w-4 flex-shrink-0" />
                   <span className="text-sm">{item.label}</span>

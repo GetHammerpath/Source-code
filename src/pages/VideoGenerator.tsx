@@ -58,7 +58,7 @@ const VideoGenerator = () => {
                 <Video className="h-8 w-8 text-primary" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">AI Video Generator</h1>
+                <h1 className="text-3xl font-bold">Studio</h1>
                 <p className="text-muted-foreground">
                   Create stunning marketing videos from a single image
                 </p>

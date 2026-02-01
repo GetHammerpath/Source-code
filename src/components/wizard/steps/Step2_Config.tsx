@@ -11,7 +11,7 @@ import type { StrategyChoice } from "./Step1_Strategy";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { BatchRow } from "@/types/bulk";
-import { createEmptyRow, setSegments, SCENE_COUNT_MIN, SCENE_COUNT_MAX } from "@/types/bulk";
+import { createEmptyRow, setSegments, setVisualSegments, SCENE_COUNT_MIN, SCENE_COUNT_MAX } from "@/types/bulk";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -129,14 +129,17 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
       r.avatar_id = tone === "casual" ? "__auto_casual__" : "__auto_professional__";
       r.avatar_name = tone === "casual" ? "Auto-Cast: Casual" : "Auto-Cast: Professional";
       if (data.scenes && Array.isArray(data.scenes) && data.scenes.length > 0) {
-        const prompts: string[] = Array(sceneCount).fill("");
+        const scripts: string[] = Array(sceneCount).fill("");
+        const visuals: string[] = Array(sceneCount).fill("");
         data.scenes.forEach((s: { scene_number?: number; prompt?: string; script?: string }, i: number) => {
           const idx = (s.scene_number ?? i + 1) - 1;
-          const text = s.prompt || s.script || "";
-          if (idx >= 0 && idx < prompts.length) prompts[idx] = text;
-          else prompts[i] = text;
+          if (idx >= 0 && idx < sceneCount) {
+            scripts[idx] = (s.script ?? "").trim();
+            visuals[idx] = (s.prompt ?? "").trim();
+          }
         });
-        Object.assign(r, setSegments(r, prompts));
+        Object.assign(r, setSegments(r, scripts));
+        Object.assign(r, setVisualSegments(r, visuals));
       } else {
         const script = data.prompt ?? topic;
         const prompts: string[] = Array(sceneCount).fill(script);
