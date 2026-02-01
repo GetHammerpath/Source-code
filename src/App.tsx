@@ -28,6 +28,7 @@ import SoraStoryboardGenerator from "./pages/SoraStoryboardGenerator";
 import Sora2LatestGenerator from "./pages/Sora2LatestGenerator";
 import RunwayExtendGenerator from "./pages/RunwayExtendGenerator";
 import BulkVideoGenerator from "./pages/BulkVideoGenerator";
+import BatchDetails from "./pages/BatchDetails";
 import SmartBulkGenerator from "./pages/SmartBulkGenerator";
 import LongFormGenerator from "./pages/LongFormGenerator";
 import Pricing from "./pages/Pricing";
@@ -138,6 +139,14 @@ const App = () => (
             element={
               <AuthWrapper>
                 <BulkVideoGenerator />
+              </AuthWrapper>
+            } 
+          />
+          <Route 
+            path="/batch/:id" 
+            element={
+              <AuthWrapper>
+                <BatchDetails />
               </AuthWrapper>
             } 
           />

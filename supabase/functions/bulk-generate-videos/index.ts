@@ -10,6 +10,19 @@ interface VariableCombination {
   [key: string]: string;
 }
 
+/** Row-based input: 1-to-1 mapping per video */
+interface BulkRow {
+  avatar_id?: string;
+  avatar_name?: string;
+  script?: string;
+  background?: string;
+  industry?: string;
+  city?: string;
+  story_idea?: string;
+  image_url?: string;
+  [key: string]: unknown;
+}
+
 interface BaseConfig {
   image_url: string | null;
   generation_type: string;
@@ -19,6 +32,14 @@ interface BaseConfig {
   model: string;
   aspect_ratio: string;
   number_of_scenes: number;
+  sample_size?: number | null;
+}
+
+interface RequestBody {
+  batch_id: string;
+  combinations?: VariableCombination[];
+  rows?: BulkRow[];
+  base_config: BaseConfig;
 }
 
 serve(async (req) => {
@@ -31,15 +52,29 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { batch_id, combinations, base_config } = await req.json() as {
-      batch_id: string;
-      combinations: VariableCombination[];
-      base_config: BaseConfig;
-    };
+    const body = await req.json() as RequestBody;
+    const { batch_id, base_config } = body;
+    const rows = body.rows;
+    const combinations = body.combinations;
 
-    const isTextOnlyMode = base_config.generation_type === 'TEXT_2_VIDEO' || !base_config.image_url;
-    console.log(`🚀 Starting bulk generation for batch ${batch_id} with ${combinations.length} variations`);
-    console.log(`📋 Generation mode: ${isTextOnlyMode ? 'TEXT_2_VIDEO (Prompt Only)' : 'REFERENCE_2_VIDEO (Image Reference)'}`);
+    const useRows = Array.isArray(rows) && rows.length > 0;
+    const sourceType = useRows ? "csv" : "cartesian";
+    const items = useRows
+      ? rows as BulkRow[]
+      : (combinations || []) as VariableCombination[];
+    const totalItems = items.length;
+
+    if (totalItems === 0) {
+      throw new Error("Either rows or combinations must be provided with at least one item");
+    }
+
+    const sampleSize = base_config.sample_size != null ? Number(base_config.sample_size) : null;
+    const isSampleRun = sampleSize != null && sampleSize > 0 && totalItems > sampleSize;
+    const limit = isSampleRun ? sampleSize : totalItems;
+
+    const isTextOnlyMode = base_config.generation_type === "TEXT_2_VIDEO" || !base_config.image_url;
+    console.log(`🚀 Starting bulk generation for batch ${batch_id}: ${totalItems} items, limit=${limit}${isSampleRun ? " (SAMPLE RUN)" : ""}`);
+    console.log(`📋 Mode: ${useRows ? "ROWS (1-to-1)" : "COMBINATIONS (legacy)"}, source_type=${sourceType}`);
 
     // Get user_id from batch
     const { data: batchData, error: batchError } = await supabase
@@ -54,39 +89,89 @@ serve(async (req) => {
 
     const userId = batchData.user_id;
 
-    // Process each combination - create records and generate prompts
-    for (let i = 0; i < combinations.length; i++) {
-      const combo = combinations[i];
-      
-      // Build avatar name from variables
-      const avatarAge = combo.avatar_age || "";
-      const avatarGender = combo.avatar_gender || "";
-      const avatarName = [avatarAge, avatarGender, "Professional"].filter(Boolean).join(" ");
-      
-      const industry = combo.industry_override || base_config.industry;
-      
-      // Substitute variables in story idea
-      let storyIdea = base_config.story_idea || "";
-      for (const [key, value] of Object.entries(combo)) {
-        storyIdea = storyIdea.replace(new RegExp(`\\{${key}\\}`, "g"), value);
+    // Update batch with new schema fields and persist input for resume
+    await supabase
+      .from("bulk_video_batches")
+      .update({
+        source_type: sourceType,
+        total_rows: totalItems,
+        is_paused: false,
+        sample_size: sampleSize,
+        metadata: {
+          ...(typeof (batchData as { metadata?: object }).metadata === "object" ? (batchData as { metadata: object }).metadata : {}),
+          input_rows: useRows ? items : undefined,
+          input_combinations: !useRows ? items : undefined,
+          base_config: {
+            image_url: base_config.image_url,
+            generation_type: base_config.generation_type,
+            industry: base_config.industry,
+            city: base_config.city,
+            story_idea: base_config.story_idea,
+            model: base_config.model,
+            aspect_ratio: base_config.aspect_ratio,
+            number_of_scenes: base_config.number_of_scenes,
+          },
+        },
+      })
+      .eq("id", batch_id);
+
+    // Process each item (row or combination) - create records
+    for (let i = 0; i < limit; i++) {
+      const item = items[i];
+      let avatarName: string;
+      let industry: string;
+      let city: string;
+      let storyIdea: string;
+      let imageUrl: string;
+      let variableValues: Record<string, unknown>;
+
+      if (useRows) {
+        const row = item as BulkRow;
+        avatarName = row.avatar_name ?? "Professional";
+        industry = row.industry ?? base_config.industry;
+        city = row.city ?? base_config.city;
+        storyIdea = row.story_idea ?? base_config.story_idea ?? "";
+        imageUrl = row.image_url ?? base_config.image_url ?? "text-only-mode";
+        variableValues = { ...row };
+
+        // Resolve avatar_id to image_url if needed
+        if (row.avatar_id && !row.image_url) {
+          const { data: avatar } = await supabase
+            .from("avatars")
+            .select("seed_image_url")
+            .eq("id", row.avatar_id)
+            .eq("user_id", userId)
+            .single();
+          if (avatar?.seed_image_url) {
+            imageUrl = avatar.seed_image_url;
+          }
+        }
+      } else {
+        const combo = item as VariableCombination;
+        const avatarAge = combo.avatar_age || "";
+        const avatarGender = combo.avatar_gender || "";
+        avatarName = [avatarAge, avatarGender, "Professional"].filter(Boolean).join(" ");
+        industry = combo.industry_override || base_config.industry;
+        city = base_config.city;
+        storyIdea = base_config.story_idea || "";
+        for (const [key, value] of Object.entries(combo)) {
+          storyIdea = storyIdea.replace(new RegExp(`\\{${key}\\}`, "g"), value);
+        }
+        imageUrl = base_config.image_url || "text-only-mode";
+        variableValues = combo;
       }
 
-      console.log(`📝 Creating generation ${i + 1}/${combinations.length} for variation:`, {
-        avatarName,
-        industry,
-        isTextOnlyMode,
-        storyIdea: storyIdea.substring(0, 100) + "..."
-      });
+      if (!imageUrl) imageUrl = "text-only-mode";
 
-      // Create the individual video generation record
-      // For text-only mode, use a placeholder for image_url since it's required in DB
+      console.log(`📝 Creating generation ${i + 1}/${limit}:`, { avatarName, industry, isSampleRun });
+
       const { data: generation, error: genError } = await supabase
         .from("kie_video_generations")
         .insert({
           user_id: userId,
-          image_url: base_config.image_url || "text-only-mode",
+          image_url: imageUrl,
           industry,
-          city: base_config.city,
+          city,
           avatar_name: avatarName,
           story_idea: storyIdea || null,
           model: base_config.model,
@@ -95,27 +180,28 @@ serve(async (req) => {
           is_multi_scene: base_config.number_of_scenes > 1,
           current_scene: 1,
           initial_status: "pending",
-          metadata: { 
-            bulk_batch_id: batch_id, 
-            variable_values: combo,
-            generation_type: base_config.generation_type || 'REFERENCE_2_VIDEO'
+          is_sample: isSampleRun,
+          metadata: {
+            bulk_batch_id: batch_id,
+            variable_values: variableValues,
+            generation_type: base_config.generation_type || "REFERENCE_2_VIDEO",
+            row_index: i,
           },
         })
         .select()
         .single();
 
       if (genError) {
-        console.error(`❌ Error creating generation for variation ${i}:`, genError);
+        console.error(`❌ Error creating generation for index ${i}:`, genError);
         continue;
       }
 
-      // Link generation to batch
       const { error: linkError } = await supabase
         .from("bulk_batch_generations")
         .insert({
           batch_id,
           generation_id: generation.id,
-          variable_values: combo,
+          variable_values: variableValues,
           variation_index: i,
         });
 
@@ -123,29 +209,28 @@ serve(async (req) => {
         console.error(`❌ Error linking generation ${generation.id} to batch:`, linkError);
       }
 
-      console.log(`✅ Created generation ${generation.id} for variation ${i}`);
+      console.log(`✅ Created generation ${generation.id} for index ${i}`);
 
-      // Rate limiting: small delay between creations
-      if (i < combinations.length - 1) {
+      if (i < limit - 1) {
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
     }
 
-    // Now generate AI prompts and trigger video generation for each
+    // Fetch all batch generations for this batch (only the ones we just created, up to limit)
     const { data: batchGenerations } = await supabase
       .from("bulk_batch_generations")
       .select("generation_id, variable_values")
       .eq("batch_id", batch_id)
       .order("variation_index", { ascending: true });
 
-    console.log(`🎬 Starting AI prompt generation for ${batchGenerations?.length || 0} variations`);
+    const toProcess = (batchGenerations || []).slice(0, limit);
+    console.log(`🎬 Starting AI prompt generation for ${toProcess.length} variations`);
 
     let successCount = 0;
     let failCount = 0;
 
-    for (const gen of batchGenerations || []) {
+    for (const gen of toProcess) {
       try {
-        // Fetch the full generation record
         const { data: genRecord, error: fetchError } = await supabase
           .from("kie_video_generations")
           .select("*")
@@ -160,13 +245,11 @@ serve(async (req) => {
 
         console.log(`🔍 Processing generation ${genRecord.id}: ${genRecord.avatar_name}`);
 
-        // Determine if this is text-only mode from metadata
-        const generationType = (genRecord.metadata as { generation_type?: string })?.generation_type || 'REFERENCE_2_VIDEO';
-        const isTextMode = generationType === 'TEXT_2_VIDEO' || genRecord.image_url === 'text-only-mode';
+        const generationType = (genRecord.metadata as { generation_type?: string })?.generation_type || "REFERENCE_2_VIDEO";
+        const isTextMode = generationType === "TEXT_2_VIDEO" || genRecord.image_url === "text-only-mode";
 
-        // Step 1: Generate AI prompts using analyze-image-kie
-        console.log(`🤖 Generating AI prompts for ${genRecord.id} (mode: ${isTextMode ? 'TEXT' : 'IMAGE'})...`);
-        
+        console.log(`🤖 Generating AI prompts for ${genRecord.id} (mode: ${isTextMode ? "TEXT" : "IMAGE"})...`);
+
         const analyzeResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-image-kie`, {
           method: "POST",
           headers: {
@@ -174,7 +257,6 @@ serve(async (req) => {
             "Authorization": `Bearer ${supabaseServiceKey}`,
           },
           body: JSON.stringify({
-            // Pass null for text-only mode
             image_url: isTextMode ? null : genRecord.image_url,
             industry: genRecord.industry,
             avatar_name: genRecord.avatar_name,
@@ -187,7 +269,6 @@ serve(async (req) => {
         if (!analyzeResponse.ok) {
           const errorText = await analyzeResponse.text();
           console.error(`❌ AI analysis failed for ${genRecord.id}:`, errorText);
-          
           await supabase
             .from("kie_video_generations")
             .update({
@@ -195,16 +276,13 @@ serve(async (req) => {
               initial_error: `AI prompt generation failed: ${errorText}`,
             })
             .eq("id", genRecord.id);
-          
           failCount++;
           continue;
         }
 
         const analysisData = await analyzeResponse.json();
-        
         if (!analysisData.success) {
-          console.error(`❌ AI analysis returned error for ${genRecord.id}:`, analysisData.error);
-          
+          console.error(`❌ AI analysis error for ${genRecord.id}:`, analysisData.error);
           await supabase
             .from("kie_video_generations")
             .update({
@@ -212,34 +290,22 @@ serve(async (req) => {
               initial_error: `AI prompt generation error: ${analysisData.error}`,
             })
             .eq("id", genRecord.id);
-          
           failCount++;
           continue;
         }
 
-        // Parse scene prompts based on response format
         let scenePrompts: Array<{ scene_number: number; prompt: string; script?: string }> = [];
-        
         if (genRecord.number_of_scenes === 1) {
-          // Single scene - prompt is a string
-          scenePrompts = [{
-            scene_number: 1,
-            prompt: analysisData.prompt,
-            script: "",
-          }];
+          scenePrompts = [{ scene_number: 1, prompt: analysisData.prompt, script: "" }];
         } else {
-          // Multi-scene - scenes array
-          scenePrompts = analysisData.scenes.map((scene: { scene_number: number; prompt: string; script?: string }) => ({
-            scene_number: scene.scene_number,
-            prompt: scene.prompt,
-            script: scene.script || "",
+          scenePrompts = (analysisData.scenes || []).map((s: { scene_number: number; prompt: string; script?: string }) => ({
+            scene_number: s.scene_number,
+            prompt: s.prompt,
+            script: s.script || "",
           }));
         }
 
-        console.log(`📋 Generated ${scenePrompts.length} scene prompts for ${genRecord.id}`);
-
-        // Update generation with scene prompts
-        const { error: updatePromptsError } = await supabase
+        await supabase
           .from("kie_video_generations")
           .update({
             scene_prompts: scenePrompts,
@@ -247,16 +313,9 @@ serve(async (req) => {
           })
           .eq("id", genRecord.id);
 
-        if (updatePromptsError) {
-          console.error(`❌ Failed to update prompts for ${genRecord.id}:`, updatePromptsError);
-        }
-
-        // Step 2: Trigger video generation with all required parameters
         const firstScene = scenePrompts[0];
         const firstScenePrompt = firstScene?.prompt || "";
         const firstSceneScript = firstScene?.script || "";
-
-        // Build enhanced prompt with script
         let enhancedPrompt = firstScenePrompt;
         if (firstSceneScript) {
           enhancedPrompt = `${firstScenePrompt}\n\nAVATAR DIALOGUE: "${firstSceneScript}"`;
@@ -273,7 +332,6 @@ serve(async (req) => {
           body: JSON.stringify({
             generation_id: genRecord.id,
             prompt: enhancedPrompt,
-            // For text-only mode, pass null for image_url
             image_url: isTextMode ? null : genRecord.image_url,
             model: genRecord.model || "veo3_fast",
             aspect_ratio: genRecord.aspect_ratio || "16:9",
@@ -293,42 +351,47 @@ serve(async (req) => {
         }
 
         const generateData = await generateResponse.json();
-        
         if (generateData.success) {
           console.log(`✅ Video generation started for ${genRecord.id}, task_id: ${generateData.task_id}`);
           successCount++;
         } else {
-          console.error(`❌ Video generation returned error for ${genRecord.id}:`, generateData.error);
+          console.error(`❌ Video generation error for ${genRecord.id}:`, generateData.error);
           failCount++;
         }
 
-        // Rate limiting: delay between generations to avoid overwhelming the API
         await new Promise((resolve) => setTimeout(resolve, 2000));
-
       } catch (err) {
         console.error(`❌ Failed to process generation ${gen.generation_id}:`, err);
         failCount++;
       }
     }
 
-    // Update batch status
+    // Update batch status: paused_for_review if sample run, else processing/failed
+    const batchStatus = isSampleRun
+      ? "paused_for_review"
+      : (successCount > 0 ? "processing" : "failed");
+
     await supabase
       .from("bulk_video_batches")
       .update({
-        status: successCount > 0 ? "processing" : "failed",
+        status: batchStatus,
+        is_paused: isSampleRun,
         updated_at: new Date().toISOString(),
       })
       .eq("id", batch_id);
 
-    console.log(`🏁 Bulk generation complete. Success: ${successCount}, Failed: ${failCount}`);
+    console.log(`🏁 Bulk generation complete. Success: ${successCount}, Failed: ${failCount}, Status: ${batchStatus}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Started bulk generation: ${successCount} succeeded, ${failCount} failed`,
+        message: isSampleRun
+          ? `Sample run complete: ${successCount} started. Batch paused for review.`
+          : `Started bulk generation: ${successCount} succeeded, ${failCount} failed`,
         batch_id,
         started: successCount,
         failed: failCount,
+        paused_for_review: isSampleRun,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
