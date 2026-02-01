@@ -30,6 +30,7 @@ import RunwayExtendGenerator from "./pages/RunwayExtendGenerator";
 import BulkVideoGenerator from "./pages/BulkVideoGenerator";
 import BulkWizard from "./pages/BulkWizard";
 import BatchDetails from "./pages/BatchDetails";
+import VideoDetails from "./pages/VideoDetails";
 import SmartBulkGenerator from "./pages/SmartBulkGenerator";
 import LongFormGenerator from "./pages/LongFormGenerator";
 import Pricing from "./pages/Pricing";
@@ -148,6 +149,14 @@ const App = () => (
             element={
               <AuthWrapper>
                 <BulkVideoGenerator />
+              </AuthWrapper>
+            } 
+          />
+          <Route 
+            path="/video/:id" 
+            element={
+              <AuthWrapper>
+                <VideoDetails />
               </AuthWrapper>
             } 
           />

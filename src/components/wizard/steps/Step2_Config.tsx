@@ -88,14 +88,17 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
           r.avatar_id = p.avatar_id || p.avatar || "";
           r.avatar_name = p.avatar_name || p.avatar || p.name || "";
           const segs: string[] = [];
+          const visuals: string[] = [];
           for (let i = 0; i < sceneCount; i++) {
             if (i === 0) {
               segs.push(p.script || p.prompt || p.segment1 || "");
             } else {
               segs.push(p[`segment${i + 1}`] ?? "");
             }
+            visuals.push(p[`visual${i + 1}`] || p[`visual_segment${i + 1}`] || "");
           }
           Object.assign(r, setSegments(r, segs));
+          Object.assign(r, setVisualSegments(r, visuals));
           return r;
         });
         onRowsReady(rows);
@@ -341,6 +344,7 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
             <ul className="text-sm text-muted-foreground space-y-1.5 list-disc list-inside">
               <li><strong>Required columns:</strong> <code className="text-xs bg-muted px-1 rounded">avatar_id</code> or <code className="text-xs bg-muted px-1 rounded">avatar</code>; <code className="text-xs bg-muted px-1 rounded">avatar_name</code> or <code className="text-xs bg-muted px-1 rounded">name</code></li>
               <li><strong>Script columns:</strong> <code className="text-xs bg-muted px-1 rounded">script</code> or <code className="text-xs bg-muted px-1 rounded">prompt</code> (for scene 1) and/or <code className="text-xs bg-muted px-1 rounded">segment1</code>, <code className="text-xs bg-muted px-1 rounded">segment2</code>, <code className="text-xs bg-muted px-1 rounded">segment3</code>, …</li>
+              <li><strong>Visual columns (optional):</strong> <code className="text-xs bg-muted px-1 rounded">visual1</code>, <code className="text-xs bg-muted px-1 rounded">visual2</code>, <code className="text-xs bg-muted px-1 rounded">visual3</code>, … for scene descriptions</li>
               <li><strong>Word limits per scene:</strong> Scene 1 = 8 sec (~20 words max). Scenes 2+ = 7 sec each (~17 words max)</li>
               <li>First row must be a header with column names</li>
             </ul>
@@ -376,7 +380,7 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
             <div className="text-center">
               <p className="font-medium">Drop your CSV here or click to upload</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Must include avatar columns and script/segment columns
+                Must include avatar and script columns; optional visual1, visual2, …
               </p>
             </div>
             {config.csvFile && (

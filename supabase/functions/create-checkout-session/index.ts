@@ -68,17 +68,19 @@ function isTestLiveCustomerMismatch(err: { message?: string } | null): boolean {
 const PRICE_PER_CREDIT = parseFloat(Deno.env.get('PRICE_PER_CREDIT') || '3.34');
 
 function getSiteUrl(req: Request): string {
-  const fromEnv = Deno.env.get('SITE_URL');
-  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  // Prefer request Origin/Referer so cancel/success URLs return user to the site they came from
   const origin = req.headers.get('Origin') || req.headers.get('Referer');
   if (origin) {
     try {
       const u = new URL(origin);
-      return `${u.protocol}//${u.host}`;
+      const base = `${u.protocol}//${u.host}`;
+      if (base.startsWith('http://') || base.startsWith('https://')) return base;
     } catch {
       /**/
     }
   }
+  const fromEnv = Deno.env.get('SITE_URL');
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
   return 'http://localhost:8080';
 }
 
@@ -126,13 +128,13 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    let body: { mode?: string; planId?: string; credits?: number };
+    let body: { mode?: string; planId?: string; credits?: number; totalCents?: number };
     try {
-      body = (await req.json()) as { mode?: string; planId?: string; credits?: number };
+      body = (await req.json()) as { mode?: string; planId?: string; credits?: number; totalCents?: number };
     } catch {
       throw new Error('Invalid JSON body. Send { mode, planId } for subscription or { mode, credits } for credits.');
     }
-    const { mode, planId, credits } = body;
+    const { mode, planId, credits, totalCents: clientTotalCents } = body;
 
     const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY');
     if (!serviceRoleKey) {
@@ -211,7 +213,10 @@ serve(async (req) => {
         const rawCredits = parseInt(String(credits), 10);
         if (rawCredits < 30) throw new Error('Minimum purchase is 30 credits');
         const creditAmount = rawCredits;
-        const totalCents = Math.round(creditAmount * PRICE_PER_CREDIT * 100);
+        // Use client-provided totalCents if present (matches frontend display); else fall back to server calc
+        const totalCents = typeof clientTotalCents === 'number' && clientTotalCents > 0
+          ? Math.round(clientTotalCents)
+          : Math.round(creditAmount * PRICE_PER_CREDIT * 100);
         const productName = `${creditAmount.toLocaleString()} Credits`;
         const productDesc = 'Credits for video rendering (1 credit = 1 rendered minute)';
         return stripeFetch(stripeSecretKey, 'POST', '/checkout/sessions', {

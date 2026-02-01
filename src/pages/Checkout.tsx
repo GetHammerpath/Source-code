@@ -69,7 +69,7 @@ const Checkout = () => {
         mode === "access"
           ? { mode: "subscription", planId: "studio_access" }
           : mode === "credits"
-            ? { mode: "credits", credits: creditAmount }
+            ? { mode: "credits", credits: creditAmount, totalCents: Math.round(totalPrice * 100) }
             : null;
       if (!body) throw new Error("Invalid checkout mode");
 

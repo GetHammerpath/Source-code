@@ -204,7 +204,7 @@ export default function BulkWizard() {
               onChange={setCampaignData}
               avatars={avatars}
               sceneCount={sceneCount}
-              showVisualContext={strategy === "ai"}
+              showVisualContext={strategy === "ai" || strategy === "csv"}
             />
           )}
           {currentStep === 3 && (

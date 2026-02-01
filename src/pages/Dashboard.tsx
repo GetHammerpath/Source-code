@@ -213,6 +213,46 @@ const Dashboard = () => {
           )}
         </section>
 
+        {/* Errors section - failed videos */}
+        {videos.some((v) => (v.final_video_status ?? v.initial_status) === "failed") && (
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-500" />
+              Errors
+            </h2>
+            <Card className="rounded-md border-red-200 dark:border-red-900/50 bg-red-50/30 dark:bg-red-950/20 overflow-hidden">
+              <CardContent className="p-0">
+                <ul className="divide-y divide-red-100 dark:divide-red-900/50">
+                  {videos
+                    .filter((v) => (v.final_video_status ?? v.initial_status) === "failed")
+                    .map((v) => {
+                      const err = v.final_video_error ?? v.initial_error ?? v.extended_error ?? "Unknown error";
+                      const title = [v.industry, v.avatar_name].filter(Boolean).join(" – ") || "Video";
+                      return (
+                        <li key={v.id}>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/video/${v.id}`)}
+                            className="w-full text-left px-4 py-3 hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors flex items-start justify-between gap-4"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-slate-900 truncate">{title}</p>
+                              <p className="text-sm text-red-600 dark:text-red-400 line-clamp-2 mt-0.5">{err}</p>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {v.created_at ? new Date(v.created_at).toLocaleString() : ""}
+                              </p>
+                            </div>
+                            <span className="text-xs text-red-600 shrink-0">View →</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                </ul>
+              </CardContent>
+            </Card>
+          </section>
+        )}
+
         {/* Your Videos */}
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-slate-900">Your Videos</h2>
@@ -237,10 +277,10 @@ const Dashboard = () => {
                 const thumbUrl = v.final_video_url ?? v.initial_video_url ?? null;
                 const title = [v.industry, v.avatar_name].filter(Boolean).join(" – ") || "Video";
                 return (
-                  <button
+                    <button
                     key={v.id}
                     type="button"
-                    onClick={() => navigate("/video-generator")}
+                    onClick={() => navigate(`/video/${v.id}`)}
                     className="text-left"
                   >
                     <Card className="rounded-md border-border/60 border shadow-sm hover:shadow-md transition-all overflow-hidden bg-white">
