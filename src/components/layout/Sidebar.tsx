@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Video, Users, FileText, Scissors, Server, UserCheck, Film, Terminal, CreditCard, Shield, Wallet, User, Loader2, Zap } from "lucide-react";
+import { LayoutDashboard, LogOut, Video, Users, FileText, Scissors, Server, Terminal, CreditCard, Shield, Wallet, User, Loader2, Zap } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -91,8 +91,7 @@ const Sidebar = () => {
     { to: "/bulk", icon: Server, label: "Bulk Studio" },
   ];
   const assetsItems = [
-    { to: "/dashboard", icon: UserCheck, label: "Talent Pool" },
-    { to: "/dashboard", icon: Film, label: "Exports" },
+    { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   ];
   const systemItems = [
     { to: "/api-keys", icon: Terminal, label: "API Keys" },

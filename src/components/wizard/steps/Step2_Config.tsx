@@ -40,6 +40,8 @@ export interface Step2Config {
   spinnerCount?: number;
   spinnerGender?: string;
   spinnerAge?: string;
+  spinnerEthnicity?: string;
+  spinnerType?: string; // e.g. lawyer, cowboy, accountant
   spinnerSceneCount?: number;
   sceneCount?: number; // shared, used by Workbench and Launch
 }
@@ -162,6 +164,20 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
     }
   };
 
+  const buildAutoCastName = (): string => {
+    const type = (config.spinnerType ?? "").trim();
+    const gender = config.spinnerGender ?? "any";
+    const age = config.spinnerAge ?? "any";
+    const ethnicity = config.spinnerEthnicity ?? "any";
+    const parts: string[] = [];
+    if (gender !== "any") parts.push(gender);
+    if (age !== "any") parts.push(age === "young" ? "young" : age === "middle" ? "middle-aged" : "mature");
+    if (ethnicity !== "any") parts.push(ethnicity);
+    if (type) parts.push(type);
+    if (parts.length === 0) return "Auto-Cast: Professional";
+    return `Auto-Cast: ${parts.join(" ")}`;
+  };
+
   const handleSpinnerGenerate = async () => {
     const count = Math.max(10, Math.min(100, config.spinnerCount ?? 10));
     const { data: { user } } = await supabase.auth.getUser();
@@ -171,7 +187,11 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
       .select("id, name")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    const list = avatars || [];
+    let list = avatars || [];
+    const typeFilter = (config.spinnerType ?? "").trim().toLowerCase();
+    if (typeFilter) {
+      list = list.filter((a) => a.name.toLowerCase().includes(typeFilter));
+    }
     let sceneCount = Math.min(SCENE_COUNT_MAX, Math.max(1, config.spinnerSceneCount ?? config.sceneCount ?? 3));
     let prompts: string[];
     if (sampleScript.trim()) {
@@ -181,6 +201,7 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
     } else {
       prompts = Array(sceneCount).fill("Enter script...");
     }
+    const autoCastName = buildAutoCastName();
     const rows: BatchRow[] = Array.from({ length: count }, () => {
       const r = createEmptyRow();
       r.id = uuid();
@@ -189,8 +210,8 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
         r.avatar_id = a.id;
         r.avatar_name = a.name;
       } else {
-        r.avatar_id = "__auto_professional__";
-        r.avatar_name = "Auto-Cast: Professional";
+        r.avatar_id = "__auto_custom__";
+        r.avatar_name = autoCastName;
       }
       const filled = [...prompts];
       while (filled.length < sceneCount) filled.push("");
@@ -493,9 +514,21 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
             />
             <p className="text-sm text-muted-foreground">{config.spinnerCount ?? 10} rows</p>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Avatar type (optional)</Label>
+            <Input
+              placeholder="e.g. lawyer, cowboy, accountant"
+              value={config.spinnerType ?? ""}
+              onChange={(e) => onConfigChange({ spinnerType: e.target.value })}
+              className="max-w-xs"
+            />
+            <p className="text-xs text-muted-foreground">
+              Filters your avatars by name, or used for Auto-Cast when none match.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Gender filter</Label>
+              <Label>Sex</Label>
               <Select
                 value={config.spinnerGender ?? "any"}
                 onValueChange={(v) => onConfigChange({ spinnerGender: v })}
@@ -509,7 +542,7 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Age filter</Label>
+              <Label>Age</Label>
               <Select
                 value={config.spinnerAge ?? "any"}
                 onValueChange={(v) => onConfigChange({ spinnerAge: v })}
@@ -520,6 +553,24 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
                   <SelectItem value="young">Young</SelectItem>
                   <SelectItem value="middle">Middle</SelectItem>
                   <SelectItem value="mature">Mature</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Ethnicity</Label>
+              <Select
+                value={config.spinnerEthnicity ?? "any"}
+                onValueChange={(v) => onConfigChange({ spinnerEthnicity: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any</SelectItem>
+                  <SelectItem value="white">White</SelectItem>
+                  <SelectItem value="Black">Black</SelectItem>
+                  <SelectItem value="Asian">Asian</SelectItem>
+                  <SelectItem value="Hispanic">Hispanic</SelectItem>
+                  <SelectItem value="Middle Eastern">Middle Eastern</SelectItem>
+                  <SelectItem value="South Asian">South Asian</SelectItem>
                 </SelectContent>
               </Select>
             </div>
