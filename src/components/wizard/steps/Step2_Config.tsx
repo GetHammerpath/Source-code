@@ -59,6 +59,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
   const [sampleScript, setSampleScript] = useState("");
   const [sampleSegmentType, setSampleSegmentType] = useState<"0" | "1">("0");
   const [sampleCheck, setSampleCheck] = useState<{ result: { wordCount: number; estimatedSeconds: number; fitsLimit: boolean; limitSeconds: number } } | null>(null);
+  const [sceneEstimate, setSceneEstimate] = useState<{ wordCount: number; sceneCount: number } | null>(null);
   const [segmentCheckResults, setSegmentCheckResults] = useState<Record<number, { wordCount: number; estimatedSeconds: number; fitsLimit: boolean }>>({});
 
   if (!strategy) {
@@ -237,6 +238,18 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
     }
   };
 
+  const handleEstimateScenes = () => {
+    const val = sampleScript.trim();
+    if (!val) {
+      toast({ title: "Enter a script first", variant: "destructive" });
+      return;
+    }
+    const wordCount = val.split(/\s+/).filter(Boolean).length;
+    const sceneCount = wordCount <= FIRST_MAX_WORDS ? 1 : 1 + Math.ceil((wordCount - FIRST_MAX_WORDS) / OTHER_MAX_WORDS);
+    setSceneEstimate({ wordCount, sceneCount });
+    setSampleCheck(null);
+  };
+
   const handleCheckSample = async () => {
     const val = sampleScript.trim();
     if (!val) {
@@ -246,6 +259,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
     const segIdx = sampleSegmentType === "0" ? 0 : 1;
     setCheckingSegment(-1);
     setSampleCheck(null);
+    setSceneEstimate(null);
     try {
       const result = await validateScript(val, segIdx, false);
       if (result?.success) {
@@ -300,6 +314,55 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
 
       {strategy === "csv" && (
         <div className="space-y-4">
+          <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
+            <Label>Check sample script</Label>
+            <p className="text-xs text-muted-foreground">
+              Paste your full script to see how many scenes it requires. Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
+            </p>
+            <Textarea
+              placeholder="Paste your entire script..."
+              value={sampleScript}
+              onChange={(e) => { setSampleScript(e.target.value); setSampleCheck(null); setSceneEstimate(null); }}
+              className="min-h-[100px] text-sm"
+              rows={4}
+            />
+            <div className="flex gap-2 flex-wrap items-center">
+              <Button type="button" onClick={handleEstimateScenes} disabled={!sampleScript.trim()}>
+                Estimate scenes
+              </Button>
+              <span className="text-xs text-muted-foreground">or validate a segment:</span>
+              <Select value={sampleSegmentType} onValueChange={(v: "0" | "1") => { setSampleSegmentType(v); setSampleCheck(null); setSceneEstimate(null); }}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Segment 1 (8s)</SelectItem>
+                  <SelectItem value="1">Segment 2+ (7s)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="button" variant="outline" size="sm" onClick={handleCheckSample} disabled={!sampleScript.trim() || checkingSegment !== null}>
+                {checkingSegment === -1 ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Check segment
+              </Button>
+            </div>
+            {sceneEstimate && (
+              <div className="rounded-md bg-primary/10 text-primary px-3 py-2 text-sm font-medium flex items-center justify-between gap-2 flex-wrap">
+                <span>
+                  This script requires {sceneEstimate.sceneCount} scene{sceneEstimate.sceneCount !== 1 ? "s" : ""} ({sceneEstimate.wordCount} words total)
+                </span>
+                <Button type="button" variant="secondary" size="sm" onClick={() => onConfigChange({ sceneCount: sceneEstimate.sceneCount })}>
+                  Use {sceneEstimate.sceneCount} scenes
+                </Button>
+              </div>
+            )}
+            {sampleCheck && (
+              <p className={cn("text-sm flex items-center gap-1.5", sampleCheck.result.fitsLimit ? "text-emerald-600" : "text-amber-600")}>
+                {sampleCheck.result.fitsLimit ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                Segment: {sampleCheck.result.wordCount} words, ~{sampleCheck.result.estimatedSeconds}s
+                {sampleCheck.result.fitsLimit ? " ✓" : ` (max ${sampleCheck.result.limitSeconds}s)`}
+              </p>
+            )}
+          </div>
           <div className="space-y-2 max-w-xs">
             <Label>Number of scenes (1–{SCENE_COUNT_MAX.toLocaleString()})</Label>
             <Input
@@ -346,17 +409,21 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
           <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
             <Label>Check sample script</Label>
             <p className="text-xs text-muted-foreground">
-              Segment 1: 8 sec (~20 words). Segments 2+: 7 sec (~17 words).
+              Paste your full script to see how many scenes it requires. Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
             </p>
-            <div className="flex gap-2 flex-wrap items-start">
-              <Textarea
-                placeholder="Paste a script to validate length..."
-                value={sampleScript}
-                onChange={(e) => { setSampleScript(e.target.value); setSampleCheck(null); }}
-                className="min-h-[70px] text-sm flex-1 min-w-[200px]"
-                rows={2}
-              />
-              <Select value={sampleSegmentType} onValueChange={(v: "0" | "1") => { setSampleSegmentType(v); setSampleCheck(null); }}>
+            <Textarea
+              placeholder="Paste your entire script..."
+              value={sampleScript}
+              onChange={(e) => { setSampleScript(e.target.value); setSampleCheck(null); setSceneEstimate(null); }}
+              className="min-h-[100px] text-sm"
+              rows={4}
+            />
+            <div className="flex gap-2 flex-wrap items-center">
+              <Button type="button" onClick={handleEstimateScenes} disabled={!sampleScript.trim()}>
+                Estimate scenes
+              </Button>
+              <span className="text-xs text-muted-foreground">or validate a segment:</span>
+              <Select value={sampleSegmentType} onValueChange={(v: "0" | "1") => { setSampleSegmentType(v); setSampleCheck(null); setSceneEstimate(null); }}>
                 <SelectTrigger className="w-[150px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -367,13 +434,23 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
               </Select>
               <Button type="button" variant="outline" size="sm" onClick={handleCheckSample} disabled={!sampleScript.trim() || checkingSegment !== null}>
                 {checkingSegment === -1 ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                Check
+                Check segment
               </Button>
             </div>
+            {sceneEstimate && (
+              <div className="rounded-md bg-primary/10 text-primary px-3 py-2 text-sm font-medium flex items-center justify-between gap-2 flex-wrap">
+                <span>
+                  This script requires {sceneEstimate.sceneCount} scene{sceneEstimate.sceneCount !== 1 ? "s" : ""} ({sceneEstimate.wordCount} words total)
+                </span>
+                <Button type="button" variant="secondary" size="sm" onClick={() => onConfigChange({ aiSceneCount: sceneEstimate.sceneCount, sceneCount: sceneEstimate.sceneCount })}>
+                  Use {sceneEstimate.sceneCount} scenes
+                </Button>
+              </div>
+            )}
             {sampleCheck && (
-              <p className={cn("text-sm mt-2 flex items-center gap-1.5", sampleCheck.result.fitsLimit ? "text-emerald-600" : "text-amber-600")}>
+              <p className={cn("text-sm flex items-center gap-1.5", sampleCheck.result.fitsLimit ? "text-emerald-600" : "text-amber-600")}>
                 {sampleCheck.result.fitsLimit ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                {sampleCheck.result.wordCount} words, ~{sampleCheck.result.estimatedSeconds}s
+                Segment: {sampleCheck.result.wordCount} words, ~{sampleCheck.result.estimatedSeconds}s
                 {sampleCheck.result.fitsLimit ? " ✓" : ` (max ${sampleCheck.result.limitSeconds}s)`}
               </p>
             )}
@@ -438,6 +515,55 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
 
       {strategy === "spinner" && (
         <div className="space-y-4 max-w-xl">
+          <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
+            <Label>Check sample script</Label>
+            <p className="text-xs text-muted-foreground">
+              Paste your full script to see how many scenes it requires. Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
+            </p>
+            <Textarea
+              placeholder="Paste your entire script..."
+              value={sampleScript}
+              onChange={(e) => { setSampleScript(e.target.value); setSampleCheck(null); setSceneEstimate(null); }}
+              className="min-h-[100px] text-sm"
+              rows={4}
+            />
+            <div className="flex gap-2 flex-wrap items-center">
+              <Button type="button" onClick={handleEstimateScenes} disabled={!sampleScript.trim()}>
+                Estimate scenes
+              </Button>
+              <span className="text-xs text-muted-foreground">or validate a segment:</span>
+              <Select value={sampleSegmentType} onValueChange={(v: "0" | "1") => { setSampleSegmentType(v); setSampleCheck(null); setSceneEstimate(null); }}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Segment 1 (8s)</SelectItem>
+                  <SelectItem value="1">Segment 2+ (7s)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="button" variant="outline" size="sm" onClick={handleCheckSample} disabled={!sampleScript.trim() || checkingSegment !== null}>
+                {checkingSegment === -1 ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Check segment
+              </Button>
+            </div>
+            {sceneEstimate && (
+              <div className="rounded-md bg-primary/10 text-primary px-3 py-2 text-sm font-medium flex items-center justify-between gap-2 flex-wrap">
+                <span>
+                  This script requires {sceneEstimate.sceneCount} scene{sceneEstimate.sceneCount !== 1 ? "s" : ""} ({sceneEstimate.wordCount} words total)
+                </span>
+                <Button type="button" variant="secondary" size="sm" onClick={() => onConfigChange({ spinnerSceneCount: sceneEstimate.sceneCount, sceneCount: sceneEstimate.sceneCount })}>
+                  Use {sceneEstimate.sceneCount} scenes
+                </Button>
+              </div>
+            )}
+            {sampleCheck && (
+              <p className={cn("text-sm flex items-center gap-1.5", sampleCheck.result.fitsLimit ? "text-emerald-600" : "text-amber-600")}>
+                {sampleCheck.result.fitsLimit ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                Segment: {sampleCheck.result.wordCount} words, ~{sampleCheck.result.estimatedSeconds}s
+                {sampleCheck.result.fitsLimit ? " ✓" : ` (max ${sampleCheck.result.limitSeconds}s)`}
+              </p>
+            )}
+          </div>
           <div className="space-y-2 max-w-xs">
             <Label>Number of scenes (1–{SCENE_COUNT_MAX.toLocaleString()})</Label>
             <Input
@@ -464,49 +590,6 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
               step={1}
             />
             <p className="text-sm text-muted-foreground">{config.spinnerCount ?? 10} rows</p>
-          </div>
-          <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
-            <div>
-              <Label>Check sample script</Label>
-              <p className="text-xs text-muted-foreground mb-2">
-                Paste a script to validate length. Segment 1: 8 sec (~20 words). Segments 2+: 7 sec (~17 words).
-              </p>
-              <div className="flex gap-2 flex-wrap items-start">
-                <Textarea
-                  placeholder="Paste a script to check length..."
-                  value={sampleScript}
-                  onChange={(e) => { setSampleScript(e.target.value); setSampleCheck(null); }}
-                  className="min-h-[70px] text-sm flex-1 min-w-[200px]"
-                  rows={2}
-                />
-                <Select value={sampleSegmentType} onValueChange={(v: "0" | "1") => { setSampleSegmentType(v); setSampleCheck(null); }}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">Segment 1 (8s)</SelectItem>
-                    <SelectItem value="1">Segment 2+ (7s)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCheckSample}
-                  disabled={!sampleScript.trim() || checkingSegment !== null}
-                >
-                  {checkingSegment === -1 ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Check
-                </Button>
-              </div>
-              {sampleCheck && (
-                <p className={cn("text-sm mt-2 flex items-center gap-1.5", sampleCheck.result.fitsLimit ? "text-emerald-600" : "text-amber-600")}>
-                  {sampleCheck.result.fitsLimit ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                  {sampleCheck.result.wordCount} words, ~{sampleCheck.result.estimatedSeconds}s
-                  {sampleCheck.result.fitsLimit ? " ✓" : ` (max ${sampleCheck.result.limitSeconds}s)`}
-                </p>
-              )}
-            </div>
           </div>
           <div className="space-y-2">
             <Label>Script per segment (optional)</Label>
