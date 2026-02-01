@@ -180,6 +180,7 @@ export default function BulkWizard() {
               key="step2"
               strategy={strategy}
               config={step2Config}
+              existingRows={campaignData}
               onConfigChange={(updates) => setStep2Config((prev) => ({ ...prev, ...updates }))}
               onRowsReady={(rows, opts) => {
                 setCampaignData(rows);

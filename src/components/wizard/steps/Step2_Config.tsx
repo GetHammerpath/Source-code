@@ -27,6 +27,7 @@ function uuid(): string {
 interface Step2_ConfigProps {
   strategy: StrategyChoice;
   config: Step2Config;
+  existingRows?: BatchRow[];
   onConfigChange: (updates: Partial<Step2Config>) => void;
   onRowsReady: (rows: BatchRow[], opts?: { fromEstimateScenes?: boolean }) => void;
 }
@@ -46,7 +47,7 @@ export interface Step2Config {
 const FIRST_MAX_WORDS = 20;  // 8 sec
 const OTHER_MAX_WORDS = 17;  // 7 sec
 
-export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: Step2_ConfigProps) {
+export function Step2_Config({ strategy, config, existingRows = [], onConfigChange, onRowsReady }: Step2_ConfigProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -231,12 +232,22 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
           ? { spinnerSceneCount: sceneCount, sceneCount }
           : { sceneCount }
     );
-    const r = createEmptyRow();
-    r.id = uuid();
-    r.avatar_id = "__auto_professional__";
-    r.avatar_name = "Auto-Cast: Professional";
-    Object.assign(r, setSegments(r, segments));
-    onRowsReady([r], { fromEstimateScenes: true });
+    // If we have existing rows (e.g. from Generate Rows), apply parsed segments to each
+    if (existingRows.length > 0) {
+      const updated = existingRows.map((row) => {
+        const r = { ...row };
+        Object.assign(r, setSegments(r, segments));
+        return r;
+      });
+      onRowsReady(updated, { fromEstimateScenes: true });
+    } else {
+      const r = createEmptyRow();
+      r.id = uuid();
+      r.avatar_id = "__auto_professional__";
+      r.avatar_name = "Auto-Cast: Professional";
+      Object.assign(r, setSegments(r, segments));
+      onRowsReady([r], { fromEstimateScenes: true });
+    }
   };
 
   const handleCheckSample = async () => {
