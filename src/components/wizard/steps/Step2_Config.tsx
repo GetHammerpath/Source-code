@@ -37,6 +37,7 @@ export interface Step2Config {
   aiTopic?: string;
   aiTone?: string;
   aiSceneCount?: number;
+  aiVideoCount?: number;
   spinnerCount?: number;
   spinnerGender?: string;
   spinnerAge?: string;
@@ -124,29 +125,34 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error ?? "AI generation failed");
-      const r = createEmptyRow();
-      r.id = uuid();
-      r.avatar_id = tone === "casual" ? "__auto_casual__" : "__auto_professional__";
-      r.avatar_name = tone === "casual" ? "Auto-Cast: Casual" : "Auto-Cast: Professional";
-      if (data.scenes && Array.isArray(data.scenes) && data.scenes.length > 0) {
-        const scripts: string[] = Array(sceneCount).fill("");
-        const visuals: string[] = Array(sceneCount).fill("");
-        data.scenes.forEach((s: { scene_number?: number; prompt?: string; script?: string }, i: number) => {
-          const idx = (s.scene_number ?? i + 1) - 1;
-          if (idx >= 0 && idx < sceneCount) {
-            scripts[idx] = (s.script ?? "").trim();
-            visuals[idx] = (s.prompt ?? "").trim();
-          }
-        });
-        Object.assign(r, setSegments(r, scripts));
-        Object.assign(r, setVisualSegments(r, visuals));
-      } else {
-        const script = data.prompt ?? topic;
-        const prompts: string[] = Array(sceneCount).fill(script);
-        Object.assign(r, setSegments(r, prompts));
-      }
+      const buildRow = (): BatchRow => {
+        const r = createEmptyRow();
+        r.id = uuid();
+        r.avatar_id = tone === "casual" ? "__auto_casual__" : "__auto_professional__";
+        r.avatar_name = tone === "casual" ? "Auto-Cast: Casual" : "Auto-Cast: Professional";
+        if (data.scenes && Array.isArray(data.scenes) && data.scenes.length > 0) {
+          const scripts: string[] = Array(sceneCount).fill("");
+          const visuals: string[] = Array(sceneCount).fill("");
+          data.scenes.forEach((s: { scene_number?: number; prompt?: string; script?: string }, i: number) => {
+            const idx = (s.scene_number ?? i + 1) - 1;
+            if (idx >= 0 && idx < sceneCount) {
+              scripts[idx] = (s.script ?? "").trim();
+              visuals[idx] = (s.prompt ?? "").trim();
+            }
+          });
+          Object.assign(r, setSegments(r, scripts));
+          Object.assign(r, setVisualSegments(r, visuals));
+        } else {
+          const script = data.prompt ?? topic;
+          const prompts: string[] = Array(sceneCount).fill(script);
+          Object.assign(r, setSegments(r, prompts));
+        }
+        return r;
+      };
+      const videoCount = Math.max(1, Math.min(100, config.aiVideoCount ?? 1));
+      const rows = Array.from({ length: videoCount }, () => buildRow());
       onConfigChange({ sceneCount });
-      onRowsReady([r]);
+      onRowsReady(rows);
     } catch (err) {
       console.error("AI script generation failed:", err);
       toast({
@@ -154,14 +160,18 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
         description: err instanceof Error ? err.message : "Using your topic as the script.",
         variant: "destructive",
       });
-      const r = createEmptyRow();
-      r.id = uuid();
-      const prompts: string[] = Array(sceneCount).fill(topic);
-      Object.assign(r, setSegments(r, prompts));
-      r.avatar_id = "__auto_professional__";
-      r.avatar_name = "Auto-Cast: Professional";
+      const videoCount = Math.max(1, Math.min(100, config.aiVideoCount ?? 1));
+      const rows = Array.from({ length: videoCount }, () => {
+        const r = createEmptyRow();
+        r.id = uuid();
+        const prompts: string[] = Array(sceneCount).fill(topic);
+        Object.assign(r, setSegments(r, prompts));
+        r.avatar_id = "__auto_professional__";
+        r.avatar_name = "Auto-Cast: Professional";
+        return r;
+      });
       onConfigChange({ sceneCount });
-      onRowsReady([r]);
+      onRowsReady(rows);
     } finally {
       setAiLoading(false);
     }
@@ -381,21 +391,39 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
           <p className="text-sm text-muted-foreground">
             Describe your topic and tone below. AI will generate the script for you—no script input needed.
           </p>
-          <div className="space-y-2 max-w-xs">
-            <Label>Number of scenes (1–{SCENE_COUNT_MAX.toLocaleString()})</Label>
-            <Input
-              type="number"
-              min={SCENE_COUNT_MIN}
-              max={SCENE_COUNT_MAX}
-              value={config.aiSceneCount ?? config.sceneCount ?? 3}
-              onChange={(e) => {
-                const v = Math.min(SCENE_COUNT_MAX, Math.max(SCENE_COUNT_MIN, parseInt(e.target.value, 10) || 1));
-                onConfigChange({ aiSceneCount: v, sceneCount: v });
-              }}
-            />
-            <p className="text-xs text-muted-foreground">
-              Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each). AI will generate and split the script across scenes.
-            </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2 max-w-xs">
+              <Label>Number of videos (1–100)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={config.aiVideoCount ?? 1}
+                onChange={(e) => {
+                  const v = Math.min(100, Math.max(1, parseInt(e.target.value, 10) || 1));
+                  onConfigChange({ aiVideoCount: v });
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                How many videos to generate with this topic.
+              </p>
+            </div>
+            <div className="space-y-2 max-w-xs">
+              <Label>Number of scenes (1–{SCENE_COUNT_MAX.toLocaleString()})</Label>
+              <Input
+                type="number"
+                min={SCENE_COUNT_MIN}
+                max={SCENE_COUNT_MAX}
+                value={config.aiSceneCount ?? config.sceneCount ?? 3}
+                onChange={(e) => {
+                  const v = Math.min(SCENE_COUNT_MAX, Math.max(SCENE_COUNT_MIN, parseInt(e.target.value, 10) || 1));
+                  onConfigChange({ aiSceneCount: v, sceneCount: v });
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
+              </p>
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Topic</Label>
