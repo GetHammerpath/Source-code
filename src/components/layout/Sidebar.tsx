@@ -88,6 +88,7 @@ const Sidebar = () => {
     { to: "/create-avatar", icon: Users, label: "Casting" },
     { to: "/video-generator", icon: Scissors, label: "Studio" },
     { to: "/bulk", icon: Server, label: "Bulk Studio" },
+    { to: "/bulk-video", icon: Video, label: "Bulk Videos" },
   ];
   const systemItems = [
     { to: "/api-keys", icon: Terminal, label: "API Keys" },

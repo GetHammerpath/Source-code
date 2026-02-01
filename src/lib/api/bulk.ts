@@ -259,6 +259,18 @@ export async function stitchBatch(batchId: string): Promise<{ video_url: string 
   return { video_url: result.video_url };
 }
 
+/** Stitch a single video's scenes (per-row stitch) */
+export async function stitchVideoRow(generationId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke("cloudinary-stitch-videos", {
+    body: { generation_id: generationId, trim: false },
+  });
+  if (error) throw error;
+  const result = data as { success?: boolean; error?: string };
+  if (!result?.success) {
+    throw new Error(result?.error ?? "Row stitching failed");
+  }
+}
+
 export async function resumeBatch(batchId: string): Promise<void> {
   const { error } = await supabase.functions.invoke("resume-bulk-batch", {
     body: { batch_id: batchId },

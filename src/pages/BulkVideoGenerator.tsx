@@ -35,7 +35,7 @@ const BulkVideoGenerator = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">My Batches</h1>
+            <h1 className="text-3xl font-bold text-foreground">Bulk Videos</h1>
             <p className="text-muted-foreground">View and manage your bulk video batches</p>
           </div>
         </div>

@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Play, XCircle, Download, Loader2, Video, Clock, RotateCw, Layers } from "lucide-react";
+import { ArrowLeft, Play, XCircle, Download, Loader2, Video, Clock, RotateCw, Layers, Scissors } from "lucide-react";
 import {
   getBatchStatus,
   resumeBatch,
   abortBatch,
   retryFailedBatch,
   stitchBatch,
+  stitchVideoRow,
   type BatchStatus,
 } from "@/lib/api/bulk";
 
@@ -61,6 +62,7 @@ export default function BatchDetails() {
   const [retrying, setRetrying] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [stitching, setStitching] = useState(false);
+  const [stitchingRowId, setStitchingRowId] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     if (!id) return;
@@ -128,6 +130,19 @@ export default function BatchDetails() {
       toast.error(err instanceof Error ? err.message : "Stitching failed");
     } finally {
       setStitching(false);
+    }
+  };
+
+  const handleStitchRow = async (generationId: string) => {
+    setStitchingRowId(generationId);
+    try {
+      await stitchVideoRow(generationId);
+      toast.success("Video stitched");
+      fetchStatus();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Row stitching failed");
+    } finally {
+      setStitchingRowId(null);
     }
   };
 
@@ -382,10 +397,32 @@ export default function BatchDetails() {
                 </tr>
               </thead>
               <tbody>
-                {status.videos.map((v) => (
+                {status.videos.map((v) => {
+                  const sceneCountWithUrl = v.scenes?.filter((s) => s.url).length ?? 0;
+                  const canStitchRow = sceneCountWithUrl >= 2;
+                  const isStitchingThis = stitchingRowId === v.id;
+                  return (
                   <tr key={v.id} className="border-b last:border-b-0">
-                    <td className="py-2 px-2 font-mono text-xs align-top">
-                      #{v.variation_index + 1}
+                    <td className="py-2 px-2 align-top">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-mono text-xs">#{v.variation_index + 1}</span>
+                        {canStitchRow && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs gap-1"
+                            onClick={() => handleStitchRow(v.id)}
+                            disabled={isStitchingThis}
+                          >
+                            {isStitchingThis ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Scissors className="h-3 w-3" />
+                            )}
+                            Stitch row
+                          </Button>
+                        )}
+                      </div>
                     </td>
                     {Array.from({ length: maxScenes }).map((_, i) => {
                       const scene = v.scenes?.[i];
@@ -429,7 +466,8 @@ export default function BatchDetails() {
                       );
                     })}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

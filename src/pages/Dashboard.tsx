@@ -12,8 +12,10 @@ const Dashboard = () => {
   const [userId, setUserId] = useState<string>("");
   const [avatars, setAvatars] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingVideos, setLoadingVideos] = useState(true);
+  const [loadingBatches, setLoadingBatches] = useState(true);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -69,6 +71,39 @@ const Dashboard = () => {
       return () => {
         supabase.removeChannel(channel);
       };
+    }
+  }, [userId]);
+
+  const fetchBatches = async () => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from("bulk_video_batches")
+        .select("id, name, status, total_variations, completed_variations, failed_variations, source_type, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      setBatches(data || []);
+    } catch (e) {
+      console.error("Error fetching batches:", e);
+    } finally {
+      setLoadingBatches(false);
+    }
+  };
+
+  useEffect(() => {
+    if (userId) {
+      fetchBatches();
+      const channel = supabase
+        .channel("dashboard_batches_changes")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "bulk_video_batches", filter: `user_id=eq.${userId}` },
+          () => fetchBatches()
+        )
+        .subscribe();
+      return () => supabase.removeChannel(channel);
     }
   }, [userId]);
 
@@ -251,6 +286,65 @@ const Dashboard = () => {
             </div>
           )}
         </section>
+
+        {/* Recent Batches (Bulk Videos) */}
+        {(batches.length > 0 || loadingBatches) && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Recent Batches</h2>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/bulk-video")} className="text-[#002FA7]">
+                View all →
+              </Button>
+            </div>
+            {loadingBatches ? (
+              <div className="text-sm text-slate-600">Loading batches...</div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {batches.map((b) => {
+                  const progress = b.total_variations > 0
+                    ? Math.round(((b.completed_variations + b.failed_variations) / b.total_variations) * 100)
+                    : 0;
+                  const sourceLabel = b.source_type === "csv" ? "CSV" : b.source_type === "ai" ? "AI" : b.source_type === "spinner" ? "Spinner" : null;
+                  const isComplete = b.status === "completed" || progress >= 100;
+                  return (
+                    <Card
+                      key={b.id}
+                      className="rounded-md border-border/60 cursor-pointer hover:shadow-md transition-all"
+                      onClick={() => navigate(`/batch/${b.id}`)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium truncate text-slate-900">{b.name}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {sourceLabel && <span className="text-[#002FA7]/80">{sourceLabel} • </span>}
+                              {b.completed_variations + b.failed_variations}/{b.total_variations} videos
+                            </p>
+                          </div>
+                          <Badge variant={isComplete ? "default" : "secondary"} className="shrink-0">
+                            {isComplete ? "Complete" : "Processing"}
+                          </Badge>
+                        </div>
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs text-slate-500 mb-1">
+                            <span>Progress</span>
+                            <span>{progress}%</span>
+                          </div>
+                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-[#002FA7] rounded-full transition-all" style={{ width: `${progress}%` }} />
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-2">
+                          {b.created_at ? new Date(b.created_at).toLocaleDateString() : ""}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Your Videos */}
         <section className="space-y-4">
