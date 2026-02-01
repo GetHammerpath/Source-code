@@ -205,28 +205,28 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                   const visualVal = showVisualContext ? getVisualValue(row, i) : "";
                   return (
                     <div key={i} className={cn("flex-1 px-2 py-1 flex flex-col gap-0.5", showVisualContext ? "min-w-[220px]" : "min-w-[140px]")}>
-                      <div className="flex flex-col gap-1.5">
-                        <div>
-                          <label className="text-[10px] text-muted-foreground">Script (dialogue)</label>
+                      <div className="flex flex-col gap-2">
+                        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50 p-2 transition-colors hover:border-slate-300 dark:hover:border-slate-600 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/30">
+                          <label className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Script (dialogue)</label>
                           <Textarea
                             value={val}
                             onChange={(e) => updateRow(virtualRow.index, setSegmentValue(row, i, e.target.value))}
                             placeholder={showVisualContext ? "Spoken words..." : "..."}
                             className={cn(
-                              "min-h-[70px] text-sm resize-y mt-0.5",
-                              batchRowToScript(row, n).length > 500 && "border-red-500"
+                              "min-h-[70px] text-sm resize-y mt-1 border-0 bg-transparent shadow-none focus-visible:ring-0 px-0 py-1 placeholder:text-slate-400",
+                              batchRowToScript(row, n).length > 500 && "!text-red-600 dark:!text-red-400"
                             )}
                             rows={3}
                           />
                         </div>
                         {showVisualContext && (
-                          <div>
-                            <label className="text-[10px] text-muted-foreground">Visual (context)</label>
+                          <div className="rounded-lg border border-amber-200/80 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-950/30 p-2 transition-colors hover:border-amber-300 dark:hover:border-amber-700 focus-within:border-amber-500/50 focus-within:ring-1 focus-within:ring-amber-400/30">
+                            <label className="text-[10px] font-medium text-amber-700/80 dark:text-amber-400/80 uppercase tracking-wide">Visual (context)</label>
                             <Textarea
                               value={visualVal}
                               onChange={(e) => updateRow(virtualRow.index, setVisualValue(row, i, e.target.value))}
                               placeholder="Scene description..."
-                              className="min-h-[70px] text-sm resize-y mt-0.5"
+                              className="min-h-[70px] text-sm resize-y mt-1 border-0 bg-transparent shadow-none focus-visible:ring-0 px-0 py-1 placeholder:text-amber-600/50"
                               rows={3}
                             />
                           </div>
