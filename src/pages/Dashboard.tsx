@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Video, Loader2, CheckCircle2, XCircle, Clock, Film, Database, RotateCw } from "lucide-react";
+import { Plus, Video, Loader2, CheckCircle2, XCircle, Clock, Film, Database, RotateCw, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -280,13 +280,14 @@ const Dashboard = () => {
                 const errorMsg = isFailed
                   ? (v.final_video_error ?? v.initial_error ?? v.extended_error ?? "Unknown error")
                   : null;
+                const batchId = (v.metadata as { bulk_batch_id?: string })?.bulk_batch_id ?? null;
                 return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => navigate(`/video/${v.id}`)}
-                    className="text-left"
-                  >
+                  <div key={v.id} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/video/${v.id}`)}
+                      className="text-left w-full"
+                    >
                     <Card className={cn(
                       "rounded-md border-border/60 border shadow-sm hover:shadow-md transition-all overflow-hidden bg-white",
                       isFailed && "border-red-200 dark:border-red-900/50"
@@ -336,9 +337,25 @@ const Dashboard = () => {
                             </Button>
                           </>
                         )}
+                        {batchId && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="mt-2 h-7 text-xs w-full justify-start gap-1.5 text-blue-600 hover:text-blue-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/batch/${batchId}`);
+                            }}
+                          >
+                            <Layers className="h-3 w-3" />
+                            View batch
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   </button>
+                  </div>
                 );
               })}
             </div>

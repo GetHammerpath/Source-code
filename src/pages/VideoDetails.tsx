@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Video, Download, XCircle, CheckCircle2, Loader2, Film, AlertCircle, RotateCw } from "lucide-react";
+import { ArrowLeft, Video, Download, XCircle, CheckCircle2, Loader2, Film, AlertCircle, RotateCw, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const VideoDetails = () => {
@@ -69,13 +69,36 @@ const VideoDetails = () => {
   const videoUrl = video.final_video_url ?? video.initial_video_url;
   const title = [video.industry, video.avatar_name].filter(Boolean).join(" – ") || "Video";
   const hasError = video.initial_error || video.extended_error || video.final_video_error;
+  const batchId = (video.metadata as { bulk_batch_id?: string })?.bulk_batch_id ?? null;
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="gap-2 -ml-2">
-        <ArrowLeft className="h-4 w-4" />
-        Back to Dashboard
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="gap-2 -ml-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Button>
+        {batchId && (
+          <Button variant="default" size="sm" onClick={() => navigate(`/batch/${batchId}`)} className="gap-2">
+            <Layers className="h-4 w-4" />
+            View all videos in this batch
+          </Button>
+        )}
+      </div>
+
+      {batchId && (
+        <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+          <CardContent className="py-3 flex items-center justify-between gap-4">
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              This video is part of a batch. View the batch page to see all videos and stitch them together.
+            </p>
+            <Button size="sm" onClick={() => navigate(`/batch/${batchId}`)} className="gap-2 shrink-0">
+              <Layers className="h-4 w-4" />
+              View batch
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex items-start justify-between gap-4">
         <div>
