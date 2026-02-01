@@ -4,14 +4,14 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash2 } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
 import { AvatarSelector, type AvatarOption } from "../AvatarSelector";
 import type { BatchRow } from "@/types/bulk";
-import { batchRowToScript, getSegments, setSegments, getVisualSegments, setVisualSegments } from "@/types/bulk";
+import { batchRowToScript, getSegments, setSegments, getVisualSegments, setVisualSegments, createEmptyRow } from "@/types/bulk";
 import { cn } from "@/lib/utils";
 
-const ROW_HEIGHT = 72;
-const ROW_HEIGHT_WITH_VISUAL = 120;
+const ROW_HEIGHT = 100;
+const ROW_HEIGHT_WITH_VISUAL = 220;
 const HEADER_HEIGHT = 44;
 
 interface Step3_WorkbenchProps {
@@ -88,6 +88,16 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
     return setVisualSegments(row, segs);
   };
 
+  const addRow = useCallback(() => {
+    const empty = createEmptyRow();
+    const segs = Array(n).fill("");
+    const withSegments = { ...empty, ...setSegments(empty, segs) } as BatchRow;
+    const withVisual = showVisualContext
+      ? { ...withSegments, ...setVisualSegments(withSegments, segs) }
+      : withSegments;
+    onChange([...rows, withVisual]);
+  }, [rows, onChange, n, showVisualContext]);
+
   const copySegmentToAll = (index: number, segmentIndex: number) => {
     const row = rows[index];
     if (!row) return;
@@ -120,22 +130,28 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
       transition={{ duration: 0.2 }}
       className="flex flex-col h-[60vh] min-h-[400px]"
     >
-      <div className="mb-4">
-        <h2 className="text-2xl font-bold mb-2">Review your production queue</h2>
-        <p className="text-muted-foreground">
-          Edit any cell. Rows with missing data will be highlighted.
-          Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
-        </p>
-        {n > DISPLAY_SEGMENT_CAP && (
-          <p className="text-sm text-amber-600 mt-1">
-            Showing first {DISPLAY_SEGMENT_CAP} of {n} segments. Use CSV for full edit.
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold mb-2">Review your production queue</h2>
+          <p className="text-muted-foreground">
+            Edit any cell. Rows with missing data will be highlighted.
+            Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
           </p>
-        )}
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={addRow} className="gap-2 shrink-0">
+          <Plus className="h-4 w-4" />
+          Add video
+        </Button>
       </div>
+      {n > DISPLAY_SEGMENT_CAP && (
+        <p className="text-sm text-amber-600 mb-2">
+          Showing first {DISPLAY_SEGMENT_CAP} of {n} segments. Use CSV for full edit.
+        </p>
+      )}
 
       <div ref={parentRef} className="flex-1 overflow-auto border rounded-lg overflow-x-auto">
         <div
-          style={{ height: `${rowVirtualizer.getTotalSize() + HEADER_HEIGHT}px`, minWidth: `${displayN * 120 + 200}px` }}
+          style={{ height: `${rowVirtualizer.getTotalSize() + HEADER_HEIGHT}px`, minWidth: `${displayN * (showVisualContext ? 220 : 140) + 200}px` }}
           className="relative w-full"
         >
           {/* Sticky header */}
@@ -146,7 +162,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
             <div className="w-12 px-2 shrink-0">#</div>
             <div className="w-36 px-2 shrink-0">Avatar</div>
             {Array.from({ length: displayN }, (_, i) => (
-              <div key={i} className={cn("flex-1 px-2", showVisualContext ? "min-w-[180px]" : "min-w-[100px]")}>
+              <div key={i} className={cn("flex-1 px-2", showVisualContext ? "min-w-[220px]" : "min-w-[140px]")}>
                 Seg {i + 1}{i === 0 ? " (8s)" : " (7s)"}
                 {showVisualContext && (
                   <div className="text-[10px] text-muted-foreground font-normal mt-0.5">Script + Visual</div>
@@ -188,8 +204,8 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                   const val = getSegmentValue(row, i);
                   const visualVal = showVisualContext ? getVisualValue(row, i) : "";
                   return (
-                    <div key={i} className={cn("flex-1 px-2 py-1 flex flex-col gap-0.5", showVisualContext ? "min-w-[180px]" : "min-w-[100px]")}>
-                      <div className="flex flex-col gap-1">
+                    <div key={i} className={cn("flex-1 px-2 py-1 flex flex-col gap-0.5", showVisualContext ? "min-w-[220px]" : "min-w-[140px]")}>
+                      <div className="flex flex-col gap-1.5">
                         <div>
                           <label className="text-[10px] text-muted-foreground">Script (dialogue)</label>
                           <Textarea
@@ -197,10 +213,10 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                             onChange={(e) => updateRow(virtualRow.index, setSegmentValue(row, i, e.target.value))}
                             placeholder={showVisualContext ? "Spoken words..." : "..."}
                             className={cn(
-                              "min-h-[40px] text-sm resize-none mt-0.5",
+                              "min-h-[70px] text-sm resize-y mt-0.5",
                               batchRowToScript(row, n).length > 500 && "border-red-500"
                             )}
-                            rows={showVisualContext ? 1 : 2}
+                            rows={3}
                           />
                         </div>
                         {showVisualContext && (
@@ -210,8 +226,8 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                               value={visualVal}
                               onChange={(e) => updateRow(virtualRow.index, setVisualValue(row, i, e.target.value))}
                               placeholder="Scene description..."
-                              className="min-h-[40px] text-sm resize-none mt-0.5"
-                              rows={1}
+                              className="min-h-[70px] text-sm resize-y mt-0.5"
+                              rows={3}
                             />
                           </div>
                         )}
