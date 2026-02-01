@@ -178,10 +178,10 @@ export default function BulkWizard() {
               strategy={strategy}
               config={step2Config}
               onConfigChange={(updates) => setStep2Config((prev) => ({ ...prev, ...updates }))}
-              onRowsReady={(rows) => {
+              onRowsReady={(rows, opts) => {
                 setCampaignData(rows);
-                if (strategy && strategy !== "csv") {
-                  toast({ title: "Template ready", description: `${rows.length} row(s) created. Review in Workbench.` });
+                if (opts?.fromEstimateScenes || (strategy && strategy !== "csv")) {
+                  toast({ title: opts?.fromEstimateScenes ? "Script parsed" : "Template ready", description: `${rows.length} row(s) created. Review in Workbench.` });
                   setCurrentStep(2);
                 }
               }}

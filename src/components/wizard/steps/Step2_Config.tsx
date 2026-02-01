@@ -28,7 +28,7 @@ interface Step2_ConfigProps {
   strategy: StrategyChoice;
   config: Step2Config;
   onConfigChange: (updates: Partial<Step2Config>) => void;
-  onRowsReady: (rows: BatchRow[]) => void;
+  onRowsReady: (rows: BatchRow[], opts?: { fromEstimateScenes?: boolean }) => void;
 }
 
 export interface Step2Config {
@@ -40,12 +40,7 @@ export interface Step2Config {
   spinnerGender?: string;
   spinnerAge?: string;
   spinnerSceneCount?: number;
-  spinnerSegment1?: string;
-  spinnerSegment2?: string;
-  spinnerSegment3?: string;
-  spinnerSegment4?: string;
-  spinnerSegment5?: string;
-  sceneCount?: number; // shared 1-5, used by Workbench and Launch
+  sceneCount?: number; // shared, used by Workbench and Launch
 }
 
 const FIRST_MAX_WORDS = 20;  // 8 sec
@@ -60,7 +55,6 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
   const [sampleSegmentType, setSampleSegmentType] = useState<"0" | "1">("0");
   const [sampleCheck, setSampleCheck] = useState<{ result: { wordCount: number; estimatedSeconds: number; fitsLimit: boolean; limitSeconds: number } } | null>(null);
   const [sceneEstimate, setSceneEstimate] = useState<{ wordCount: number; sceneCount: number } | null>(null);
-  const [segmentCheckResults, setSegmentCheckResults] = useState<Record<number, { wordCount: number; estimatedSeconds: number; fitsLimit: boolean }>>({});
 
   if (!strategy) {
     return (
@@ -178,11 +172,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
       .order("created_at", { ascending: false });
     const list = avatars || [];
     const sceneCount = Math.min(SCENE_COUNT_MAX, Math.max(1, config.spinnerSceneCount ?? config.sceneCount ?? 3));
-    const prompts: string[] = [];
-    for (let i = 0; i < sceneCount; i++) {
-      const val = (config as Record<string, string>)[`spinnerSegment${i + 1}`] ?? "";
-      prompts.push(val.trim() || "Enter script...");
-    }
+    const prompts = Array(sceneCount).fill("Enter script...");
     const rows: BatchRow[] = Array.from({ length: count }, () => {
       const r = createEmptyRow();
       r.id = uuid();
@@ -211,31 +201,18 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
     return data;
   };
 
-  const handleCheckSegment = async (segmentIndex: number) => {
-    const key = `spinnerSegment${segmentIndex + 1}` as keyof Step2Config;
-    const val = String((config[key] as string) ?? "").trim();
-    if (!val) {
-      toast({ title: "Enter a script first", variant: "destructive" });
-      return;
+  const parseScriptToSegments = (script: string): { sceneCount: number; segments: string[] } => {
+    const words = script.trim().split(/\s+/).filter(Boolean);
+    const wordCount = words.length;
+    const sceneCount = wordCount <= FIRST_MAX_WORDS ? 1 : 1 + Math.ceil((wordCount - FIRST_MAX_WORDS) / OTHER_MAX_WORDS);
+    const segments: string[] = [];
+    let idx = 0;
+    for (let i = 0; i < sceneCount; i++) {
+      const take = i === 0 ? FIRST_MAX_WORDS : OTHER_MAX_WORDS;
+      segments.push(words.slice(idx, idx + take).join(" "));
+      idx += take;
     }
-    setCheckingSegment(segmentIndex);
-    setSegmentCheckResults((prev) => {
-      const next = { ...prev };
-      delete next[segmentIndex];
-      return next;
-    });
-    try {
-      const result = await validateScript(val, segmentIndex, false);
-      if (result?.success) {
-        setSegmentCheckResults((prev) => ({ ...prev, [segmentIndex]: result }));
-        const ok = result.fitsLimit;
-        toast({ title: ok ? "Script fits!" : `Over limit: ${result.wordCount} words (~${result.estimatedSeconds}s)`, variant: ok ? "default" : "destructive" });
-      }
-    } catch (err) {
-      toast({ title: err instanceof Error ? err.message : "Check failed", variant: "destructive" });
-    } finally {
-      setCheckingSegment(null);
-    }
+    return { sceneCount, segments };
   };
 
   const handleEstimateScenes = () => {
@@ -244,10 +221,22 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
       toast({ title: "Enter a script first", variant: "destructive" });
       return;
     }
-    const wordCount = val.split(/\s+/).filter(Boolean).length;
-    const sceneCount = wordCount <= FIRST_MAX_WORDS ? 1 : 1 + Math.ceil((wordCount - FIRST_MAX_WORDS) / OTHER_MAX_WORDS);
-    setSceneEstimate({ wordCount, sceneCount });
+    const { sceneCount, segments } = parseScriptToSegments(val);
+    setSceneEstimate({ wordCount: val.split(/\s+/).filter(Boolean).length, sceneCount });
     setSampleCheck(null);
+    onConfigChange(
+      strategy === "ai"
+        ? { aiSceneCount: sceneCount, sceneCount }
+        : strategy === "spinner"
+          ? { spinnerSceneCount: sceneCount, sceneCount }
+          : { sceneCount }
+    );
+    const r = createEmptyRow();
+    r.id = uuid();
+    r.avatar_id = "__auto_professional__";
+    r.avatar_name = "Auto-Cast: Professional";
+    Object.assign(r, setSegments(r, segments));
+    onRowsReady([r], { fromEstimateScenes: true });
   };
 
   const handleCheckSample = async () => {
@@ -268,25 +257,6 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
       }
     } catch (err) {
       toast({ title: "Check failed", variant: "destructive" });
-    } finally {
-      setCheckingSegment(null);
-    }
-  };
-
-  const handleTrimSegment = async (segmentIndex: number) => {
-    const key = `spinnerSegment${segmentIndex + 1}` as keyof Step2Config;
-    const val = String((config[key] as string) ?? "").trim();
-    if (!val) return;
-    setCheckingSegment(segmentIndex);
-    try {
-      const result = await validateScript(val, segmentIndex, true);
-      if (result?.success && result.validatedScript) {
-        onConfigChange({ [key]: result.validatedScript });
-        toast({ title: "Script trimmed to fit", description: `${result.wordCount} words (~${result.estimatedSeconds}s)` });
-        setSegmentCheckResults((prev) => ({ ...prev, [segmentIndex]: result }));
-      }
-    } catch (err) {
-      toast({ title: err instanceof Error ? err.message : "Trim failed", variant: "destructive" });
     } finally {
       setCheckingSegment(null);
     }
@@ -590,78 +560,6 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
               step={1}
             />
             <p className="text-sm text-muted-foreground">{config.spinnerCount ?? 10} rows</p>
-          </div>
-          <div className="space-y-2">
-            <Label>Script per segment (optional)</Label>
-            <p className="text-sm text-muted-foreground">
-              Add a script for each scene. Segment 1: 8 sec (~20 words). Segments 2+: 7 sec (~17 words).
-            </p>
-            {((config.spinnerSceneCount ?? config.sceneCount ?? 3) > 20) && (
-              <p className="text-xs text-amber-600">
-                Showing first 20 of {(config.spinnerSceneCount ?? config.sceneCount ?? 3)} segments. Use CSV for more.
-              </p>
-            )}
-            <div className="space-y-3">
-              {Array.from({ length: Math.min(20, Math.max(1, config.spinnerSceneCount ?? config.sceneCount ?? 3)) }, (_, i) => {
-                const key = `spinnerSegment${i + 1}` as keyof Step2Config;
-                const val = (config[key] as string) ?? "";
-                const maxWords = i === 0 ? FIRST_MAX_WORDS : OTHER_MAX_WORDS;
-                const limitSec = i === 0 ? 8 : 7;
-                const lastCheck = segmentCheckResults[i];
-                return (
-                  <div key={i} className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Segment {i + 1} — {limitSec}s (~{maxWords} words max)
-                    </Label>
-                    <Textarea
-                      placeholder={`Script for scene ${i + 1}...`}
-                      value={val}
-                      onChange={(e) => {
-                        onConfigChange({ [key]: e.target.value });
-                        setSegmentCheckResults((p) => {
-                          const next = { ...p };
-                          delete next[i];
-                          return next;
-                        });
-                      }}
-                      className="min-h-[60px] text-sm resize-none"
-                      rows={2}
-                    />
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => handleCheckSegment(i)}
-                        disabled={!val.trim() || checkingSegment !== null}
-                      >
-                        {checkingSegment === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                        Check
-                      </Button>
-                      {lastCheck && !lastCheck.fitsLimit && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs text-amber-600"
-                          onClick={() => handleTrimSegment(i)}
-                          disabled={checkingSegment !== null}
-                        >
-                          Trim to fit
-                        </Button>
-                      )}
-                      {lastCheck && (
-                        <span className={cn("text-xs", lastCheck.fitsLimit ? "text-emerald-600" : "text-amber-600")}>
-                          {lastCheck.wordCount} words, ~{lastCheck.estimatedSeconds}s
-                          {lastCheck.fitsLimit ? " ✓" : ""}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
