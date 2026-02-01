@@ -404,7 +404,7 @@ export default function BatchDetails() {
                   return (
                   <tr key={v.id} className="border-b last:border-b-0">
                     <td className="py-2 px-2 align-top">
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1.5">
                         <span className="font-mono text-xs">#{v.variation_index + 1}</span>
                         {canStitchRow && (
                           <Button
@@ -421,6 +421,27 @@ export default function BatchDetails() {
                             )}
                             Stitch row
                           </Button>
+                        )}
+                        {v.video_url && (
+                          <div className="flex flex-col gap-1">
+                            <a
+                              href={v.video_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              <Video className="h-3 w-3" />
+                              View full video
+                            </a>
+                            <a
+                              href={v.video_url}
+                              download={`video-${v.variation_index + 1}.mp4`}
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              <Download className="h-3 w-3" />
+                              Download
+                            </a>
+                          </div>
                         )}
                       </div>
                     </td>
