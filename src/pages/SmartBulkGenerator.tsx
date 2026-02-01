@@ -207,27 +207,31 @@ const SmartBulkGenerator = () => {
       // Convert combinations for the edge function
       const combinationsForApi = combinations.map((combo) => combo.values);
 
-      // Call the edge function
-      const { error: fnError } = await supabase.functions.invoke(
-        "smart-bulk-generate",
-        {
-          body: {
-            batch_id: batch.id,
-            combinations: combinationsForApi,
-            base_config: {
-              image_url: formData.imageUrl || null,
-              generation_type: generationType,
-              industry: formData.industry,
-              city: formData.city,
-              story_idea: formData.storyIdea || null,
-              model: formData.model || "veo3_fast",
-              aspect_ratio: formData.aspectRatio || "16:9",
-              number_of_scenes: formData.numberOfScenes || 3,
-            },
+      // Fire the Edge Function without awaiting fully (avoids timeout for large batches).
+      const invokePromise = supabase.functions.invoke("smart-bulk-generate", {
+        body: {
+          batch_id: batch.id,
+          combinations: combinationsForApi,
+          base_config: {
+            image_url: formData.imageUrl || null,
+            generation_type: generationType,
+            industry: formData.industry,
+            city: formData.city,
+            story_idea: formData.storyIdea || null,
+            model: formData.model || "veo3_fast",
+            aspect_ratio: formData.aspectRatio || "16:9",
+            number_of_scenes: formData.numberOfScenes || 3,
           },
-        }
-      );
+        },
+      });
 
+      const result = await Promise.race([
+        invokePromise,
+        new Promise<{ error: Error | null }>((resolve) =>
+          setTimeout(() => resolve({ error: null }), 8000)
+        ),
+      ]);
+      const fnError = result && typeof result === "object" && "error" in result ? result.error : null;
       if (fnError) throw fnError;
 
       toast({

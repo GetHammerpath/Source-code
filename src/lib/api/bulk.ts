@@ -122,7 +122,9 @@ export async function launchBatch(
     sample_size: isTestRun ? 3 : null,
   };
 
-  const { error: funcError } = await supabase.functions.invoke("bulk-generate-videos", {
+  // Fire the Edge Function without awaiting so it doesn't time out for large batches.
+  // The batch page polls for status; if the function fails, the batch will show no progress.
+  const invokePromise = supabase.functions.invoke("bulk-generate-videos", {
     body: {
       batch_id: batch.id,
       rows: rowsPayload,
@@ -131,6 +133,15 @@ export async function launchBatch(
     },
   });
 
+  // Wait briefly for immediate errors (e.g. auth, bad payload), then return so user can navigate.
+  const result = await Promise.race([
+    invokePromise,
+    new Promise<{ error: Error | null }>((resolve) =>
+      setTimeout(() => resolve({ error: null }), 8000)
+    ),
+  ]);
+
+  const funcError = result && typeof result === "object" && "error" in result ? result.error : null;
   if (funcError) throw funcError;
 
   return { batch_id: batch.id };

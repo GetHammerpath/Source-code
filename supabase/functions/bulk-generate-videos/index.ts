@@ -280,6 +280,20 @@ serve(async (req) => {
         }
 
         if (scenePrompts.length === 0) {
+          const storyIdeaForAnalysis = (genRecord.story_idea || "").trim();
+          if (!storyIdeaForAnalysis) {
+            console.error(`❌ Skipping ${genRecord.id}: story_idea is required for AI analysis`);
+            await supabase
+              .from("kie_video_generations")
+              .update({
+                initial_status: "failed",
+                initial_error: "Script/story_idea is required for video generation. Add script content in the Workbench.",
+              })
+              .eq("id", genRecord.id);
+            failCount++;
+            continue;
+          }
+
           console.log(`🤖 Generating AI prompts for ${genRecord.id} (mode: ${isTextMode ? "TEXT" : "IMAGE"})...`);
 
           const analyzeResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-image-kie`, {
@@ -348,7 +362,20 @@ serve(async (req) => {
         const firstScene = scenePrompts[0];
         const firstScenePrompt = firstScene?.prompt || "";
         const firstSceneScript = firstScene?.script || "";
-        let enhancedPrompt = firstScenePrompt;
+        const effectivePrompt = (firstScenePrompt || firstSceneScript || "").trim();
+        if (!effectivePrompt) {
+          console.error(`❌ Skipping ${genRecord.id}: scene prompt and script are both empty`);
+          await supabase
+            .from("kie_video_generations")
+            .update({
+              initial_status: "failed",
+              initial_error: "Scene prompt and script are both empty. Add script or visual context in the Workbench.",
+            })
+            .eq("id", genRecord.id);
+          failCount++;
+          continue;
+        }
+        let enhancedPrompt = firstScenePrompt || firstSceneScript;
         if (firstSceneScript) {
           enhancedPrompt = `${firstScenePrompt}\n\nAVATAR DIALOGUE: "${firstSceneScript}"`;
         }

@@ -129,6 +129,9 @@ serve(async (req) => {
     const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
     const isServiceRole = !!serviceRoleKey && bearer === serviceRoleKey;
 
+    // Use admin client for DB when called by other Edge Functions (bypasses RLS)
+    const db = isServiceRole ? supabaseAdmin : supabase;
+
     // Resolve user: JWT or API key (Bearer duidui_xxx) or service role (uses generation's user_id later)
     const isApiKeyAuth = (h: string) => {
       const b = h.startsWith('Bearer ') ? h.slice(7).trim() : h;
@@ -204,7 +207,7 @@ serve(async (req) => {
     }
 
     // Verify the generation belongs to the authenticated user
-    const { data: generation, error: genError } = await supabase
+    const { data: generation, error: genError } = await db
       .from('kie_video_generations')
       .select('user_id, initial_status')
       .eq('id', generation_id)
@@ -336,7 +339,7 @@ Voice Delivery Notes:
       });
       
       // Update DB with detailed error
-      await supabase
+      await db
         .from('kie_video_generations')
         .update({
           initial_status: 'failed',
@@ -374,7 +377,7 @@ Voice Delivery Notes:
     console.log('✅ Kie.ai task created:', taskId);
 
     // Update database with task ID and status
-    const { error: updateError } = await supabase
+    const { error: updateError } = await db
       .from('kie_video_generations')
       .update({
         initial_task_id: taskId,

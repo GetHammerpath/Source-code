@@ -164,6 +164,20 @@ serve(async (req) => {
         const generationType = (genRecord.metadata as { generation_type?: string })?.generation_type || "REFERENCE_2_VIDEO";
         const isTextMode = generationType === "TEXT_2_VIDEO" || genRecord.image_url === "text-only-mode";
 
+        const storyIdeaForAnalysis = (genRecord.story_idea || "").trim();
+        if (!storyIdeaForAnalysis) {
+          console.error(`❌ [Smart Bulk] Skipping ${genRecord.id}: story_idea is required`);
+          await supabase
+            .from("kie_video_generations")
+            .update({
+              initial_status: "failed",
+              initial_error: "Story idea is required for video generation. Add story/script in the base config.",
+            })
+            .eq("id", genRecord.id);
+          failCount++;
+          continue;
+        }
+
         // Step 1: Generate AI prompts
         console.log(`🤖 [Smart Bulk] Generating AI prompts for ${genRecord.id}...`);
 
@@ -248,9 +262,24 @@ serve(async (req) => {
 
         // Step 2: Trigger video generation
         const firstScene = scenePrompts[0];
-        let enhancedPrompt = firstScene?.prompt || "";
-        if (firstScene?.script) {
-          enhancedPrompt = `${enhancedPrompt}\n\nAVATAR DIALOGUE: "${firstScene.script}"`;
+        const firstScenePrompt = firstScene?.prompt || "";
+        const firstSceneScript = firstScene?.script || "";
+        const effectivePrompt = (firstScenePrompt || firstSceneScript || "").trim();
+        if (!effectivePrompt) {
+          console.error(`❌ [Smart Bulk] Skipping ${genRecord.id}: scene prompt and script are both empty`);
+          await supabase
+            .from("kie_video_generations")
+            .update({
+              initial_status: "failed",
+              initial_error: "Scene prompt and script are both empty after AI analysis.",
+            })
+            .eq("id", genRecord.id);
+          failCount++;
+          continue;
+        }
+        let enhancedPrompt = firstScenePrompt || firstSceneScript;
+        if (firstSceneScript) {
+          enhancedPrompt = `${firstScenePrompt}\n\nAVATAR DIALOGUE: "${firstSceneScript}"`;
         }
 
         console.log(`🎥 [Smart Bulk] Starting video generation for ${genRecord.id}...`);

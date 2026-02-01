@@ -136,27 +136,31 @@ const BulkVideoForm = ({ userId, onBatchCreated }: BulkVideoFormProps) => {
 
       if (batchError) throw batchError;
 
-      // Invoke the bulk generation function
-      const { error: funcError } = await supabase.functions.invoke(
-        "bulk-generate-videos",
-        {
-          body: {
-            batch_id: batch.id,
-            combinations,
-            base_config: {
-              image_url: generationMode === 'image' ? data.imageUrl : null,
-              generation_type: generationType,
-              industry: data.industry,
-              city: data.city,
-              story_idea: data.storyIdea,
-              model: data.model,
-              aspect_ratio: data.aspectRatio,
-              number_of_scenes: data.numberOfScenes,
-            },
+      // Fire the Edge Function without awaiting fully (avoids timeout for large batches).
+      const invokePromise = supabase.functions.invoke("bulk-generate-videos", {
+        body: {
+          batch_id: batch.id,
+          combinations,
+          base_config: {
+            image_url: generationMode === 'image' ? data.imageUrl : null,
+            generation_type: generationType,
+            industry: data.industry,
+            city: data.city,
+            story_idea: data.storyIdea,
+            model: data.model,
+            aspect_ratio: data.aspectRatio,
+            number_of_scenes: data.numberOfScenes,
           },
-        }
-      );
+        },
+      });
 
+      const result = await Promise.race([
+        invokePromise,
+        new Promise<{ error: Error | null }>((resolve) =>
+          setTimeout(() => resolve({ error: null }), 8000)
+        ),
+      ]);
+      const funcError = result && typeof result === "object" && "error" in result ? result.error : null;
       if (funcError) throw funcError;
 
       toast({
