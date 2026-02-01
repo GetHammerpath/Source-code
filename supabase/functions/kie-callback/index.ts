@@ -371,7 +371,8 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               generation_id: generation.id,
-              trim: false
+              trim: true,
+              trim_seconds: 1
             })
           });
 

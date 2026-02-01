@@ -161,7 +161,8 @@ serve(async (req) => {
           body: JSON.stringify({
             generation_id: generation.id,
             table_name: 'runway_extend_generations',
-            trim: false
+            trim: true,
+            trim_seconds: 1
           })
         });
 

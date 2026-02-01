@@ -269,10 +269,10 @@ export async function stitchBatch(batchId: string): Promise<{ video_url: string 
   return { video_url: result.video_url };
 }
 
-/** Stitch a single video's scenes (per-row stitch) */
+/** Stitch a single video's scenes (per-row stitch). Trims 1s from each segment after the first for smoother transitions. */
 export async function stitchVideoRow(generationId: string): Promise<void> {
   const { data, error } = await supabase.functions.invoke("cloudinary-stitch-videos", {
-    body: { generation_id: generationId, trim: false },
+    body: { generation_id: generationId, trim: true, trim_seconds: 1 },
   });
   if (error) throw error;
   const result = data as { success?: boolean; error?: string };
