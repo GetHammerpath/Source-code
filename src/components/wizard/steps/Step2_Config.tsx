@@ -11,7 +11,7 @@ import type { StrategyChoice } from "./Step1_Strategy";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { BatchRow } from "@/types/bulk";
-import { createEmptyRow, setSegments } from "@/types/bulk";
+import { createEmptyRow, setSegments, SCENE_COUNT_MIN, SCENE_COUNT_MAX } from "@/types/bulk";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +76,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const sceneCount = Math.min(SCENE_COUNT_MAX, Math.max(1, config.sceneCount ?? 3));
     onConfigChange({ csvFile: file });
     Papa.parse(file, {
       header: true,
@@ -87,13 +88,14 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
           r.id = uuid();
           r.avatar_id = p.avatar_id || p.avatar || "";
           r.avatar_name = p.avatar_name || p.avatar || p.name || "";
-          const segs = [
-            p.script || p.prompt || p.segment1 || "",
-            p.segment2 || "",
-            p.segment3 || "",
-            p.segment4 || "",
-            p.segment5 || "",
-          ];
+          const segs: string[] = [];
+          for (let i = 0; i < sceneCount; i++) {
+            if (i === 0) {
+              segs.push(p.script || p.prompt || p.segment1 || "");
+            } else {
+              segs.push(p[`segment${i + 1}`] ?? "");
+            }
+          }
           Object.assign(r, setSegments(r, segs));
           return r;
         });
@@ -106,7 +108,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
   const handleAiGenerate = async () => {
     const topic = (config.aiTopic ?? "").trim();
     if (!topic) return;
-    const sceneCount = Math.min(5, Math.max(1, config.aiSceneCount ?? config.sceneCount ?? 3));
+    const sceneCount = Math.min(SCENE_COUNT_MAX, Math.max(1, config.aiSceneCount ?? config.sceneCount ?? 3));
     setAiLoading(true);
     try {
       const tone = config.aiTone ?? "professional";
@@ -174,11 +176,10 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     const list = avatars || [];
-    const sceneCount = Math.min(5, Math.max(1, config.spinnerSceneCount ?? config.sceneCount ?? 3));
-    const segmentKeys = ["spinnerSegment1", "spinnerSegment2", "spinnerSegment3", "spinnerSegment4", "spinnerSegment5"] as const;
+    const sceneCount = Math.min(SCENE_COUNT_MAX, Math.max(1, config.spinnerSceneCount ?? config.sceneCount ?? 3));
     const prompts: string[] = [];
     for (let i = 0; i < sceneCount; i++) {
-      const val = (config as Record<string, string>)[segmentKeys[i]] ?? "";
+      const val = (config as Record<string, string>)[`spinnerSegment${i + 1}`] ?? "";
       prompts.push(val.trim() || "Enter script...");
     }
     const rows: BatchRow[] = Array.from({ length: count }, () => {
@@ -193,7 +194,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
         r.avatar_name = "Auto-Cast: Professional";
       }
       const filled = [...prompts];
-      while (filled.length < 5) filled.push("");
+      while (filled.length < sceneCount) filled.push("");
       Object.assign(r, setSegments(r, filled));
       return r;
     });
@@ -292,27 +293,28 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
           {strategy === "ai" && "Describe your topic and tone. We'll generate a starting template."}
           {strategy === "spinner" && "Choose how many variations to create from your avatar library."}
         </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
+        </p>
       </div>
 
       {strategy === "csv" && (
         <div className="space-y-4">
           <div className="space-y-2 max-w-xs">
-            <Label>Number of scenes (1–5)</Label>
-            <Select
-              value={String(config.sceneCount ?? 3)}
-              onValueChange={(v) => onConfigChange({ sceneCount: Number(v) })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n} scene{n > 1 ? "s" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Number of scenes (1–{SCENE_COUNT_MAX.toLocaleString()})</Label>
+            <Input
+              type="number"
+              min={SCENE_COUNT_MIN}
+              max={SCENE_COUNT_MAX}
+              value={config.sceneCount ?? 3}
+              onChange={(e) => {
+                const v = Math.min(SCENE_COUNT_MAX, Math.max(SCENE_COUNT_MIN, parseInt(e.target.value, 10) || 1));
+                onConfigChange({ sceneCount: v });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
+            </p>
           </div>
           <input
             ref={fileInputRef}
@@ -329,7 +331,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
             <div className="text-center">
               <p className="font-medium">Drop your CSV here or click to upload</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Columns: avatar_id, avatar_name, script (or segment1), segment2, segment3
+                Columns: avatar_id, avatar_name, script (or segment1), segment2, segment3, …
               </p>
             </div>
             {config.csvFile && (
@@ -376,24 +378,21 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
               </p>
             )}
           </div>
-          <div className="space-y-2">
-            <Label>Number of scenes (1–5)</Label>
-            <Select
-              value={String(config.aiSceneCount ?? config.sceneCount ?? 3)}
-              onValueChange={(v) => onConfigChange({ aiSceneCount: Number(v), sceneCount: Number(v) })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n} scene{n > 1 ? "s" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-sm text-muted-foreground">Script will populate across all scenes.</p>
+          <div className="space-y-2 max-w-xs">
+            <Label>Number of scenes (1–{SCENE_COUNT_MAX.toLocaleString()})</Label>
+            <Input
+              type="number"
+              min={SCENE_COUNT_MIN}
+              max={SCENE_COUNT_MAX}
+              value={config.aiSceneCount ?? config.sceneCount ?? 3}
+              onChange={(e) => {
+                const v = Math.min(SCENE_COUNT_MAX, Math.max(SCENE_COUNT_MIN, parseInt(e.target.value, 10) || 1));
+                onConfigChange({ aiSceneCount: v, sceneCount: v });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each). Script will populate across all scenes.
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Topic</Label>
@@ -439,23 +438,21 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
 
       {strategy === "spinner" && (
         <div className="space-y-4 max-w-xl">
-          <div className="space-y-2">
-            <Label>Number of scenes (1–5)</Label>
-            <Select
-              value={String(config.spinnerSceneCount ?? config.sceneCount ?? 3)}
-              onValueChange={(v) => onConfigChange({ spinnerSceneCount: Number(v), sceneCount: Number(v) })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n} scene{n > 1 ? "s" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-2 max-w-xs">
+            <Label>Number of scenes (1–{SCENE_COUNT_MAX.toLocaleString()})</Label>
+            <Input
+              type="number"
+              min={SCENE_COUNT_MIN}
+              max={SCENE_COUNT_MAX}
+              value={config.spinnerSceneCount ?? config.sceneCount ?? 3}
+              onChange={(e) => {
+                const v = Math.min(SCENE_COUNT_MAX, Math.max(SCENE_COUNT_MIN, parseInt(e.target.value, 10) || 1));
+                onConfigChange({ spinnerSceneCount: v, sceneCount: v });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Number of rows (10–100)</Label>
@@ -516,8 +513,13 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
             <p className="text-sm text-muted-foreground">
               Add a script for each scene. Segment 1: 8 sec (~20 words). Segments 2+: 7 sec (~17 words).
             </p>
+            {((config.spinnerSceneCount ?? config.sceneCount ?? 3) > 20) && (
+              <p className="text-xs text-amber-600">
+                Showing first 20 of {(config.spinnerSceneCount ?? config.sceneCount ?? 3)} segments. Use CSV for more.
+              </p>
+            )}
             <div className="space-y-3">
-              {Array.from({ length: Math.min(5, Math.max(1, config.spinnerSceneCount ?? config.sceneCount ?? 3)) }, (_, i) => {
+              {Array.from({ length: Math.min(20, Math.max(1, config.spinnerSceneCount ?? config.sceneCount ?? 3)) }, (_, i) => {
                 const key = `spinnerSegment${i + 1}` as keyof Step2Config;
                 const val = (config[key] as string) ?? "";
                 const maxWords = i === 0 ? FIRST_MAX_WORDS : OTHER_MAX_WORDS;

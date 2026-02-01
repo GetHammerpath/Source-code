@@ -43,6 +43,9 @@ export function Step4_Launch({ rows, onLaunch, isSubmitting, sceneCount = 3 }: S
         <p className="text-muted-foreground">
           You are about to generate {count} videos. Est. Cost: ${cost.toLocaleString()}.
         </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Scene 1: 8 sec. Scenes 2+: 7 sec each.
+        </p>
       </div>
 
       {invalidCount > 0 && (

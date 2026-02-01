@@ -69,7 +69,7 @@ export default function BulkWizard() {
     if (currentStep > 0) setCurrentStep((s) => s - 1);
   };
 
-  const sceneCount = step2Config.sceneCount ?? 3;
+  const sceneCount = Math.min(1000, Math.max(1, step2Config.sceneCount ?? 3));
 
   const rowsToLaunchRows = (rows: BatchRow[]): LaunchRow[] =>
     rows

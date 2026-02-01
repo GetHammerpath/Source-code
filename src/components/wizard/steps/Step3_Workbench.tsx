@@ -20,10 +20,14 @@ interface Step3_WorkbenchProps {
   sceneCount?: number;
 }
 
+import { SCENE_COUNT_MAX } from "@/types/bulk";
+
 const SEGMENT_KEYS = ["segment1", "segment2", "segment3", "segment4", "segment5"] as const;
+const DISPLAY_SEGMENT_CAP = 50; // Show max 50 columns; rest accessible via data
 
 export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Step3_WorkbenchProps) {
-  const n = Math.min(5, Math.max(1, sceneCount));
+  const n = Math.min(SCENE_COUNT_MAX, Math.max(1, sceneCount));
+  const displayN = Math.min(n, DISPLAY_SEGMENT_CAP);
   const parentRef = useRef<HTMLDivElement>(null);
 
   const rowVirtualizer = useVirtualizer({
@@ -59,11 +63,22 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Ste
     return !hasAvatar || !hasScript || !scriptOk;
   };
 
-  const copySegmentToAll = (index: number, sourceKey: string) => {
+  const getSegmentValue = (row: BatchRow, i: number): string => {
+    const segs = getSegments(row, n);
+    return segs[i] ?? "";
+  };
+
+  const setSegmentValue = (row: BatchRow, i: number, val: string): Partial<BatchRow> => {
+    const segs = getSegments(row, n);
+    segs[i] = val;
+    return setSegments(row, segs);
+  };
+
+  const copySegmentToAll = (index: number, segmentIndex: number) => {
     const row = rows[index];
     if (!row) return;
-    const val = (row as Record<string, string>)[sourceKey] ?? "";
-    const segs = getSegments(row);
+    const val = getSegmentValue(row, segmentIndex);
+    const segs = getSegments(row, n);
     const filled = segs.map((_, i) => (i < n ? val : segs[i]));
     const next = [...rows];
     next[index] = { ...row, ...setSegments(row, filled) };
@@ -95,24 +110,30 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Ste
         <h2 className="text-2xl font-bold mb-2">Review your production queue</h2>
         <p className="text-muted-foreground">
           Edit any cell. Rows with missing data will be highlighted.
+          Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
         </p>
+        {n > DISPLAY_SEGMENT_CAP && (
+          <p className="text-sm text-amber-600 mt-1">
+            Showing first {DISPLAY_SEGMENT_CAP} of {n} segments. Use CSV for full edit.
+          </p>
+        )}
       </div>
 
-      <div ref={parentRef} className="flex-1 overflow-auto border rounded-lg">
+      <div ref={parentRef} className="flex-1 overflow-auto border rounded-lg overflow-x-auto">
         <div
-          style={{ height: `${rowVirtualizer.getTotalSize() + HEADER_HEIGHT}px` }}
+          style={{ height: `${rowVirtualizer.getTotalSize() + HEADER_HEIGHT}px`, minWidth: `${displayN * 120 + 200}px` }}
           className="relative w-full"
         >
           {/* Sticky header */}
           <div
-            className="sticky top-0 z-10 flex items-center border-b bg-muted/80 font-medium text-sm"
+            className="sticky top-0 z-10 flex items-center border-b bg-muted/80 font-medium text-sm min-w-max"
             style={{ height: HEADER_HEIGHT }}
           >
             <div className="w-12 px-2 shrink-0">#</div>
             <div className="w-36 px-2 shrink-0">Avatar</div>
-            {Array.from({ length: n }, (_, i) => (
+            {Array.from({ length: displayN }, (_, i) => (
               <div key={i} className="flex-1 min-w-[100px] px-2">
-                Segment {i + 1}
+                Seg {i + 1}{i === 0 ? " (8s)" : " (7s)"}
               </div>
             ))}
             <div className="w-12 px-2 shrink-0" />
@@ -126,12 +147,13 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Ste
               <div
                 key={row.id}
                 className={cn(
-                  "absolute left-0 w-full flex items-stretch border-b",
+                  "absolute left-0 flex items-stretch border-b min-w-max",
                   invalid && "bg-red-50/50 dark:bg-red-950/20"
                 )}
                 style={{
                   height: ROW_HEIGHT,
                   top: virtualRow.start + HEADER_HEIGHT,
+                  width: "100%",
                 }}
               >
                 <div className="w-12 px-2 flex items-center text-muted-foreground text-sm shrink-0">
@@ -145,14 +167,13 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Ste
                     invalid={!row.avatar_id && !row.avatar_name}
                   />
                 </div>
-                {Array.from({ length: n }, (_, i) => {
-                  const key = SEGMENT_KEYS[i];
-                  const val = (row as Record<string, string>)[key] ?? "";
+                {Array.from({ length: displayN }, (_, i) => {
+                  const val = getSegmentValue(row, i);
                   return (
                     <div key={i} className="flex-1 min-w-[100px] px-2 py-1 flex flex-col gap-0.5">
                       <Textarea
                         value={val}
-                        onChange={(e) => updateRow(virtualRow.index, { [key]: e.target.value })}
+                        onChange={(e) => updateRow(virtualRow.index, setSegmentValue(row, i, e.target.value))}
                         placeholder="..."
                         className={cn(
                           "min-h-[56px] text-sm resize-none",
@@ -163,10 +184,10 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Ste
                       {n > 1 && (
                         <button
                           type="button"
-                          onClick={() => copySegmentToAll(virtualRow.index, key)}
+                          onClick={() => copySegmentToAll(virtualRow.index, i)}
                           className="text-[10px] text-muted-foreground hover:text-foreground"
                         >
-                          Copy to all scenes
+                          Copy to all
                         </button>
                       )}
                     </div>
