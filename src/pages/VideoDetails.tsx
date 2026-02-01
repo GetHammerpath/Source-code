@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Video, Download, XCircle, CheckCircle2, Loader2, Film, AlertCircle } from "lucide-react";
+import { ArrowLeft, Video, Download, XCircle, CheckCircle2, Loader2, Film, AlertCircle, RotateCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const VideoDetails = () => {
@@ -12,6 +12,7 @@ const VideoDetails = () => {
   const { toast } = useToast();
   const [video, setVideo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     fetchVideo();
@@ -176,9 +177,38 @@ const VideoDetails = () => {
                 <p className="text-sm text-red-600/90 dark:text-red-400/90 mt-0.5">{video.final_video_error}</p>
               </div>
             )}
-            <Button variant="outline" size="sm" onClick={() => navigate("/video-generator")}>
-              Go to Studio to retry
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={async () => {
+                  setRetrying(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke("kie-retry-generation", {
+                      body: { generation_id: video.id },
+                    });
+                    if (error) throw error;
+                    toast({ title: "Recreate started", description: data?.message || "Video is being recreated." });
+                    fetchVideo();
+                  } catch (err) {
+                    toast({
+                      title: "Recreate failed",
+                      description: err instanceof Error ? err.message : "Unknown error",
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setRetrying(false);
+                  }
+                }}
+                disabled={retrying}
+              >
+                {retrying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCw className="h-4 w-4 mr-2" />}
+                Recreate
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate("/video-generator")}>
+                Go to Studio to edit & retry
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Video, Loader2, CheckCircle2, XCircle, Clock, Film, Database } from "lucide-react";
+import { Plus, Video, Loader2, CheckCircle2, XCircle, Clock, Film, Database, RotateCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ const Dashboard = () => {
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingVideos, setLoadingVideos] = useState(true);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -125,6 +126,27 @@ const Dashboard = () => {
       });
     } finally {
       setLoadingVideos(false);
+    }
+  };
+
+  const handleRetryVideo = async (e: React.MouseEvent, videoId: string) => {
+    e.stopPropagation();
+    setRetryingId(videoId);
+    try {
+      const { data, error } = await supabase.functions.invoke("kie-retry-generation", {
+        body: { generation_id: videoId },
+      });
+      if (error) throw error;
+      toast({ title: "Retry started", description: data?.message || "Video is being recreated." });
+      fetchVideos();
+    } catch (err) {
+      toast({
+        title: "Retry failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setRetryingId(null);
     }
   };
 
@@ -277,9 +299,26 @@ const Dashboard = () => {
                           {v.created_at ? new Date(v.created_at).toLocaleString() : ""}
                         </div>
                         {errorMsg && (
-                          <p className="text-xs text-red-600 dark:text-red-400 mt-1 line-clamp-2" title={errorMsg}>
-                            {errorMsg}
-                          </p>
+                          <>
+                            <p className="text-xs text-red-600 dark:text-red-400 mt-1 line-clamp-2" title={errorMsg}>
+                              {errorMsg}
+                            </p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-2 h-8 text-xs"
+                              onClick={(e) => handleRetryVideo(e, v.id)}
+                              disabled={retryingId === v.id}
+                            >
+                              {retryingId === v.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                              ) : (
+                                <RotateCw className="h-3 w-3 mr-1" />
+                              )}
+                              Recreate
+                            </Button>
+                          </>
                         )}
                       </CardContent>
                     </Card>

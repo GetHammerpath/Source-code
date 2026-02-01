@@ -124,13 +124,18 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Resolve user: JWT or API key (Bearer duidui_xxx)
+    // Allow service role for server-to-server calls (bulk-generate-videos, kie-retry-generation)
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const isServiceRole = !!serviceRoleKey && bearer === serviceRoleKey;
+
+    // Resolve user: JWT or API key (Bearer duidui_xxx) or service role (uses generation's user_id later)
     const isApiKeyAuth = (h: string) => {
       const b = h.startsWith('Bearer ') ? h.slice(7).trim() : h;
       return b.startsWith('duidui_') || b.startsWith('kie_');
     };
-    let user: { id: string } | null = await resolveApiKeyUser(authHeader, supabaseAdmin);
-    if (!user) {
+    let user: { id: string } | null = isServiceRole ? null : await resolveApiKeyUser(authHeader, supabaseAdmin);
+    if (!user && !isServiceRole) {
       const { data: { user: jwtUser }, error: authError } = await supabase.auth.getUser();
       if (authError || !jwtUser) {
         return new Response(JSON.stringify({
@@ -216,7 +221,10 @@ serve(async (req) => {
       });
     }
 
-    if (generation.user_id !== user.id) {
+    if (isServiceRole) {
+      user = { id: generation.user_id };
+    }
+    if (generation.user_id !== user!.id) {
       return new Response(JSON.stringify({
         success: false,
         error: 'Unauthorized: This generation does not belong to you'

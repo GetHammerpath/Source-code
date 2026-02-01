@@ -12,10 +12,17 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const { generation_id, edited_prompt, edited_script } = await req.json();
 
@@ -32,6 +39,28 @@ serve(async (req) => {
 
     if (fetchError || !generation) {
       throw new Error('Generation not found');
+    }
+
+    // When called from client (user JWT), verify ownership
+    const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const isServiceRole = !!serviceKey && bearer === serviceKey;
+    if (!isServiceRole) {
+      const supabaseAnon = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: authErr } = await supabaseAnon.auth.getUser();
+      if (authErr || !user) {
+        return new Response(JSON.stringify({ success: false, error: 'Invalid or expired session' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (generation.user_id !== user.id) {
+        return new Response(JSON.stringify({ success: false, error: 'This video does not belong to you' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     // Update scene_prompts if edits were provided
@@ -72,8 +101,74 @@ serve(async (req) => {
     if (generation.initial_status === 'failed') {
       console.log('🔄 Retrying initial generation...');
       
-      // Get the edited prompt if provided, otherwise use original
-      const promptToUse = edited_prompt || generation.ai_prompt;
+      let promptToUse = edited_prompt || generation.ai_prompt || '';
+      let scenePrompts = (generation.scene_prompts || []) as Array<{ scene_number: number; prompt: string; script?: string }>;
+
+      // If no prompt and we have story_idea, call analyze-image-kie to generate prompts first
+      if ((!promptToUse || !promptToUse.trim()) && (generation.story_idea || generation.script)) {
+        console.log('🤖 No prompts found; calling analyze-image-kie to generate...');
+        const genType = (generation.metadata as { generation_type?: string })?.generation_type || 'REFERENCE_2_VIDEO';
+        const isTextMode = genType === 'TEXT_2_VIDEO' || generation.image_url === 'text-only-mode';
+
+        const analyzeRes = await fetch(`${supabaseUrl}/functions/v1/analyze-image-kie`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            image_url: isTextMode ? null : generation.image_url,
+            industry: generation.industry || 'General',
+            avatar_name: generation.avatar_name || 'Professional',
+            city: generation.city || 'N/A',
+            story_idea: generation.story_idea || generation.script || '',
+            number_of_scenes: generation.number_of_scenes || 1,
+          }),
+        });
+
+        if (!analyzeRes.ok) {
+          const errText = await analyzeRes.text();
+          throw new Error(`AI prompt generation failed: ${errText}`);
+        }
+
+        const analysisData = await analyzeRes.json();
+        if (!analysisData.success) {
+          throw new Error(analysisData.error || 'AI prompt generation failed');
+        }
+
+        const numScenes = generation.number_of_scenes || 1;
+        if (numScenes === 1) {
+          scenePrompts = [{ scene_number: 1, prompt: analysisData.prompt || '', script: '' }];
+        } else {
+          scenePrompts = (analysisData.scenes || []).map((s: { scene_number?: number; prompt?: string; script?: string }, i: number) => ({
+            scene_number: (s.scene_number ?? i + 1),
+            prompt: s.prompt || '',
+            script: s.script || '',
+          }));
+        }
+        promptToUse = scenePrompts[0]?.prompt || analysisData.prompt || '';
+
+        await supabase
+          .from('kie_video_generations')
+          .update({
+            scene_prompts: scenePrompts,
+            ai_prompt: promptToUse,
+          })
+          .eq('id', generation_id);
+        console.log('✓ AI prompts generated and saved');
+      }
+
+      if (!promptToUse || !promptToUse.trim()) {
+        throw new Error('No prompt available. Add a story_idea or script to the generation and retry.');
+      }
+
+      const firstScene = scenePrompts[0];
+      const firstScript = firstScene?.script || '';
+      const enhancedPrompt = firstScript
+        ? `${promptToUse}\n\nAVATAR DIALOGUE: "${firstScript}"`
+        : promptToUse;
+
+      const genType = (generation.metadata as { generation_type?: string })?.generation_type || 'REFERENCE_2_VIDEO';
 
       // Reset initial generation status
       const { error: updateError } = await supabase
@@ -82,36 +177,52 @@ serve(async (req) => {
           initial_status: 'pending',
           initial_error: null,
           initial_task_id: null,
-          ai_prompt: promptToUse
+          ai_prompt: promptToUse,
         })
         .eq('id', generation_id);
 
       if (updateError) throw updateError;
 
-      // Re-trigger initial generation
-      const { data, error } = await supabase.functions.invoke('kie-generate-video', {
-        body: {
+      // Re-trigger via fetch (server-to-server with service role)
+      const genRes = await fetch(`${supabaseUrl}/functions/v1/kie-generate-video`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({
           generation_id: generation.id,
-          prompt: promptToUse,
+          prompt: enhancedPrompt,
           image_url: generation.image_url,
-          model: generation.model,
-          aspect_ratio: generation.aspect_ratio,
-          watermark: generation.watermark
-        }
+          model: generation.model || 'veo3_fast',
+          aspect_ratio: generation.aspect_ratio || '16:9',
+          watermark: generation.watermark || '',
+          avatar_name: generation.avatar_name,
+          industry: generation.industry,
+          script: firstScript,
+          generation_type: genType,
+        }),
       });
 
-      if (error) throw error;
+      if (!genRes.ok) {
+        const errText = await genRes.text();
+        throw new Error(errText || 'Failed to start video generation');
+      }
 
-      console.log('✅ Initial generation retry triggered with edited prompt');
+      const genData = await genRes.json();
+      if (!genData.success) {
+        throw new Error(genData.error || 'Video generation failed to start');
+      }
+
+      console.log('✅ Initial generation retry triggered');
 
       return new Response(JSON.stringify({
         success: true,
-        message: 'Retrying initial generation with edits'
+        message: 'Video is being recreated. It may take a few minutes.',
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
+        status: 200,
       });
-
     } else if (generation.extended_status === 'failed') {
       console.log('🔄 Retrying extension...');
       
