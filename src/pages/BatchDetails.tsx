@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Play, XCircle, Download, Loader2, Video, Clock, RotateCw } from "lucide-react";
+import { ArrowLeft, Play, XCircle, Download, Loader2, Video, Clock, RotateCw, Layers } from "lucide-react";
 import {
   getBatchStatus,
   resumeBatch,
   abortBatch,
   retryFailedBatch,
+  stitchBatch,
   type BatchStatus,
 } from "@/lib/api/bulk";
 
@@ -59,6 +60,7 @@ export default function BatchDetails() {
   const [aborting, setAborting] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [stitching, setStitching] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     if (!id) return;
@@ -112,6 +114,20 @@ export default function BatchDetails() {
       toast.error(err instanceof Error ? err.message : "Failed to retry");
     } finally {
       setRetrying(false);
+    }
+  };
+
+  const handleStitchBatch = async () => {
+    if (!id) return;
+    setStitching(true);
+    try {
+      await stitchBatch(id);
+      toast.success("Batch stitched into a single video");
+      fetchStatus();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Stitching failed");
+    } finally {
+      setStitching(false);
     }
   };
 
@@ -178,6 +194,11 @@ export default function BatchDetails() {
   const hasCompletedVideos = status.videos.some(
     (v) => v.video_url && (v.status === "completed" || v.video_url)
   );
+  const completedCount = status.videos.filter(
+    (v) => v.video_url && (v.status === "completed" || v.video_url)
+  ).length;
+  const canStitch = completedCount >= 2 && !status.stitched_video_url;
+  const isStitching = status.stitched_video_status === "stitching" || stitching;
   const isPaused = status.status === "paused_for_review";
 
   return (
@@ -215,6 +236,60 @@ export default function BatchDetails() {
                 Abort
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {status.stitched_video_url && (
+        <Card className="mb-6 border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Layers className="h-5 w-5 text-emerald-600" />
+              Stitched Video
+            </CardTitle>
+            <Button asChild variant="default" size="sm" className="gap-2">
+              <a href={status.stitched_video_url} download={`batch-${id}-stitched.mp4`}>
+                <Download className="h-4 w-4" />
+                Download
+              </a>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <video
+              src={status.stitched_video_url}
+              controls
+              className="w-full rounded-lg aspect-video bg-muted"
+              muted
+              playsInline
+              preload="metadata"
+            />
+            <p className="text-sm text-muted-foreground mt-2">
+              All {completedCount} videos combined into one seamless clip.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {canStitch && !status.stitched_video_url && (
+        <Card className="mb-6 border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+          <CardContent className="pt-6">
+            <p className="font-medium mb-2">Stitch into one video</p>
+            <p className="text-sm text-muted-foreground mb-3">
+              Combine all {completedCount} completed videos into a single seamless clip—like singular multi-scene videos.
+            </p>
+            <Button
+              onClick={handleStitchBatch}
+              disabled={isStitching}
+              className="gap-2"
+              variant="secondary"
+            >
+              {isStitching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Layers className="h-4 w-4" />
+              )}
+              {isStitching ? "Stitching…" : "Stitch Batch"}
+            </Button>
           </CardContent>
         </Card>
       )}

@@ -43,6 +43,8 @@ export interface BatchStatus {
   failed_count: number;
   pending_count: number;
   time_remaining_estimate_sec: number | null;
+  stitched_video_url?: string | null;
+  stitched_video_status?: string | null;
   videos: Array<{
     id: string;
     variation_index: number;
@@ -150,7 +152,7 @@ export async function launchBatch(
 export async function getBatchStatus(batchId: string): Promise<BatchStatus | null> {
   const { data: batch, error: batchError } = await supabase
     .from("bulk_video_batches")
-    .select("id, name, status, source_type, total_variations, completed_variations, failed_variations")
+    .select("id, name, status, source_type, total_variations, completed_variations, failed_variations, metadata")
     .eq("id", batchId)
     .single();
 
@@ -201,6 +203,10 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
     ? "generating"
     : (batch.status ?? "unknown");
 
+  const meta = (batch.metadata as Record<string, unknown>) ?? {};
+  const stitched_video_url = (meta.stitched_video_url as string) ?? null;
+  const stitched_video_status = (meta.stitched_video_status as string) ?? null;
+
   return {
     batch_id: batch.id,
     name: batch.name ?? "Batch",
@@ -212,8 +218,22 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
     failed_count: failed,
     pending_count: pending,
     time_remaining_estimate_sec,
+    stitched_video_url: stitched_video_url || undefined,
+    stitched_video_status: stitched_video_status || undefined,
     videos,
   };
+}
+
+export async function stitchBatch(batchId: string): Promise<{ video_url: string }> {
+  const { data, error } = await supabase.functions.invoke("cloudinary-stitch-batch", {
+    body: { batch_id: batchId },
+  });
+  if (error) throw error;
+  const result = data as { success?: boolean; video_url?: string; error?: string };
+  if (!result?.success || !result.video_url) {
+    throw new Error(result?.error ?? "Stitching failed");
+  }
+  return { video_url: result.video_url };
 }
 
 export async function resumeBatch(batchId: string): Promise<void> {
