@@ -31,7 +31,7 @@ const BulkVideoGenerator = () => {
     <div className="max-w-6xl mx-auto p-6 md:p-8">
       <div className="flex items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
