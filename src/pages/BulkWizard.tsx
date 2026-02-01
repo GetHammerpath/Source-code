@@ -131,7 +131,9 @@ export default function BulkWizard() {
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
       <header className="shrink-0 border-b px-6 py-4">
-        <p className="text-sm text-muted-foreground mb-2">Studio &gt; New Batch</p>
+        <p className="text-sm text-muted-foreground mb-2">
+          Bulk Studio &gt; {strategy === "csv" ? "CSV Upload" : strategy === "ai" ? "AI Generator" : strategy === "spinner" ? "Avatar Spinner" : "New Batch"}
+        </p>
         <div className="flex items-center gap-2 flex-wrap">
           {STEPS.map((label, i) => (
             <div key={label} className="flex items-center gap-1">
