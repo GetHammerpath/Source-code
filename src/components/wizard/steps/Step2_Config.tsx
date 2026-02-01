@@ -26,7 +26,7 @@ function uuid(): string {
 interface Step2_ConfigProps {
   strategy: StrategyChoice;
   config: Step2Config;
-  onConfigChange: (config: Step2Config) => void;
+  onConfigChange: (updates: Partial<Step2Config>) => void;
   onRowsReady: (rows: BatchRow[]) => void;
 }
 
@@ -57,7 +57,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    onConfigChange({ ...config, csvFile: file });
+    onConfigChange({ csvFile: file });
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
@@ -80,7 +80,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
   };
 
   const handleAiGenerate = () => {
-    const topic = config.aiTopic?.trim();
+    const topic = (config.aiTopic ?? "").trim();
     if (!topic) return;
     const r = createEmptyRow();
     r.id = uuid();
@@ -91,7 +91,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
   };
 
   const handleSpinnerGenerate = async () => {
-    const count = config.spinnerCount ?? 10;
+    const count = Math.max(10, Math.min(100, config.spinnerCount ?? 10));
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: avatars } = await supabase
@@ -100,23 +100,20 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     const list = avatars || [];
-    const rows: BatchRow[] = Array.from({ length: Math.min(count, list.length || 1) }, () => {
+    const rows: BatchRow[] = Array.from({ length: count }, () => {
       const r = createEmptyRow();
       r.id = uuid();
       if (list.length > 0) {
         const a = list[Math.floor(Math.random() * list.length)];
         r.avatar_id = a.id;
         r.avatar_name = a.name;
+      } else {
+        r.avatar_id = "__auto_professional__";
+        r.avatar_name = "Auto-Cast: Professional";
       }
       r.segment1 = "Enter script...";
       return r;
     });
-    if (rows.length === 0) {
-      const r = createEmptyRow();
-      r.id = uuid();
-      r.segment1 = "Enter script...";
-      rows.push(r);
-    }
     onRowsReady(rows);
   };
 
@@ -171,7 +168,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
             <Textarea
               placeholder="e.g. Sell coffee to millennials"
               value={config.aiTopic ?? ""}
-              onChange={(e) => onConfigChange({ ...config, aiTopic: e.target.value })}
+              onChange={(e) => onConfigChange({ aiTopic: e.target.value })}
               className="min-h-[100px]"
             />
           </div>
@@ -179,7 +176,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
             <Label>Tone</Label>
             <Select
               value={config.aiTone ?? "professional"}
-              onValueChange={(v) => onConfigChange({ ...config, aiTone: v })}
+              onValueChange={(v) => onConfigChange({ aiTone: v })}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -192,7 +189,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleAiGenerate} disabled={!config.aiTopic?.trim()} className="gap-2">
+          <Button type="button" onClick={handleAiGenerate} disabled={!(config.aiTopic ?? "").trim()} className="gap-2">
             <Upload className="h-4 w-4" />
             Generate Template
           </Button>
@@ -205,7 +202,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
             <Label>Number of rows (10–100)</Label>
             <Slider
               value={[config.spinnerCount ?? 10]}
-              onValueChange={([v]) => onConfigChange({ ...config, spinnerCount: v })}
+              onValueChange={([v]) => onConfigChange({ spinnerCount: v })}
               min={10}
               max={100}
               step={1}
@@ -217,7 +214,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
               <Label>Gender filter</Label>
               <Select
                 value={config.spinnerGender ?? "any"}
-                onValueChange={(v) => onConfigChange({ ...config, spinnerGender: v })}
+                onValueChange={(v) => onConfigChange({ spinnerGender: v })}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -231,7 +228,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
               <Label>Age filter</Label>
               <Select
                 value={config.spinnerAge ?? "any"}
-                onValueChange={(v) => onConfigChange({ ...config, spinnerAge: v })}
+                onValueChange={(v) => onConfigChange({ spinnerAge: v })}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -243,7 +240,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
               </Select>
             </div>
           </div>
-          <Button onClick={handleSpinnerGenerate} className="gap-2">
+          <Button type="button" onClick={handleSpinnerGenerate} className="gap-2">
             <Upload className="h-4 w-4" />
             Generate Rows
           </Button>

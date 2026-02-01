@@ -129,29 +129,36 @@ export default function BulkWizard() {
       {/* Header */}
       <header className="shrink-0 border-b px-6 py-4">
         <p className="text-sm text-muted-foreground mb-2">Studio &gt; New Batch</p>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {STEPS.map((label, i) => (
-            <div
-              key={label}
-              className={cn(
-                "flex items-center gap-1",
-                i === currentStep && "font-medium text-primary"
-              )}
-            >
-              <div
+            <div key={label} className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => i < currentStep && setCurrentStep(i)}
                 className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center text-sm",
-                  i === currentStep
-                    ? "bg-primary text-primary-foreground"
-                    : i < currentStep
-                      ? "bg-primary/20 text-primary"
-                      : "bg-muted text-muted-foreground"
+                  "flex items-center gap-1.5 rounded-lg px-2 py-1 transition-colors",
+                  i === currentStep && "font-medium text-primary",
+                  i < currentStep && "cursor-pointer hover:bg-muted",
+                  i > currentStep && "cursor-default"
                 )}
               >
-                {i + 1}
-              </div>
-              <span className="hidden sm:inline">{label}</span>
-              {i < STEPS.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                <div
+                  className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0",
+                    i === currentStep
+                      ? "bg-primary text-primary-foreground"
+                      : i < currentStep
+                        ? "bg-primary/20 text-primary"
+                        : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {i + 1}
+                </div>
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+              {i < STEPS.length - 1 && (
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
             </div>
           ))}
         </div>
@@ -168,8 +175,14 @@ export default function BulkWizard() {
               key="step2"
               strategy={strategy}
               config={step2Config}
-              onConfigChange={setStep2Config}
-              onRowsReady={setCampaignData}
+              onConfigChange={(updates) => setStep2Config((prev) => ({ ...prev, ...updates }))}
+              onRowsReady={(rows) => {
+                setCampaignData(rows);
+                if (strategy && strategy !== "csv") {
+                  toast({ title: "Template ready", description: `${rows.length} row(s) created. Review in Workbench.` });
+                  setCurrentStep(2);
+                }
+              }}
             />
           )}
           {currentStep === 2 && (
@@ -195,7 +208,7 @@ export default function BulkWizard() {
       <footer className="shrink-0 fixed bottom-0 left-0 right-0 border-t bg-background px-6 py-4 flex justify-between">
         <div>
           {currentStep > 0 && (
-            <Button variant="outline" onClick={handleBack} className="gap-2">
+            <Button type="button" variant="outline" onClick={handleBack} className="gap-2">
               <ChevronLeft className="h-4 w-4" />
               Back
             </Button>
