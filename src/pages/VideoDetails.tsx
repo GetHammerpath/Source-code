@@ -184,11 +184,27 @@ const VideoDetails = () => {
                 onClick={async () => {
                   setRetrying(true);
                   try {
-                    const { data, error } = await supabase.functions.invoke("kie-retry-generation", {
-                      body: { generation_id: video.id },
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session) throw new Error("Please sign in to retry");
+                    const url = import.meta.env.VITE_SUPABASE_URL;
+                    const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+                    if (!url || !anon) throw new Error("Missing app config");
+                    const res = await fetch(`${url}/functions/v1/kie-retry-generation`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${session.access_token}`,
+                        apikey: anon,
+                      },
+                      body: JSON.stringify({ generation_id: video.id }),
                     });
-                    if (error) throw error;
-                    toast({ title: "Recreate started", description: data?.message || "Video is being recreated." });
+                    const json = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                      const msg = json?.error || json?.message || `Request failed (${res.status})`;
+                      throw new Error(msg);
+                    }
+                    if (json?.error) throw new Error(json.error);
+                    toast({ title: "Recreate started", description: json?.message || "Video is being recreated." });
                     fetchVideo();
                   } catch (err) {
                     toast({
