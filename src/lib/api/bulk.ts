@@ -50,6 +50,10 @@ export interface BatchStatus {
     variation_index: number;
     status: string;
     video_url: string | null;
+    /** Stitched full video URL (Cloudinary); only set after Stitch row for multi-scene */
+    final_video_url: string | null;
+    /** Number of scenes; >1 means stitching required before smooth download */
+    scene_count: number;
     thumbnail_url?: string | null;
     scenes: Array<{ url: string | null; status: string }>;
   }>;
@@ -207,11 +211,17 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
       });
     }
     if (scenes.length === 0 && videoUrl) scenes.push({ url: videoUrl, status });
+    const finalUrl = (gen.final_video_url as string) || null;
+    const isMultiScene = numScenes > 1;
+    // For multi-scene: only use stitched URL; single-scene: initial is the full video
+    const downloadUrl = isMultiScene ? finalUrl : (finalUrl || videoUrl);
     return {
       id: (gen.id as string) || "",
       variation_index: (link.variation_index as number) ?? 0,
       status,
-      video_url: videoUrl,
+      video_url: downloadUrl,
+      final_video_url: finalUrl,
+      scene_count: numScenes,
       scenes,
     };
   });

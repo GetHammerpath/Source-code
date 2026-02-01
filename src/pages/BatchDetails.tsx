@@ -361,7 +361,12 @@ export default function BatchDetails() {
       </Card>
 
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold">Step 1: Videos</h2>
+        <div>
+          <h2 className="text-lg font-semibold">Step 1: Videos</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Multi-scene videos: Stitch row first, then download for smooth playback
+          </p>
+        </div>
         {hasCompletedVideos && (
           <Button
             variant="outline"
@@ -421,6 +426,11 @@ export default function BatchDetails() {
                             )}
                             Stitch row
                           </Button>
+                        )}
+                        {canStitchRow && !v.video_url && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Stitch first for smooth download
+                          </p>
                         )}
                         {v.video_url && (
                           <div className="flex flex-col gap-1">

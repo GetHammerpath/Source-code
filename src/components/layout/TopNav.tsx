@@ -61,10 +61,14 @@ const TopNav = ({ onSidebarToggle }: { onSidebarToggle?: () => void }) => {
               <Sidebar />
             </SheetContent>
           </Sheet>
-          <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+          >
             <img src="/images/suosuo_logo.png" alt="Suosuo" className="h-8 w-8 object-contain flex-shrink-0" />
             <span className="font-semibold text-lg tracking-tight hidden sm:inline-block">Suosuo</span>
-          </div>
+          </button>
         </div>
 
         {/* Center: Search (optional, hidden on mobile) */}
