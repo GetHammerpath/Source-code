@@ -92,3 +92,9 @@ verify_jwt = true
 
 [functions.admin-charge-credits]
 verify_jwt = true
+
+[functions.retry-failed-generations]
+verify_jwt = true
+
+[functions.resume-bulk-batch]
+verify_jwt = true

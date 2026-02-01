@@ -66,6 +66,22 @@ serve(async (req) => {
       throw new Error(`Failed to fetch batch: ${batchError?.message}`);
     }
 
+    // Verify user owns batch (when JWT present)
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      const { createClient: createSupabase } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const anon = createSupabase(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await anon.auth.getUser();
+      if (user && batch.user_id !== user.id) {
+        return new Response(
+          JSON.stringify({ error: "Not authorized to resume this batch" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     if (!batch.is_paused && batch.status !== "paused_for_review") {
       throw new Error(`Batch is not paused. Status: ${batch.status}`);
     }

@@ -21,6 +21,33 @@ serve(async (req) => {
       throw new Error("batch_id is required");
     }
 
+    // Verify batch exists and user owns it (when JWT present)
+    const { data: batch, error: batchErr } = await supabase
+      .from("bulk_video_batches")
+      .select("id, user_id")
+      .eq("id", batch_id)
+      .single();
+    if (batchErr || !batch) {
+      return new Response(
+        JSON.stringify({ error: "Batch not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      const { createClient: createSupabase } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const anon = createSupabase(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await anon.auth.getUser();
+      if (user && batch.user_id !== user.id) {
+        return new Response(
+          JSON.stringify({ error: "Not authorized to retry this batch" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Get generation IDs linked to this batch
     const { data: batchGens, error: linkError } = await supabase
       .from("bulk_batch_generations")

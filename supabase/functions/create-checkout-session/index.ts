@@ -9,10 +9,12 @@ const corsHeaders = {
 const STRIPE_API = 'https://api.stripe.com/v1';
 
 function validateEnvVars() {
-  const required = ['STRIPE_SECRET_KEY', 'SERVICE_ROLE_KEY'];
-  const missing = required.filter((key) => !Deno.env.get(key));
-  if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}. Set them in Supabase Edge Function secrets.`);
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY');
+  if (!Deno.env.get('STRIPE_SECRET_KEY')) {
+    throw new Error('Missing STRIPE_SECRET_KEY. Set it in Supabase Edge Function secrets.');
+  }
+  if (!serviceKey) {
+    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY (or SERVICE_ROLE_KEY). Set it in Supabase Edge Function secrets.');
   }
 }
 
@@ -92,7 +94,7 @@ serve(async (req) => {
 
     if (req.method === 'GET') {
       const stripe = !!Deno.env.get('STRIPE_SECRET_KEY');
-      const serviceRole = !!Deno.env.get('SERVICE_ROLE_KEY');
+      const serviceRole = !!(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY'));
       const priceId = !!Deno.env.get('STUDIO_ACCESS_PRICE_ID');
       const siteUrl = !!Deno.env.get('SITE_URL');
       return new Response(
@@ -100,7 +102,7 @@ serve(async (req) => {
           ok: true,
           env: { stripe, serviceRole, priceId, siteUrl },
           hint: !stripe || !serviceRole || !priceId
-            ? 'Set STRIPE_SECRET_KEY, SERVICE_ROLE_KEY, STUDIO_ACCESS_PRICE_ID in Supabase Edge Function secrets.'
+            ? 'Set STRIPE_SECRET_KEY, SUPABASE_SERVICE_ROLE_KEY, STUDIO_ACCESS_PRICE_ID in Supabase Edge Function secrets.'
             : undefined,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -136,9 +138,9 @@ serve(async (req) => {
     }
     const { mode, planId, credits, totalCents: clientTotalCents } = body;
 
-    const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY');
     if (!serviceRoleKey) {
-      throw new Error('SERVICE_ROLE_KEY not configured. Set it in Supabase Edge Function secrets (Settings → API → Service role key).');
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured. Set it in Supabase Edge Function secrets (Settings → API → Service role key).');
     }
 
     const supabaseAdmin = createClient(
@@ -279,7 +281,7 @@ serve(async (req) => {
     let helpful = errorMessage;
     if (errorMessage.includes('STRIPE_SECRET_KEY') || errorMessage.includes('Missing required')) {
       helpful = `${errorMessage}\n\nSet secrets in Supabase Dashboard → Settings → Edge Functions → Secrets`;
-    } else if (errorMessage.includes('SERVICE_ROLE_KEY')) {
+    } else if (errorMessage.includes('SERVICE_ROLE_KEY') || errorMessage.includes('SUPABASE_SERVICE_ROLE_KEY')) {
       helpful = `${errorMessage}\n\nUse Supabase Dashboard → Settings → API → Service role key`;
     } else if (errorMessage.includes('STUDIO_ACCESS_PRICE_ID')) {
       helpful = `${errorMessage}\n\nCreate a $99/month recurring price in Stripe, then add its Price ID to secrets`;
