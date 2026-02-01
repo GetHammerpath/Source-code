@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import Papa from "papaparse";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { StrategyChoice } from "./Step1_Strategy";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import type { BatchRow } from "@/types/bulk";
 import { createEmptyRow } from "@/types/bulk";
 import { Upload, FileSpreadsheet } from "lucide-react";
@@ -40,7 +41,9 @@ export interface Step2Config {
 }
 
 export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: Step2_ConfigProps) {
+  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   if (!strategy) {
     return (
@@ -79,15 +82,49 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
     e.target.value = "";
   };
 
-  const handleAiGenerate = () => {
+  const handleAiGenerate = async () => {
     const topic = (config.aiTopic ?? "").trim();
     if (!topic) return;
-    const r = createEmptyRow();
-    r.id = uuid();
-    r.segment1 = topic;
-    r.avatar_id = "__auto_professional__";
-    r.avatar_name = "Auto-Cast: Professional";
-    onRowsReady([r]);
+    setAiLoading(true);
+    try {
+      const tone = config.aiTone ?? "professional";
+      const avatarStyle = { professional: "Professional", casual: "Casual", friendly: "Friendly", energetic: "Energetic" }[tone] ?? "Professional";
+      const { data, error } = await supabase.functions.invoke("analyze-image-kie", {
+        body: {
+          image_url: null,
+          industry: "General",
+          avatar_name: avatarStyle,
+          city: "N/A",
+          story_idea: topic,
+          number_of_scenes: 1,
+          generation_mode: "text",
+        },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error ?? "AI generation failed");
+      const script = data.prompt ?? topic;
+      const r = createEmptyRow();
+      r.id = uuid();
+      r.segment1 = script;
+      r.avatar_id = tone === "casual" ? "__auto_casual__" : "__auto_professional__";
+      r.avatar_name = tone === "casual" ? "Auto-Cast: Casual" : "Auto-Cast: Professional";
+      onRowsReady([r]);
+    } catch (err) {
+      console.error("AI script generation failed:", err);
+      toast({
+        title: "AI fallback",
+        description: err instanceof Error ? err.message : "Using your topic as the script.",
+        variant: "destructive",
+      });
+      const r = createEmptyRow();
+      r.id = uuid();
+      r.segment1 = topic;
+      r.avatar_id = "__auto_professional__";
+      r.avatar_name = "Auto-Cast: Professional";
+      onRowsReady([r]);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleSpinnerGenerate = async () => {
@@ -189,9 +226,18 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
               </SelectContent>
             </Select>
           </div>
-          <Button type="button" onClick={handleAiGenerate} disabled={!(config.aiTopic ?? "").trim()} className="gap-2">
-            <Upload className="h-4 w-4" />
-            Generate Template
+          <Button type="button" onClick={handleAiGenerate} disabled={!(config.aiTopic ?? "").trim() || aiLoading} className="gap-2">
+            {aiLoading ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Generating with ChatGPT...
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4" />
+                Generate Template
+              </>
+            )}
           </Button>
         </div>
       )}
