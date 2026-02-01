@@ -202,7 +202,7 @@ const NewRequest = () => {
         description: "Video request created successfully",
       });
 
-      navigate("/");
+      navigate("/dashboard");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -221,7 +221,7 @@ const NewRequest = () => {
         <div className="max-w-3xl mx-auto">
           <Button
             variant="ghost"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/dashboard")}
             className="mb-6"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -561,7 +561,7 @@ const NewRequest = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => navigate("/")}
+                    onClick={() => navigate("/dashboard")}
                   >
                     Cancel
                   </Button>

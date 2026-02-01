@@ -61,7 +61,7 @@ const Templates = () => {
         <div className="max-w-7xl mx-auto">
           <Button
             variant="ghost"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/dashboard")}
             className="mb-6"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />

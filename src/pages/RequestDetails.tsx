@@ -52,7 +52,7 @@ const RequestDetails = () => {
         description: "Failed to fetch request details",
         variant: "destructive",
       });
-      navigate("/");
+      navigate("/dashboard");
       return;
     }
 
@@ -81,7 +81,7 @@ const RequestDetails = () => {
         <div className="max-w-5xl mx-auto">
           <Button
             variant="ghost"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/dashboard")}
             className="mb-6"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />

@@ -46,7 +46,7 @@ const VideoGenerator = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/dashboard")}
               >
                 <ArrowLeft className="mr-1 h-4 w-4" />
                 Dashboard

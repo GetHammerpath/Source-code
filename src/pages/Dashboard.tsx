@@ -79,12 +79,35 @@ const Dashboard = () => {
     try {
       const { data, error } = await supabase
         .from("bulk_video_batches")
-        .select("id, name, status, total_variations, completed_variations, failed_variations, source_type, created_at")
+        .select(`
+          id, name, status, total_variations, completed_variations, failed_variations, source_type, created_at,
+          bulk_batch_generations(
+            generation:kie_video_generations(initial_status, final_video_status)
+          )
+        `)
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(5);
       if (error) throw error;
-      setBatches(data || []);
+      const batchesWithProgress = (data || []).map((b: any) => {
+        const links = b.bulk_batch_generations || [];
+        let completed = 0;
+        let failed = 0;
+        for (const link of links) {
+          const gen = link.generation || link.kie_video_generations;
+          if (!gen) continue;
+          const finalStatus = gen.final_video_status ?? gen.initial_status;
+          const initialStatus = gen.initial_status;
+          if (finalStatus === "completed") completed++;
+          else if (initialStatus === "failed" || finalStatus === "failed") failed++;
+        }
+        return {
+          ...b,
+          _completed: completed,
+          _failed: failed,
+        };
+      });
+      setBatches(batchesWithProgress);
     } catch (e) {
       console.error("Error fetching batches:", e);
     } finally {
@@ -301,8 +324,11 @@ const Dashboard = () => {
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {batches.map((b) => {
+                  const completed = b._completed ?? b.completed_variations ?? 0;
+                  const failed = b._failed ?? b.failed_variations ?? 0;
+                  const done = completed + failed;
                   const progress = b.total_variations > 0
-                    ? Math.round(((b.completed_variations + b.failed_variations) / b.total_variations) * 100)
+                    ? Math.round((done / b.total_variations) * 100)
                     : 0;
                   const sourceLabel = b.source_type === "csv" ? "CSV" : b.source_type === "ai" ? "AI" : b.source_type === "spinner" ? "Spinner" : null;
                   const isComplete = b.status === "completed" || progress >= 100;
@@ -318,7 +344,7 @@ const Dashboard = () => {
                             <p className="font-medium truncate text-slate-900">{b.name}</p>
                             <p className="text-xs text-slate-500 mt-0.5">
                               {sourceLabel && <span className="text-[#002FA7]/80">{sourceLabel} • </span>}
-                              {b.completed_variations + b.failed_variations}/{b.total_variations} videos
+                              {done}/{b.total_variations} videos
                             </p>
                           </div>
                           <Badge variant={isComplete ? "default" : "secondary"} className="shrink-0">

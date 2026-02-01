@@ -36,7 +36,7 @@ const AdminUsers = () => {
 
   useEffect(() => {
     if (!roleLoading && !canManageUsers) {
-      navigate("/");
+      navigate("/dashboard");
       return;
     }
     
