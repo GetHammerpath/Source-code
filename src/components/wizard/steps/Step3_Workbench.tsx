@@ -151,7 +151,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
 
       <div ref={parentRef} className="flex-1 overflow-auto border rounded-lg overflow-x-auto">
         <div
-          style={{ height: `${rowVirtualizer.getTotalSize() + HEADER_HEIGHT}px`, minWidth: `${displayN * (showVisualContext ? 280 : 160) + 200}px` }}
+          style={{ height: `${rowVirtualizer.getTotalSize() + HEADER_HEIGHT}px`, minWidth: `${displayN * (showVisualContext ? 280 : 160) + 280}px` }}
           className="relative w-full"
         >
           {/* Sticky header */}
@@ -160,7 +160,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
             style={{ height: HEADER_HEIGHT }}
           >
             <div className="w-12 px-2 shrink-0">#</div>
-            <div className="w-36 px-2 shrink-0">Avatar</div>
+            <div className="w-44 min-w-[176px] px-2 shrink-0">Avatar</div>
             {Array.from({ length: displayN }, (_, i) => (
               <div key={i} className={cn("flex-1 px-3", showVisualContext ? "min-w-[280px]" : "min-w-[160px]")}>
                 Seg {i + 1}{i === 0 ? " (8s)" : " (7s)"}
@@ -192,7 +192,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                 <div className="w-12 px-2 flex items-center text-muted-foreground text-sm shrink-0">
                   {virtualRow.index + 1}
                 </div>
-                <div className="w-36 px-2 py-1 flex items-center shrink-0">
+                <div className="w-44 min-w-[176px] px-2 py-1 flex items-center shrink-0 relative z-20">
                   <AvatarSelector
                     value={row.avatar_id || row.avatar_name || ""}
                     onChange={(id, name) => updateRow(virtualRow.index, { avatar_id: id, avatar_name: name })}

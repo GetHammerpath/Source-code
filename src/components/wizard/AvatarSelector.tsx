@@ -46,12 +46,12 @@ export function AvatarSelector({ value, onChange, avatars, invalid, className }:
           role="combobox"
           aria-expanded={open}
           className={cn(
-            "w-full justify-between font-normal h-9 text-xs",
+            "w-full justify-between font-normal h-9 text-xs min-w-0",
             invalid && "border-red-500",
             className
           )}
         >
-          <span className={cn(!displayValue && "text-muted-foreground")}>
+          <span className={cn("flex-1 min-w-0 text-left overflow-hidden text-ellipsis whitespace-nowrap", !displayValue && "text-muted-foreground")} title={displayValue || undefined}>
             {displayValue || "Select..."}
           </span>
           <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
