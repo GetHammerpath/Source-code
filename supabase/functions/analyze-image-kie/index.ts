@@ -174,8 +174,9 @@ Each scene must be designed for perfect video-to-video flow:
 AVATAR SCRIPT REQUIREMENTS (NEW - CRITICAL):
 Each scene needs compelling DIALOGUE that ${avatar_name} speaks directly to camera/viewer:
 
-**Script Guidelines:**
-- **Length**: 1-3 sentences per scene (fits naturally in 8 seconds)
+**Script Guidelines (CRITICAL - strict word limits):**
+- **Scene 1**: Max 20 words (~8 seconds). Hook with problem/pain point.
+- **Scenes 2+**: Max 17 words each (~7 seconds). Solution benefits, then CTA.
 - **Tone**: Conversational, authentic, NOT robotic or overly formal
 - **Industry-specific**: Use ${industry} terminology naturally
 - **Marketing Structure**:
@@ -223,7 +224,7 @@ DIGITAL MARKETING STRUCTURE (${number_of_scenes} scenes):
 - **ENDING TRANSITION**: Describe ${avatar_name}'s final position/action that leads into Scene 2
 - Example ending: "Camera follows ${avatar_name} as they turn toward [next location], setting up the next scene"
 
-**Scene 2-${number_of_scenes - 1} (Solution/Action) - 8 seconds each:**
+**Scene 2-${number_of_scenes - 1} (Solution/Action) - 7 seconds each (max 17 words per script):**
 - **OPENING TRANSITION**: "Seamlessly continue from the previous scene. ${avatar_name} (same professional appearance) now [picks up where we left off]"
 - **SOLO FOCUS**: ${avatar_name} working ALONE - no additional people, clients, or team members
 - Solution: Show the process, service, transformation in ${industry} with ${avatar_name} as sole focus
@@ -231,7 +232,7 @@ DIGITAL MARKETING STRUCTURE (${number_of_scenes} scenes):
 - Maintain avatar consistency and visual style
 - **ENDING TRANSITION**: Position ${avatar_name} for the next scene with clear motion/position continuity
 
-**Scene ${number_of_scenes} (Result/CTA) - 8 seconds:**
+**Scene ${number_of_scenes} (Result/CTA) - 7 seconds (max 17 words):**
 - **OPENING TRANSITION**: "Continue seamlessly from Scene ${number_of_scenes - 1}. ${avatar_name} (same person) now completes the journey"
 - **SOLO FOCUS**: ${avatar_name} ALONE - no groups, no additional people, no crowds
 - Result: Show ${avatar_name} individually expressing satisfaction, success, transformation
@@ -266,18 +267,18 @@ TONE & CINEMATIC STYLE:
 - Consistent lighting and color grading across scenes
 - Natural motion flow (walking, turning, gesturing continues across scene boundaries)
 
-Return EXACTLY ${number_of_scenes} prompts in this JSON format:
+Return EXACTLY ${number_of_scenes} prompts in this JSON format. CRITICAL: "script" must be spoken dialogue only. Scene 1 script: max 20 words. Scene 2+ scripts: max 17 words each.
 {
   "scenes": [
     {
       "scene_number": 1,
       "prompt": "Show ${avatar_name}, a professional ${industry} expert in polished business attire, [8-second hook/problem action] in ${industry} in ${city}. [Lighting and camera details]. Scene ends with ${avatar_name} [transition position] leading smoothly into the next scene.",
-      "script": "Dialogue that ${avatar_name} speaks in this scene - conversational, authentic, addresses the problem/hook. 1-3 sentences max."
+      "script": "Spoken dialogue only, max 20 words. Hook addressing viewer's problem."
     },
     {
       "scene_number": 2,
-      "prompt": "Seamlessly continuing from the previous scene, ${avatar_name} (same professional appearance maintained) now [solution action]. Match the position and lighting from where Scene 1 ended. [8-second dynamic action]. Scene concludes with ${avatar_name} [transition setup for Scene 3].",
-      "script": "Solution-focused dialogue explaining the benefit or process. Natural ${industry} terminology."
+      "prompt": "Seamlessly continuing from the previous scene, ${avatar_name} (same professional appearance maintained) now [solution action]. Match the position and lighting from where Scene 1 ended. [7-second dynamic action]. Scene concludes with ${avatar_name} [transition setup for Scene 3].",
+      "script": "Spoken dialogue only, max 17 words. Solution-focused."
     }
   ]
 }
