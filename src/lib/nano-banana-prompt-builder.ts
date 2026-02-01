@@ -116,6 +116,12 @@ function detectGender(userText: string): string {
 
 function detectAge(userText: string): number {
   const lower = userText.toLowerCase();
+  // "50+" or "40+ years old" - plus sign breaks the standard regex, handle first
+  const plusMatch = lower.match(/\b(\d{2,3})\s*\+/);
+  if (plusMatch) {
+    const base = parseInt(plusMatch[1], 10);
+    return Math.min(80, base + 5); // Push slightly older so "50+" reads as mature (55)
+  }
   const ageMatch = lower.match(/\b(\d{2,3})\s*(?:years?|yrs?|old)\b/);
   if (ageMatch) return parseInt(ageMatch[1], 10);
   if (lower.includes("young") || lower.includes("teen")) return 25;
@@ -153,13 +159,14 @@ export function inferDefaults(userText: string, overrides: Partial<PromptFields>
   const gender = detectGender(userText);
   const age = detectAge(userText);
   const ethnicity = detectEthnicity(userText);
+  const isMature = age >= 50;
 
   return {
     age: overrides.age ?? age,
     gender: overrides.gender ?? gender,
     ethnicity: overrides.ethnicity ?? ethnicity,
-    build: overrides.build ?? "athletic/average",
-    hair: overrides.hair ?? "short, well-groomed hair",
+    build: overrides.build ?? (isMature ? "mature build, distinguished" : "athletic/average"),
+    hair: overrides.hair ?? (isMature ? "salt-and-pepper or gray hair, weathered character" : "short, well-groomed hair"),
     expression: overrides.expression ?? "calm confident expression",
     framing: overrides.framing ?? "headshot, face only, tight crop from shoulders up, face fills frame",
     clothing: overrides.clothing ?? (preset?.clothing ?? "professional attire, realistic materials, minimal logos"),
@@ -175,8 +182,9 @@ export function inferDefaults(userText: string, overrides: Partial<PromptFields>
 export function generatePositivePrompt(fields: PromptFields): string {
   const ethnicityPart = fields.ethnicity ? ` ${fields.ethnicity}` : "";
   const genderLabel = fields.gender === "female" ? "woman" : "man";
+  const ageCue = fields.age >= 50 ? "mature, visibly aged face with character lines, " : "";
   // Lead with headshot framing so the model prioritizes face crop over body
-  return `Headshot. ${fields.framing}. Tight crop from shoulders up, face centered, no body below shoulders. Photorealistic portrait of a ${fields.age}-year-old ${fields.gender}${ethnicityPart} ${genderLabel}, ${fields.build}, ${fields.hair}, ${fields.expression}. ${fields.clothing}. Background: ${fields.background}. Lighting: ${fields.lighting}. ${fields.lens} lens, shallow depth of field, sharp focus on eyes and face, natural skin texture, high detail, natural colors, no stylization.`;
+  return `Headshot. ${fields.framing}. Tight crop from shoulders up, face centered, no body below shoulders. Photorealistic portrait of a ${fields.age}-year-old ${ageCue}${fields.gender}${ethnicityPart} ${genderLabel}, ${fields.build}, ${fields.hair}, ${fields.expression}. ${fields.clothing}. Background: ${fields.background}. Lighting: ${fields.lighting}. ${fields.lens} lens, shallow depth of field, sharp focus on eyes and face, natural skin texture, high detail, natural colors, no stylization.`;
 }
 
 export function generateNegativePrompt(): string {

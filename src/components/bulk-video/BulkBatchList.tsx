@@ -17,6 +17,15 @@ interface Batch {
   status: string;
   created_at: string;
   base_industry: string;
+  source_type?: "csv" | "ai" | "spinner";
+}
+
+function getSourceLabel(sourceType?: string) {
+  if (!sourceType) return null;
+  if (sourceType === "csv") return "CSV Upload";
+  if (sourceType === "ai") return "AI Generator";
+  if (sourceType === "spinner") return "Avatar Spinner";
+  return null;
 }
 
 interface BulkBatchListProps {
@@ -141,6 +150,9 @@ const BulkBatchList = ({ userId, onSelectBatch }: BulkBatchListProps) => {
                     <div>
                       <CardTitle className="text-base">{batch.name}</CardTitle>
                       <p className="text-xs text-muted-foreground">
+                        {getSourceLabel(batch.source_type) && (
+                          <span className="text-primary/80">Bulk &gt; {getSourceLabel(batch.source_type)} • </span>
+                        )}
                         {batch.base_industry} •{" "}
                         {formatDistanceToNow(new Date(batch.created_at), {
                           addSuffix: true,

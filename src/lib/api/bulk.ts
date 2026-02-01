@@ -21,9 +21,13 @@ export interface LaunchBaseConfig {
   generationType: "REFERENCE_2_VIDEO" | "TEXT_2_VIDEO";
 }
 
+/** Source door: csv | ai | spinner */
+export type BatchSourceType = "csv" | "ai" | "spinner";
+
 export interface BatchStatus {
   batch_id: string;
   name: string;
+  source_type?: BatchSourceType;
   status: string;
   progress: number;
   completed_count: number;
@@ -61,7 +65,8 @@ export async function launchBatch(
   userId: string,
   rows: LaunchRow[],
   baseConfig: LaunchBaseConfig,
-  isTestRun: boolean
+  isTestRun: boolean,
+  sourceType: BatchSourceType = "csv"
 ): Promise<LaunchResult> {
   const generationType = baseConfig.generationType;
   const imageUrl = baseConfig.imageUrl;
@@ -83,7 +88,7 @@ export async function launchBatch(
         number_of_scenes: baseConfig.numberOfScenes,
         status: "generating",
         generation_type: generationType,
-        source_type: "csv",
+        source_type: sourceType,
         total_rows: rows.length,
       },
     ])
@@ -110,6 +115,7 @@ export async function launchBatch(
       batch_id: batch.id,
       rows: rowsPayload,
       base_config,
+      source_type: sourceType,
     },
   });
 
@@ -121,7 +127,7 @@ export async function launchBatch(
 export async function getBatchStatus(batchId: string): Promise<BatchStatus | null> {
   const { data: batch, error: batchError } = await supabase
     .from("bulk_video_batches")
-    .select("id, name, status, total_variations, completed_variations, failed_variations")
+    .select("id, name, status, source_type, total_variations, completed_variations, failed_variations")
     .eq("id", batchId)
     .single();
 
@@ -169,6 +175,7 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
   return {
     batch_id: batch.id,
     name: batch.name ?? "Batch",
+    source_type: (batch.source_type as BatchSourceType) ?? undefined,
     status: batch.status ?? "unknown",
     progress,
     completed_count: completed,

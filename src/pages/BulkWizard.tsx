@@ -104,7 +104,8 @@ export default function BulkWizard() {
           numberOfScenes: sceneCount,
           generationType: "TEXT_2_VIDEO",
         },
-        isTestRun
+        isTestRun,
+        strategy ?? "csv"
       );
 
       toast({

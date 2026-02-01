@@ -40,6 +40,7 @@ interface RequestBody {
   combinations?: VariableCombination[];
   rows?: BulkRow[];
   base_config: BaseConfig;
+  source_type?: "csv" | "ai" | "spinner" | "cartesian";
 }
 
 serve(async (req) => {
@@ -53,12 +54,12 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json() as RequestBody;
-    const { batch_id, base_config } = body;
+    const { batch_id, base_config, source_type: bodySourceType } = body;
     const rows = body.rows;
     const combinations = body.combinations;
 
     const useRows = Array.isArray(rows) && rows.length > 0;
-    const sourceType = useRows ? "csv" : "cartesian";
+    const sourceType = bodySourceType ?? (useRows ? "csv" : "cartesian");
     const items = useRows
       ? rows as BulkRow[]
       : (combinations || []) as VariableCombination[];
@@ -130,7 +131,7 @@ serve(async (req) => {
         avatarName = row.avatar_name ?? "Professional";
         industry = row.industry ?? base_config.industry;
         city = row.city ?? base_config.city;
-        storyIdea = row.story_idea ?? base_config.story_idea ?? "";
+        storyIdea = (row.story_idea ?? row.script ?? base_config.story_idea ?? "").trim();
         imageUrl = row.image_url ?? base_config.image_url ?? "text-only-mode";
         variableValues = { ...row };
 

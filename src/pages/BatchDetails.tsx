@@ -188,7 +188,14 @@ export default function BatchDetails() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{status.name}</h1>
-          <p className="text-sm text-muted-foreground font-mono">{status.batch_id}</p>
+          <div className="flex items-center gap-2 flex-wrap mt-1">
+            <p className="text-sm text-muted-foreground font-mono">{status.batch_id}</p>
+            {status.source_type && (
+              <Badge variant="outline" className="font-normal">
+                Bulk Generation &gt; {status.source_type === "csv" ? "CSV Upload" : status.source_type === "ai" ? "AI Generator" : "Avatar Spinner"}
+              </Badge>
+            )}
+          </div>
         </div>
         <StatusBadge status={status.status} />
       </div>
