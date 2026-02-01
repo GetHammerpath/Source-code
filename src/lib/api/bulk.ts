@@ -184,11 +184,17 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
   const time_remaining_estimate_sec =
     pending > 0 ? pending * avgSecPerVideo : null;
 
+  // If videos are still pending/generating, show processing—not failed
+  const hasInProgress = pending > 0 || videos.some((v) => v.status === "pending" || v.status === "processing" || v.status === "generating");
+  const displayStatus = hasInProgress && (batch.status === "failed" || batch.status === "processing")
+    ? "generating"
+    : (batch.status ?? "unknown");
+
   return {
     batch_id: batch.id,
     name: batch.name ?? "Batch",
     source_type: (batch.source_type as BatchSourceType) ?? undefined,
-    status: batch.status ?? "unknown",
+    status: displayStatus,
     progress,
     completed_count: completed,
     total_count: total,
