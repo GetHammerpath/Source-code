@@ -473,6 +473,33 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
             </RadioGroup>
           </div>
 
+          {/* Video format - 16:9 or 9:16 */}
+          <div className="space-y-2 rounded-lg border p-4 bg-muted/30 max-w-xs">
+            <Label htmlFor="aspectRatio">Video format</Label>
+            <Select
+              value={formData.aspectRatio}
+              onValueChange={(value) => setFormData({ ...formData, aspectRatio: value })}
+            >
+              <SelectTrigger id="aspectRatio">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="16:9">16:9 (Landscape - YouTube, TV)</SelectItem>
+                <SelectItem value="9:16">9:16 (Portrait - TikTok, Reels)</SelectItem>
+                {generationMode === 'text' && (
+                  <SelectItem value="Auto">Auto (Based on content)</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {formData.aspectRatio === '9:16'
+                ? 'Portrait for TikTok, Instagram Reels, Stories.'
+                : formData.aspectRatio === '16:9'
+                  ? 'Landscape for YouTube, presentations.'
+                  : 'Aspect ratio chosen based on content.'}
+            </p>
+          </div>
+
           {/* Use existing avatar - optional; when selected, name + (in image mode) image come from avatar */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2">Use existing avatar (optional)</Label>
@@ -633,32 +660,6 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
                   <SelectItem value="veo3_fast">Veo Fast (Image-to-Video)</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="aspectRatio">Aspect Ratio</Label>
-              <Select
-                value={formData.aspectRatio}
-                onValueChange={(value) => setFormData({ ...formData, aspectRatio: value })}
-              >
-                <SelectTrigger id="aspectRatio">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="16:9">16:9 (Landscape - YouTube, TV)</SelectItem>
-                  <SelectItem value="9:16">9:16 (Portrait - TikTok, Reels)</SelectItem>
-                  {generationMode === 'text' && (
-                    <SelectItem value="Auto">Auto (Based on content)</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {formData.aspectRatio === '9:16'
-                  ? 'Portrait format for TikTok, Instagram Reels, Stories.'
-                  : formData.aspectRatio === '16:9'
-                    ? 'Landscape format for YouTube, presentations.'
-                    : 'Aspect ratio is chosen based on content.'}
-              </p>
             </div>
 
             <div className="space-y-2">

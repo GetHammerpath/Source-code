@@ -24,7 +24,7 @@ export default function BulkWizard() {
   const [userId, setUserId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [strategy, setStrategy] = useState<StrategyChoice>(null);
-  const [step2Config, setStep2Config] = useState<Step2Config>({ sceneCount: 3 });
+  const [step2Config, setStep2Config] = useState<Step2Config>({ sceneCount: 3, aspectRatio: "16:9" });
   const [campaignData, setCampaignData] = useState<BatchRow[]>([]);
   const [avatars, setAvatars] = useState<AvatarOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,7 +81,7 @@ export default function BulkWizard() {
           avatar_name: r.avatar_name || undefined,
           script: batchRowToScript(r, sceneCount),
           scene_prompts: scenePrompts ?? undefined,
-          aspect_ratio: "16:9",
+          aspect_ratio: step2Config.aspectRatio ?? "16:9",
         };
       });
 
@@ -104,7 +104,7 @@ export default function BulkWizard() {
           industry: "General",
           city: "N/A",
           model: "veo3_fast",
-          aspectRatio: "16:9",
+          aspectRatio: step2Config.aspectRatio ?? "16:9",
           numberOfScenes: sceneCount,
           generationType: "TEXT_2_VIDEO",
         },

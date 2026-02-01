@@ -45,6 +45,7 @@ export interface Step2Config {
   spinnerType?: string; // e.g. lawyer, cowboy, accountant
   spinnerSceneCount?: number;
   sceneCount?: number; // shared, used by Workbench and Launch
+  aspectRatio?: "16:9" | "9:16";
 }
 
 const FIRST_MAX_WORDS = 20;  // 8 sec
@@ -619,6 +620,26 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
           </Button>
         </div>
       )}
+
+      {/* Shared: Video format - applies to all strategies */}
+      <div className="space-y-2 rounded-lg border p-4 bg-muted/30 max-w-xs">
+        <Label>Video format</Label>
+        <Select
+          value={config.aspectRatio ?? "16:9"}
+          onValueChange={(v: "16:9" | "9:16") => onConfigChange({ aspectRatio: v })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="16:9">16:9 (Landscape - YouTube, TV)</SelectItem>
+            <SelectItem value="9:16">9:16 (Portrait - TikTok, Reels)</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          {config.aspectRatio === "9:16" ? "Portrait for TikTok, Instagram Reels, Stories" : "Landscape for YouTube, presentations"}
+        </p>
+      </div>
     </motion.div>
   );
 }

@@ -13,6 +13,8 @@ This character does not represent any real person, living or deceased.
 A generic virtual presenter appears in a non-identifiable professional setting,
 demonstrating and explaining general concepts in an educational manner.
 
+NO ON-SCREEN TEXT: NO captions, subtitles, text overlays, signs, or visible written words. Dialogue is audio only.
+
 SCENE CONTENT:
 `;
 
@@ -191,6 +193,12 @@ NATURAL SPEECH PATTERNS:
 ✓ Warm smile in the voice (audible friendliness)
 ✓ Natural breath between sentences
 ✓ Conversational contractions (don't, we're, you'll, it's)
+
+NO ON-SCREEN TEXT (MANDATORY):
+- NO captions, subtitles, or text overlays
+- NO visible text, titles, or graphics with words
+- NO signs, labels, or written content in the scene
+- Dialogue is audio only - never display spoken words as text on screen
 
 `;
 

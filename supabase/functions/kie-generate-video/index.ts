@@ -22,6 +22,12 @@ The content is high-level, neutral, and educational in nature.
 It does not provide financial, legal, medical, or professional advice,
 and does not make promises, guarantees, or persuasive claims.
 
+NO ON-SCREEN TEXT (MANDATORY):
+- NO captions, subtitles, or text overlays
+- NO visible text, titles, or graphics with words
+- NO signs, labels, or written content in the scene
+- Dialogue is AUDIO ONLY - never display spoken words as text on screen
+
 SCENE CONTENT:
 `;
 
@@ -299,6 +305,12 @@ Voice Delivery Notes:
     const validAspectRatios = ['16:9', '9:16'];
     const aspectRatio = validAspectRatios.includes(aspect_ratio) ? aspect_ratio : '16:9';
 
+    // Deterministic seed from generation_id for voice/visual consistency across scenes (Veo range: 10000-99999)
+    const seedNum = Math.abs(
+      Array.from(generation_id).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+    );
+    const seed = (seedNum % 90000) + 10000;
+
     // Build request payload - conditionally include imageUrls based on generation type
     const requestPayload: Record<string, unknown> = {
       prompt: safePrompt,
@@ -306,6 +318,7 @@ Voice Delivery Notes:
       watermark: watermark || '',
       callBackUrl: callbackUrl,
       aspectRatio,
+      seeds: seed,
       enableFallback: false,
       enableTranslation: true,
       generationType: generationType
@@ -317,6 +330,9 @@ Voice Delivery Notes:
     }
 
     console.log('📤 Kie.ai request payload:', JSON.stringify({ ...requestPayload, prompt: '[TRUNCATED]' }, null, 2));
+
+    // Persist seed so extend calls can reuse it for voice consistency
+    await db.from('kie_video_generations').update({ seeds: seed }).eq('id', generation_id);
 
     // Call Kie.ai generate endpoint
     const kieResponse = await fetch('https://api.kie.ai/api/v1/veo/generate', {

@@ -13,6 +13,8 @@ This character does not represent any real person, living or deceased.
 A generic virtual presenter appears in a non-identifiable professional setting,
 demonstrating and explaining general concepts in an educational manner.
 
+NO ON-SCREEN TEXT: NO captions, subtitles, text overlays, signs, or visible written words. Dialogue is audio only.
+
 SCENE CONTENT:
 `;
 

@@ -194,7 +194,7 @@ Each scene needs compelling DIALOGUE that ${avatar_name} speaks directly to came
 - **Authenticity**: Sounds like a real ${industry} professional in ${city}, not a salesperson
 
 VOICE DELIVERY REQUIREMENTS (CRITICAL FOR NATURAL AUDIO):
-Each scene's script must include implicit voice delivery guidance:
+Each scene's script must include implicit voice delivery guidance. CRITICAL: The SAME voice identity must be used across ALL scenes - ${avatar_name} sounds identical in every scene (same pitch, timbre, accent, pace).
 
 **Voice Character for ${avatar_name}:**
 - Warm, confident, genuinely conversational - like speaking to a trusted colleague
@@ -267,6 +267,11 @@ MANDATORY PROMPT ELEMENTS FOR EACH SCENE:
    - Camera angle matching at transition points
    - Motion continuity (no abrupt stops/starts)
    - Environmental consistency (same location style if continuing in same area)
+
+NO ON-SCREEN TEXT (MANDATORY):
+- NO captions, subtitles, text overlays, titles, or graphics with words
+- NO signs, labels, or visible written content in any scene
+- Dialogue is audio only - never display spoken words as text on screen
 
 TONE & CINEMATIC STYLE:
 - Professional, dynamic, authentic

@@ -101,13 +101,13 @@ serve(async (req) => {
     const avatarIdentityPrefix = generation.avatar_identity_prefix || '';
     
     // Voice continuity requirements for consistent audio across scenes
-    const voiceContinuityBlock = `VOICE CONTINUITY (MANDATORY FOR SCENE ${currentScene}):
-This scene's voice MUST match Scene 1 exactly:
-- Same voice pitch and timbre as established in Scene 1
-- Same speaking pace and rhythm
-- Same warmth and energy level
-- Same accent and pronunciation style
-- NO sudden changes in voice character
+    const voiceContinuityBlock = `CRITICAL - VOICE IDENTITY (MANDATORY FOR SCENE ${currentScene}):
+This is a CONTINUATION. The voice MUST be identical to Scene 1:
+- REPLICATE the exact voice from previous scenes - same pitch, timbre, accent, tone
+- Same speaking pace and rhythm as established in Scene 1
+- Same warmth and energy level throughout
+- This is the SAME person - NO new voice, NO voice changes
+- Match the source video's voice character precisely
 
 VOICE CHARACTER - ${generation.avatar_name}'s voice must be:
 - Tone: Warm, confident, conversational - NOT robotic or monotone
@@ -129,8 +129,10 @@ NATURAL SPEECH PATTERNS:
 ✓ Natural breath between sentences
 ✓ Conversational contractions (don't, we're, you'll)
 
+NO ON-SCREEN TEXT: NO captions, subtitles, text overlays, signs, or visible written words. Dialogue is audio only.
+
 `;
-    
+
     // Build full prompt with avatar identity prefix and strong continuity instructions
     let fullPrompt = '';
     

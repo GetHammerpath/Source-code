@@ -21,6 +21,7 @@ IMPORTANT DISCLAIMER:
 The content is high-level, neutral, and educational in nature.
 It does not provide financial, legal, medical, or professional advice,
 and does not make promises, guarantees, or persuasive claims.
+NO ON-SCREEN TEXT: NO captions, subtitles, text overlays, signs, or visible written words. Dialogue is audio only.
 SCENE CONTENT:
 `;
 
@@ -120,13 +121,12 @@ serve(async (req) => {
     console.log(`⏱️ Scene ${generation.current_scene} duration: ${duration} seconds`);
 
     // Voice continuity requirements for consistent audio across scenes
-    const voiceContinuityBlock = `VOICE CONTINUITY (MANDATORY):
-This scene's voice MUST match previous scenes exactly:
-- Same voice pitch and timbre as Scene 1
-- Same speaking pace and rhythm
-- Same warmth and energy level
-- Same accent and pronunciation style
-- NO sudden changes in voice character
+    const voiceContinuityBlock = `CRITICAL - VOICE IDENTITY (MANDATORY):
+You are EXTENDING an existing video. The source video already has a voice. Your new segment MUST use the EXACT SAME voice:
+- REPLICATE the voice from the video you are extending - same pitch, timbre, accent, and tone
+- Match the speaking pace and rhythm established in the source video
+- NO new voice - this is the SAME person continuing to speak
+- Listen to the source video's voice character and match it precisely
 
 VOICE CHARACTER - ${generation.avatar_name}'s voice must be:
 - Tone: Warm, confident, conversational - NOT robotic or monotone
@@ -297,19 +297,23 @@ Original context: "${promptContext}..."
     // Wrap prompt with content policy disclaimer
     const safeExtensionPrompt = `${CONTENT_POLICY_DISCLAIMER}${extensionPrompt}`;
 
+    const extendPayload: Record<string, unknown> = {
+      taskId: lastTaskId,
+      prompt: safeExtensionPrompt,
+      duration: duration,
+      callBackUrl: `${Deno.env.get('SUPABASE_URL')}/functions/v1/kie-callback`,
+      watermark: generation.watermark || ''
+    };
+    if (generation.seeds && generation.seeds >= 10000 && generation.seeds <= 99999) {
+      extendPayload.seeds = generation.seeds;
+    }
     const kieResponse = await fetch('https://api.kie.ai/api/v1/veo/extend', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${KIE_AI_API_TOKEN}`
       },
-      body: JSON.stringify({
-        taskId: lastTaskId,
-        prompt: safeExtensionPrompt,
-        duration: duration,
-        callBackUrl: `${Deno.env.get('SUPABASE_URL')}/functions/v1/kie-callback`,
-        watermark: generation.watermark || ''
-      })
+      body: JSON.stringify(extendPayload)
     });
 
     if (!kieResponse.ok) {

@@ -71,6 +71,12 @@ Your prompts and scripts MUST AVOID these categories that trigger video generati
 
 IMPORTANT: If the story_idea contains any problematic content, REPHRASE it professionally.
 
+## RULE 6 - NO ON-SCREEN TEXT (MANDATORY):
+- NO captions, subtitles, or text overlays in any scene
+- NO visible text, titles, or graphics with words
+- NO signs, labels, or written content in the video
+- Dialogue/narration is audio only - never display spoken words as text on screen
+
 ## OUTPUT FORMAT (JSON):
 
 {
