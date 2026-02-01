@@ -1,5 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { BatchRow } from "@/components/bulk/SmartTable";
+
+/** Row payload for bulk-generate-videos API */
+export interface LaunchRow {
+  avatar_id?: string;
+  avatar_name?: string;
+  script: string;
+  background?: string;
+  aspect_ratio?: string;
+}
 
 export interface LaunchBaseConfig {
   name: string;
@@ -36,7 +44,7 @@ export interface LaunchResult {
   batch_id: string;
 }
 
-function toRowsPayload(rows: BatchRow[]) {
+function toRowsPayload(rows: LaunchRow[]) {
   return rows.map((r) => {
     const isAutoCast = r.avatar_id?.startsWith("__");
     return {
@@ -51,7 +59,7 @@ function toRowsPayload(rows: BatchRow[]) {
 
 export async function launchBatch(
   userId: string,
-  rows: BatchRow[],
+  rows: LaunchRow[],
   baseConfig: LaunchBaseConfig,
   isTestRun: boolean
 ): Promise<LaunchResult> {

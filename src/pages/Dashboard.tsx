@@ -152,7 +152,7 @@ const Dashboard = () => {
             <p className="text-sm text-slate-600 mt-1">Your avatars and videos in one place.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate("/bulk-video")} className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate("/bulk")} className="gap-2">
               <Database className="h-4 w-4" />
               Bulk Generate (Batch)
             </Button>

@@ -88,7 +88,7 @@ const Sidebar = () => {
   const productionItems = [
     { to: "/create-avatar", icon: Users, label: "Casting" },
     { to: "/video-generator", icon: Scissors, label: "Studio" },
-    { to: "/bulk-video", icon: Server, label: "Batch Jobs" },
+    { to: "/bulk", icon: Server, label: "Bulk Studio" },
   ];
   const assetsItems = [
     { to: "/dashboard", icon: UserCheck, label: "Talent Pool" },
