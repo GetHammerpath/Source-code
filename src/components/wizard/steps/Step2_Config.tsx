@@ -11,7 +11,7 @@ import type { StrategyChoice } from "./Step1_Strategy";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { BatchRow } from "@/types/bulk";
-import { createEmptyRow } from "@/types/bulk";
+import { createEmptyRow, setSegments } from "@/types/bulk";
 import { Upload, FileSpreadsheet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,9 +35,12 @@ export interface Step2Config {
   csvFile?: File | null;
   aiTopic?: string;
   aiTone?: string;
+  aiSceneCount?: number;
   spinnerCount?: number;
   spinnerGender?: string;
   spinnerAge?: string;
+  spinnerSceneCount?: number;
+  sceneCount?: number; // shared 1-5, used by Workbench and Launch
 }
 
 export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: Step2_ConfigProps) {
@@ -71,9 +74,14 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
           r.id = uuid();
           r.avatar_id = p.avatar_id || p.avatar || "";
           r.avatar_name = p.avatar_name || p.avatar || p.name || "";
-          r.segment1 = p.script || p.prompt || p.segment1 || "";
-          r.segment2 = p.segment2 || "";
-          r.segment3 = p.segment3 || "";
+          const segs = [
+            p.script || p.prompt || p.segment1 || "",
+            p.segment2 || "",
+            p.segment3 || "",
+            p.segment4 || "",
+            p.segment5 || "",
+          ];
+          Object.assign(r, setSegments(r, segs));
           return r;
         });
         onRowsReady(rows);
@@ -85,6 +93,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
   const handleAiGenerate = async () => {
     const topic = (config.aiTopic ?? "").trim();
     if (!topic) return;
+    const sceneCount = Math.min(5, Math.max(1, config.aiSceneCount ?? config.sceneCount ?? 3));
     setAiLoading(true);
     try {
       const tone = config.aiTone ?? "professional";
@@ -96,18 +105,31 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
           avatar_name: avatarStyle,
           city: "N/A",
           story_idea: topic,
-          number_of_scenes: 1,
+          number_of_scenes: sceneCount,
           generation_mode: "text",
         },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error ?? "AI generation failed");
-      const script = data.prompt ?? topic;
       const r = createEmptyRow();
       r.id = uuid();
-      r.segment1 = script;
       r.avatar_id = tone === "casual" ? "__auto_casual__" : "__auto_professional__";
       r.avatar_name = tone === "casual" ? "Auto-Cast: Casual" : "Auto-Cast: Professional";
+      if (data.scenes && Array.isArray(data.scenes) && data.scenes.length > 0) {
+        const prompts: string[] = Array(sceneCount).fill("");
+        data.scenes.forEach((s: { scene_number?: number; prompt?: string; script?: string }, i: number) => {
+          const idx = (s.scene_number ?? i + 1) - 1;
+          const text = s.prompt || s.script || "";
+          if (idx >= 0 && idx < prompts.length) prompts[idx] = text;
+          else prompts[i] = text;
+        });
+        Object.assign(r, setSegments(r, prompts));
+      } else {
+        const script = data.prompt ?? topic;
+        const prompts: string[] = Array(sceneCount).fill(script);
+        Object.assign(r, setSegments(r, prompts));
+      }
+      onConfigChange({ sceneCount });
       onRowsReady([r]);
     } catch (err) {
       console.error("AI script generation failed:", err);
@@ -118,9 +140,11 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
       });
       const r = createEmptyRow();
       r.id = uuid();
-      r.segment1 = topic;
+      const prompts: string[] = Array(sceneCount).fill(topic);
+      Object.assign(r, setSegments(r, prompts));
       r.avatar_id = "__auto_professional__";
       r.avatar_name = "Auto-Cast: Professional";
+      onConfigChange({ sceneCount });
       onRowsReady([r]);
     } finally {
       setAiLoading(false);
@@ -137,6 +161,7 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     const list = avatars || [];
+    const sceneCount = Math.min(5, Math.max(1, config.spinnerSceneCount ?? config.sceneCount ?? 3));
     const rows: BatchRow[] = Array.from({ length: count }, () => {
       const r = createEmptyRow();
       r.id = uuid();
@@ -148,9 +173,11 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
         r.avatar_id = "__auto_professional__";
         r.avatar_name = "Auto-Cast: Professional";
       }
-      r.segment1 = "Enter script...";
+      const prompts = Array(sceneCount).fill("Enter script...");
+      Object.assign(r, setSegments(r, prompts));
       return r;
     });
+    onConfigChange({ sceneCount });
     onRowsReady(rows);
   };
 
@@ -173,6 +200,24 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
 
       {strategy === "csv" && (
         <div className="space-y-4">
+          <div className="space-y-2 max-w-xs">
+            <Label>Number of scenes (1–5)</Label>
+            <Select
+              value={String(config.sceneCount ?? 3)}
+              onValueChange={(v) => onConfigChange({ sceneCount: Number(v) })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n} scene{n > 1 ? "s" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -200,6 +245,25 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
 
       {strategy === "ai" && (
         <div className="space-y-4 max-w-xl">
+          <div className="space-y-2">
+            <Label>Number of scenes (1–5)</Label>
+            <Select
+              value={String(config.aiSceneCount ?? config.sceneCount ?? 3)}
+              onValueChange={(v) => onConfigChange({ aiSceneCount: Number(v), sceneCount: Number(v) })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n} scene{n > 1 ? "s" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">Script will populate across all scenes.</p>
+          </div>
           <div className="space-y-2">
             <Label>Topic</Label>
             <Textarea
@@ -244,6 +308,24 @@ export function Step2_Config({ strategy, config, onConfigChange, onRowsReady }: 
 
       {strategy === "spinner" && (
         <div className="space-y-4 max-w-xl">
+          <div className="space-y-2">
+            <Label>Number of scenes (1–5)</Label>
+            <Select
+              value={String(config.spinnerSceneCount ?? config.sceneCount ?? 3)}
+              onValueChange={(v) => onConfigChange({ spinnerSceneCount: Number(v), sceneCount: Number(v) })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n} scene{n > 1 ? "s" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label>Number of rows (10–100)</Label>
             <Slider

@@ -24,7 +24,7 @@ export default function BulkWizard() {
   const [userId, setUserId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [strategy, setStrategy] = useState<StrategyChoice>(null);
-  const [step2Config, setStep2Config] = useState<Step2Config>({});
+  const [step2Config, setStep2Config] = useState<Step2Config>({ sceneCount: 3 });
   const [campaignData, setCampaignData] = useState<BatchRow[]>([]);
   const [avatars, setAvatars] = useState<AvatarOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,13 +69,15 @@ export default function BulkWizard() {
     if (currentStep > 0) setCurrentStep((s) => s - 1);
   };
 
+  const sceneCount = step2Config.sceneCount ?? 3;
+
   const rowsToLaunchRows = (rows: BatchRow[]): LaunchRow[] =>
     rows
-      .filter((r) => (r.avatar_id || r.avatar_name) && batchRowToScript(r).trim())
+      .filter((r) => (r.avatar_id || r.avatar_name) && batchRowToScript(r, sceneCount).trim())
       .map((r) => ({
         avatar_id: r.avatar_id?.startsWith("__") ? undefined : (r.avatar_id || undefined),
         avatar_name: r.avatar_name || undefined,
-        script: batchRowToScript(r),
+        script: batchRowToScript(r, sceneCount),
         aspect_ratio: "16:9",
       }));
 
@@ -99,7 +101,7 @@ export default function BulkWizard() {
           city: "N/A",
           model: "veo3_fast",
           aspectRatio: "16:9",
-          numberOfScenes: 3,
+          numberOfScenes: sceneCount,
           generationType: "TEXT_2_VIDEO",
         },
         isTestRun
@@ -191,6 +193,7 @@ export default function BulkWizard() {
               rows={campaignData}
               onChange={setCampaignData}
               avatars={avatars}
+              sceneCount={sceneCount}
             />
           )}
           {currentStep === 3 && (
@@ -199,6 +202,7 @@ export default function BulkWizard() {
               rows={campaignData}
               onLaunch={handleLaunch}
               isSubmitting={isSubmitting}
+              sceneCount={sceneCount}
             />
           )}
         </AnimatePresence>

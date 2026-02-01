@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2 } from "lucide-react";
 import { AvatarSelector, type AvatarOption } from "../AvatarSelector";
 import type { BatchRow } from "@/types/bulk";
-import { batchRowToScript } from "@/types/bulk";
+import { batchRowToScript, getSegments, setSegments } from "@/types/bulk";
 import { cn } from "@/lib/utils";
 
 const ROW_HEIGHT = 72;
@@ -17,9 +17,13 @@ interface Step3_WorkbenchProps {
   rows: BatchRow[];
   onChange: (rows: BatchRow[]) => void;
   avatars: AvatarOption[];
+  sceneCount?: number;
 }
 
-export function Step3_Workbench({ rows, onChange, avatars }: Step3_WorkbenchProps) {
+const SEGMENT_KEYS = ["segment1", "segment2", "segment3", "segment4", "segment5"] as const;
+
+export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3 }: Step3_WorkbenchProps) {
+  const n = Math.min(5, Math.max(1, sceneCount));
   const parentRef = useRef<HTMLDivElement>(null);
 
   const rowVirtualizer = useVirtualizer({
@@ -49,10 +53,21 @@ export function Step3_Workbench({ rows, onChange, avatars }: Step3_WorkbenchProp
 
   const invalidRow = (row: BatchRow) => {
     const hasAvatar = !!(row.avatar_id || row.avatar_name);
-    const script = batchRowToScript(row);
+    const script = batchRowToScript(row, n);
     const hasScript = !!script.trim();
     const scriptOk = script.length <= 500;
     return !hasAvatar || !hasScript || !scriptOk;
+  };
+
+  const copySegmentToAll = (index: number, sourceKey: string) => {
+    const row = rows[index];
+    if (!row) return;
+    const val = (row as Record<string, string>)[sourceKey] ?? "";
+    const segs = getSegments(row);
+    const filled = segs.map((_, i) => (i < n ? val : segs[i]));
+    const next = [...rows];
+    next[index] = { ...row, ...setSegments(row, filled) };
+    onChange(next);
   };
 
   if (rows.length === 0) {
@@ -95,9 +110,11 @@ export function Step3_Workbench({ rows, onChange, avatars }: Step3_WorkbenchProp
           >
             <div className="w-12 px-2 shrink-0">#</div>
             <div className="w-36 px-2 shrink-0">Avatar</div>
-            <div className="flex-1 min-w-[100px] px-2">Segment 1</div>
-            <div className="flex-1 min-w-[100px] px-2">Segment 2</div>
-            <div className="flex-1 min-w-[100px] px-2">Segment 3</div>
+            {Array.from({ length: n }, (_, i) => (
+              <div key={i} className="flex-1 min-w-[100px] px-2">
+                Segment {i + 1}
+              </div>
+            ))}
             <div className="w-12 px-2 shrink-0" />
           </div>
 
@@ -128,36 +145,33 @@ export function Step3_Workbench({ rows, onChange, avatars }: Step3_WorkbenchProp
                     invalid={!row.avatar_id && !row.avatar_name}
                   />
                 </div>
-                <div className="flex-1 min-w-[100px] px-2 py-1">
-                  <Textarea
-                    value={row.segment1}
-                    onChange={(e) => updateRow(virtualRow.index, { segment1: e.target.value })}
-                    placeholder="..."
-                    className={cn(
-                      "min-h-[56px] text-sm resize-none",
-                      batchRowToScript(row).length > 500 && "border-red-500"
-                    )}
-                    rows={2}
-                  />
-                </div>
-                <div className="flex-1 min-w-[100px] px-2 py-1">
-                  <Textarea
-                    value={row.segment2}
-                    onChange={(e) => updateRow(virtualRow.index, { segment2: e.target.value })}
-                    placeholder="..."
-                    className="min-h-[56px] text-sm resize-none"
-                    rows={2}
-                  />
-                </div>
-                <div className="flex-1 min-w-[100px] px-2 py-1">
-                  <Textarea
-                    value={row.segment3}
-                    onChange={(e) => updateRow(virtualRow.index, { segment3: e.target.value })}
-                    placeholder="..."
-                    className="min-h-[56px] text-sm resize-none"
-                    rows={2}
-                  />
-                </div>
+                {Array.from({ length: n }, (_, i) => {
+                  const key = SEGMENT_KEYS[i];
+                  const val = (row as Record<string, string>)[key] ?? "";
+                  return (
+                    <div key={i} className="flex-1 min-w-[100px] px-2 py-1 flex flex-col gap-0.5">
+                      <Textarea
+                        value={val}
+                        onChange={(e) => updateRow(virtualRow.index, { [key]: e.target.value })}
+                        placeholder="..."
+                        className={cn(
+                          "min-h-[56px] text-sm resize-none",
+                          batchRowToScript(row, n).length > 500 && "border-red-500"
+                        )}
+                        rows={2}
+                      />
+                      {n > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => copySegmentToAll(virtualRow.index, key)}
+                          className="text-[10px] text-muted-foreground hover:text-foreground"
+                        >
+                          Copy to all scenes
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
                 <div className="w-12 px-2 flex items-center shrink-0">
                   <Button
                     variant="ghost"

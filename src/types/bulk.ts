@@ -6,10 +6,22 @@ export interface BatchRow {
   segment1: string;
   segment2: string;
   segment3: string;
+  segment4?: string;
+  segment5?: string;
 }
 
-export function batchRowToScript(row: BatchRow): string {
-  return [row.segment1, row.segment2, row.segment3].filter(Boolean).join("\n\n").trim() || row.segment1;
+const SEGMENT_KEYS = ["segment1", "segment2", "segment3", "segment4", "segment5"] as const;
+
+/** Build script from segments 1..sceneCount (default 3). */
+export function batchRowToScript(row: BatchRow, sceneCount: number = 3): string {
+  const n = Math.min(Math.max(1, sceneCount), 5);
+  const parts: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const key = SEGMENT_KEYS[i];
+    const val = (row as Record<string, string>)[key];
+    if (val != null && String(val).trim()) parts.push(String(val).trim());
+  }
+  return parts.join("\n\n").trim() || (row.segment1 || "");
 }
 
 export function createEmptyRow(): BatchRow {
@@ -20,5 +32,19 @@ export function createEmptyRow(): BatchRow {
     segment1: "",
     segment2: "",
     segment3: "",
+    segment4: "",
+    segment5: "",
   };
+}
+
+export function getSegments(row: BatchRow): string[] {
+  return SEGMENT_KEYS.map((k) => (row as Record<string, string>)[k] ?? "");
+}
+
+export function setSegments(row: BatchRow, segments: string[]): Partial<BatchRow> {
+  const out: Partial<BatchRow> = {};
+  SEGMENT_KEYS.forEach((k, i) => {
+    (out as Record<string, string>)[k] = segments[i] ?? "";
+  });
+  return out;
 }

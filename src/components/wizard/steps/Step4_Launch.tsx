@@ -7,22 +7,23 @@ import { cn } from "@/lib/utils";
 
 const COST_PER_VIDEO = 10;
 
-function getValidRows(rows: BatchRow[]): BatchRow[] {
-  return rows.filter((r) => {
-    const hasAvatar = !!(r.avatar_id || r.avatar_name);
-    const script = batchRowToScript(r);
-    return hasAvatar && script.trim() && script.length <= 500;
-  });
-}
-
 interface Step4_LaunchProps {
   rows: BatchRow[];
   onLaunch: (isTestRun: boolean) => void;
   isSubmitting?: boolean;
+  sceneCount?: number;
 }
 
-export function Step4_Launch({ rows, onLaunch, isSubmitting }: Step4_LaunchProps) {
-  const validRows = getValidRows(rows);
+function getValidRows(rows: BatchRow[], sceneCount: number): BatchRow[] {
+  return rows.filter((r) => {
+    const hasAvatar = !!(r.avatar_id || r.avatar_name);
+    const script = batchRowToScript(r, sceneCount);
+    return hasAvatar && script.trim() && script.length <= 500;
+  });
+}
+
+export function Step4_Launch({ rows, onLaunch, isSubmitting, sceneCount = 3 }: Step4_LaunchProps) {
+  const validRows = getValidRows(rows, sceneCount);
   const count = validRows.length;
   const cost = count * COST_PER_VIDEO;
   const testCost = Math.min(3, count) * COST_PER_VIDEO;
