@@ -57,8 +57,8 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json() as RequestBody;
@@ -382,7 +382,7 @@ serve(async (req) => {
 
         console.log(`🎥 Starting video generation for ${genRecord.id}...`);
 
-        const generateResponse = await fetch(`${supabaseUrl}/functions/v1/kie-generate-video`, {
+        const generateResponse = await fetch(`${supabaseUrl}/functions/v1/video-generate`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

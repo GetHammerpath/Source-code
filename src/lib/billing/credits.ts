@@ -13,16 +13,27 @@ export interface CreditCheckResult {
   shortfall?: number;
 }
 
+/** Options for credit check (e.g. model-specific credits) */
+export interface CheckCreditsOptions {
+  /** Override: use this instead of computing from rendered minutes */
+  requiredCredits?: number;
+}
+
 /**
  * Check if user has sufficient credits for a given number of rendered minutes
+ * (or for a specific required credits amount via options.requiredCredits)
  */
-export async function checkCredits(renderedMinutes: number): Promise<CreditCheckResult> {
+export async function checkCredits(
+  renderedMinutes: number,
+  options?: CheckCreditsOptions
+): Promise<CreditCheckResult> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error("User not authenticated");
   }
 
-  const requiredCredits = estimateCreditsForRenderedMinutes(renderedMinutes);
+  const requiredCredits =
+    options?.requiredCredits ?? estimateCreditsForRenderedMinutes(renderedMinutes);
 
   const { data: balance, error } = await supabase
     .from("credit_balance")
@@ -46,6 +57,12 @@ export async function checkCredits(renderedMinutes: number): Promise<CreditCheck
   };
 }
 
+/** Options for credit reservation (e.g. model-specific credits) */
+export interface ReserveCreditsOptions {
+  /** Override: use this instead of computing from estimated minutes */
+  requiredCredits?: number;
+}
+
 /**
  * Reserve credits for a video generation job
  * This creates a video_jobs record and reserves credits
@@ -54,7 +71,8 @@ export async function reserveCredits(
   generationId: string,
   provider: string,
   estimatedRenderedMinutes: number,
-  metadata?: any
+  metadata?: any,
+  options?: ReserveCreditsOptions
 ): Promise<{ success: boolean; jobId?: string; error?: string }> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -62,10 +80,11 @@ export async function reserveCredits(
       throw new Error("User not authenticated");
     }
 
-    const requiredCredits = estimateCreditsForRenderedMinutes(estimatedRenderedMinutes);
+    const requiredCredits =
+      options?.requiredCredits ?? estimateCreditsForRenderedMinutes(estimatedRenderedMinutes);
 
     // Check balance
-    const check = await checkCredits(estimatedRenderedMinutes);
+    const check = await checkCredits(estimatedRenderedMinutes, { requiredCredits });
     if (!check.hasCredits) {
       return {
         success: false,

@@ -69,7 +69,7 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
     );
 
     const {
@@ -83,7 +83,8 @@ serve(async (req) => {
       aspect_ratio,
       watermark,
       duration,
-      image_analysis
+      image_analysis,
+      model
     } = await req.json();
 
     console.log('📥 Sora2 Latest generation request:', {
@@ -99,6 +100,31 @@ serve(async (req) => {
     // Validate required fields
     if (!user_id || !image_url || !scene_prompts?.length) {
       throw new Error('Missing required fields: user_id, image_url, scene_prompts');
+    }
+
+    // Credit check (model-aware, must match src/lib/video-models.ts)
+    const creditsPerSegment: Record<string, number> = {
+      sora2_pro_720: 1,
+      sora2_pro_1080: 2,
+    };
+    const modelId = (model as string) || 'sora2_pro_720';
+    const rate = creditsPerSegment[modelId] ?? 1;
+    const requiredCredits = Math.ceil(scene_prompts.length * rate);
+    const { data: balance, error: balanceError } = await supabase
+      .from('credit_balance')
+      .select('credits')
+      .eq('user_id', user_id)
+      .single();
+    if (balanceError || (balance?.credits ?? 0) < requiredCredits) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Insufficient credits. You need ${requiredCredits} credits for ${scene_prompts.length} scene(s).`,
+          error_type: 'CREDIT_EXHAUSTED',
+          user_action: 'Add more credits to continue.',
+        }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Validate duration (must be 10, 15, or 25)
@@ -151,6 +177,7 @@ THIS EXACT PERSON with these EXACT clothing and features must appear in this sce
         watermark: watermark || null,
         duration: validDuration,
         sora_model: 'sora-2-pro-image-to-video',
+        model: modelId,
         initial_status: 'generating',
         video_segments: [],
         avatar_identity_prefix: avatarIdentityPrefix // Store for use in subsequent scenes
@@ -164,6 +191,19 @@ THIS EXACT PERSON with these EXACT clothing and features must appear in this sce
     }
 
     console.log('📝 Created generation record:', generation.id);
+
+    // Reserve credits (create video_job)
+    const estimatedMinutes = (scene_prompts.length * (validDuration || 10)) / 60;
+    await supabase.from('video_jobs').insert({
+      user_id,
+      generation_id: generation.id,
+      provider: 'kie-sora2',
+      estimated_minutes: estimatedMinutes,
+      estimated_credits: requiredCredits,
+      credits_reserved: requiredCredits,
+      status: 'pending',
+      metadata: { model: modelId, scene_count: scene_prompts.length },
+    });
 
     // Get API key
     const KIE_AI_API_TOKEN = Deno.env.get('KIE_AI_API_TOKEN');

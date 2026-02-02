@@ -1,17 +1,18 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Beaker, Rocket } from "lucide-react";
+import { Beaker, Rocket, AlertTriangle } from "lucide-react";
 import type { BatchRow } from "@/types/bulk";
 import { batchRowToScript } from "@/types/bulk";
 import { cn } from "@/lib/utils";
-
-const COST_PER_VIDEO = 10;
+import { estimateCreditsForModel, calculateCreditPrice } from "@/lib/billing/pricing";
+import { getVideoModel, getFallbackModel } from "@/lib/video-models";
 
 interface Step4_LaunchProps {
   rows: BatchRow[];
   onLaunch: (isTestRun: boolean) => void;
   isSubmitting?: boolean;
   sceneCount?: number;
+  model?: string;
 }
 
 function getValidRows(rows: BatchRow[], sceneCount: number): BatchRow[] {
@@ -22,13 +23,25 @@ function getValidRows(rows: BatchRow[], sceneCount: number): BatchRow[] {
   });
 }
 
-export function Step4_Launch({ rows, onLaunch, isSubmitting, sceneCount = 3 }: Step4_LaunchProps) {
+export function Step4_Launch({ rows, onLaunch, isSubmitting, sceneCount = 3, model = "veo3_fast" }: Step4_LaunchProps) {
   const validRows = getValidRows(rows, sceneCount);
   const count = validRows.length;
-  const cost = count * COST_PER_VIDEO;
-  const testCost = Math.min(3, count) * COST_PER_VIDEO;
+  const creditsPerVideo = estimateCreditsForModel(sceneCount, model);
+  const totalCredits = count * creditsPerVideo;
+  const cost = calculateCreditPrice(totalCredits);
+  const testCredits = Math.min(3, count) * creditsPerVideo;
+  const testCost = calculateCreditPrice(testCredits);
   const invalidCount = rows.length - count;
   const disabled = count === 0 || isSubmitting;
+  
+  // Phase 4: Check if model requires images and count rows without images
+  const selectedModel = getVideoModel(model);
+  const fallbackModel = getFallbackModel(model);
+  const isImageOnlyModel = selectedModel && !selectedModel.supportsText2Video;
+  const rowsWithoutImage = isImageOnlyModel
+    ? validRows.filter((r) => !r.avatar_id || r.avatar_id.startsWith("__"))
+    : [];
+  const rowsWithImage = count - rowsWithoutImage.length;
 
   return (
     <motion.div
@@ -53,6 +66,26 @@ export function Step4_Launch({ rows, onLaunch, isSubmitting, sceneCount = 3 }: S
           <p className="text-sm text-amber-800 dark:text-amber-200">
             {invalidCount} row(s) have missing data and will be skipped. Fix them in Step 3 if needed.
           </p>
+        </div>
+      )}
+
+      {/* Phase 4: Fallback model warning for image-only models */}
+      {isImageOnlyModel && rowsWithoutImage.length > 0 && fallbackModel && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-4">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Automatic fallback enabled
+              </p>
+              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                {selectedModel?.label} requires avatar images. {rowsWithoutImage.length} row(s) without images will automatically use {fallbackModel.label} instead.
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                {rowsWithImage} rows with {selectedModel?.label} • {rowsWithoutImage.length} rows with {fallbackModel.label}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

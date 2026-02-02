@@ -15,7 +15,8 @@ import FormTips from "./FormTips";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCredits } from "@/hooks/useCredits";
 import { checkCredits, reserveCredits } from "@/lib/billing/credits";
-import { estimateCreditsForRenderedMinutes, estimateCreditsForSegments, PRICE_PER_CREDIT, calculateCreditPrice } from "@/lib/billing/pricing";
+import { estimateCreditsForModel, estimateCreditsForRenderedMinutes, PRICE_PER_CREDIT, calculateCreditPrice } from "@/lib/billing/pricing";
+import { getSupportedStudioModels } from "@/lib/video-models";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface VideoGeneratorFormProps {
@@ -101,6 +102,15 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
     setGenerationMode(mode);
     if (mode === 'text') {
       setSelectedPhotoId(null);
+      // Text mode: Sora2/Kling don't support text-to-video, switch to Veo
+      const soraKlingModels = ['sora2_pro_720', 'sora2_pro_1080', 'kling_2_6'];
+      if (soraKlingModels.includes(formData.model)) {
+        setFormData((prev) => ({ ...prev, model: 'veo3_fast' }));
+      }
+    }
+    // Image mode (REFERENCE_2_VIDEO): veo3 Quality doesn't support image mode
+    if (mode === 'image' && formData.model === 'veo3') {
+      setFormData((prev) => ({ ...prev, model: 'veo3_fast' }));
     }
   };
 
@@ -252,14 +262,13 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
       return;
     }
 
-    // Credit model: 1 segment/scene (~8s) = 1 credit
     const segmentCount = scenePrompts.length;
     const estimatedRenderedMinutes = (segmentCount * 8) / 60; // for reporting only
-    const requiredCredits = estimateCreditsForSegments(segmentCount);
+    const requiredCredits = estimateCreditsForModel(segmentCount, formData.model);
 
     // Check credits before starting
     try {
-      const creditCheck = await checkCredits(estimatedRenderedMinutes);
+      const creditCheck = await checkCredits(estimatedRenderedMinutes, { requiredCredits });
       
       if (!creditCheck.hasCredits) {
         const estimatedCost = calculateCreditPrice(requiredCredits);
@@ -302,6 +311,86 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
         }
       }
 
+      const isSora2 = ['sora2_pro_720', 'sora2_pro_1080'].includes(formData.model);
+      const isKling = formData.model === 'kling_2_6';
+      const useSora2OrKlingFlow = isSora2 || isKling;
+
+      // Sora2/Kling: backend creates generation and reserves credits
+      if (useSora2OrKlingFlow && generationMode === 'image') {
+        if (!imageUrl) throw new Error('Image required for Sora 2 and Kling models');
+        let body: Record<string, unknown>;
+        if (isSora2) {
+          body = {
+            user_id: userId,
+            image_url: imageUrl,
+            scene_prompts: scenePrompts,
+            industry: formData.industry,
+            avatar_name: formData.avatarName,
+            city: formData.city,
+            story_idea: formData.storyIdea,
+            aspect_ratio: formData.aspectRatio,
+            watermark: formData.watermark || '',
+            duration: 10,
+            model: formData.model,
+          };
+        } else {
+          body = {
+            user_id: userId,
+            image_url: imageUrl,
+            prompt: scenePrompts[0].prompt,
+            script: scenePrompts[0].script || '',
+            industry: formData.industry,
+            avatar_name: formData.avatarName,
+            city: formData.city,
+            story_idea: formData.storyIdea,
+            aspect_ratio: formData.aspectRatio,
+            watermark: formData.watermark || '',
+            model: formData.model,
+          };
+        }
+        const { data: generateData, error: generateError } = await supabase.functions.invoke('video-generate', {
+          body,
+        });
+        if (generateError || !generateData?.success) {
+          const errorType = generateData?.error_type;
+          const errorMessage = generateData?.error || 'Failed to start video generation';
+          const userAction = generateData?.user_action;
+          toast({
+            title: getErrorTitle(errorType),
+            description: (
+              <div className="space-y-2">
+                <p>{errorMessage}</p>
+                {userAction && <p className="text-xs font-semibold mt-2">💡 {userAction}</p>}
+              </div>
+            ),
+            variant: "destructive",
+            duration: 8000,
+          });
+          throw new Error(errorMessage);
+        }
+        toast({
+          title: "🎬 Video Generation Started!",
+          description: isKling
+            ? "Your video is being generated. Track progress on your Dashboard."
+            : `Generating ${scenePrompts.length} scenes. Track progress on your Dashboard.`,
+        });
+        setSelectedAvatarId(null);
+        setSelectedPhotoId(null);
+        setFormData({
+          industry: "",
+          avatarName: "",
+          avatarDescription: "",
+          city: "",
+          storyIdea: "",
+          model: "veo3_fast",
+          aspectRatio: "16:9",
+          watermark: "",
+          numberOfScenes: 3,
+        });
+        setScenePrompts([]);
+        return;
+      }
+
       const isMultiScene = scenePrompts.length > 1;
       const generationType = generationMode === 'image' ? 'REFERENCE_2_VIDEO' : 'TEXT_2_VIDEO';
 
@@ -331,12 +420,13 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
         throw new Error('Failed to create generation record');
       }
 
-      // Reserve credits for this generation
+      // Reserve credits for this generation (model-specific)
       const reserveResult = await reserveCredits(
         generation.id,
         'kie',
         estimatedRenderedMinutes,
-        { scene_count: scenePrompts.length }
+        { scene_count: scenePrompts.length, model: formData.model },
+        { requiredCredits }
       );
 
       if (!reserveResult.success) {
@@ -352,7 +442,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
         ? `${firstScenePrompt}\n\nAVATAR DIALOGUE: The person speaks these words: "${firstSceneScript}"`
         : firstScenePrompt;
 
-      const { data: generateData, error: generateError } = await supabase.functions.invoke('kie-generate-video', {
+      const { data: generateData, error: generateError } = await supabase.functions.invoke('video-generate', {
         body: {
           generation_id: generation.id,
           prompt: enhancedPrompt,
@@ -473,31 +563,56 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
             </RadioGroup>
           </div>
 
-          {/* Video format - 16:9 or 9:16 */}
-          <div className="space-y-2 rounded-lg border p-4 bg-muted/30 max-w-xs">
-            <Label htmlFor="aspectRatio">Video format</Label>
-            <Select
-              value={formData.aspectRatio}
-              onValueChange={(value) => setFormData({ ...formData, aspectRatio: value })}
-            >
-              <SelectTrigger id="aspectRatio">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="16:9">16:9 (Landscape - YouTube, TV)</SelectItem>
-                <SelectItem value="9:16">9:16 (Portrait - TikTok, Reels)</SelectItem>
-                {generationMode === 'text' && (
-                  <SelectItem value="Auto">Auto (Based on content)</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {formData.aspectRatio === '9:16'
-                ? 'Portrait for TikTok, Instagram Reels, Stories.'
-                : formData.aspectRatio === '16:9'
-                  ? 'Landscape for YouTube, presentations.'
-                  : 'Aspect ratio chosen based on content.'}
-            </p>
+          {/* Video model + format */}
+          <div className="flex flex-wrap gap-4">
+            <div className="space-y-2 rounded-lg border p-4 bg-muted/30 max-w-xs">
+              <Label htmlFor="model">Video model</Label>
+              <Select
+                value={formData.model}
+                onValueChange={(value) => setFormData({ ...formData, model: value })}
+              >
+                <SelectTrigger id="model">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {getSupportedStudioModels(generationMode === 'image').map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.label} ({m.creditsPerSegment} credit{m.creditsPerSegment !== 1 ? 's' : ''}/scene)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {generationMode === 'image'
+                  ? 'Image mode uses Veo 3.1 Fast only.'
+                  : 'Quality model costs more per scene.'}
+              </p>
+            </div>
+            <div className="space-y-2 rounded-lg border p-4 bg-muted/30 max-w-xs">
+              <Label htmlFor="aspectRatio">Video format</Label>
+              <Select
+                value={formData.aspectRatio}
+                onValueChange={(value) => setFormData({ ...formData, aspectRatio: value })}
+              >
+                <SelectTrigger id="aspectRatio">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="16:9">16:9 (Landscape - YouTube, TV)</SelectItem>
+                  <SelectItem value="9:16">9:16 (Portrait - TikTok, Reels)</SelectItem>
+                  {generationMode === 'text' && (
+                    <SelectItem value="Auto">Auto (Based on content)</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {formData.aspectRatio === '9:16'
+                  ? 'Portrait for TikTok, Instagram Reels, Stories.'
+                  : formData.aspectRatio === '16:9'
+                    ? 'Landscape for YouTube, presentations.'
+                    : 'Aspect ratio chosen based on content.'}
+              </p>
+            </div>
           </div>
 
           {/* Use existing avatar - optional; when selected, name + (in image mode) image come from avatar */}
@@ -646,22 +761,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
           </div>
 
           {/* Video Settings */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="model">Video Model</Label>
-              <Select
-                value={formData.model}
-                onValueChange={(value) => setFormData({ ...formData, model: value })}
-              >
-                <SelectTrigger id="model">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="veo3_fast">Veo Fast (Image-to-Video)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="watermark">Watermark (Optional)</Label>
               <Input
@@ -788,8 +888,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
                 <div className="space-y-2">
                   {(() => {
                     const segmentCount = scenePrompts.length;
-                    const estimatedRenderedMinutes = (segmentCount * 8) / 60;
-                    const requiredCredits = estimateCreditsForSegments(segmentCount);
+                    const requiredCredits = estimateCreditsForModel(segmentCount, formData.model);
                     const estimatedCost = calculateCreditPrice(requiredCredits);
                     const hasEnough = balance && hasCredits(requiredCredits);
                     
@@ -840,7 +939,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
               
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating || (scenePrompts.length > 0 && balance && !hasCredits(estimateCreditsForRenderedMinutes((scenePrompts.length * 8) / 60)))}
+                disabled={isGenerating || (scenePrompts.length > 0 && balance && !hasCredits(estimateCreditsForModel(scenePrompts.length, formData.model)))}
                 className="w-full"
                 size="lg"
               >

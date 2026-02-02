@@ -24,7 +24,7 @@ export default function BulkWizard() {
   const [userId, setUserId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [strategy, setStrategy] = useState<StrategyChoice>(null);
-  const [step2Config, setStep2Config] = useState<Step2Config>({ sceneCount: 3, aspectRatio: "16:9" });
+  const [step2Config, setStep2Config] = useState<Step2Config>({ sceneCount: 3, aspectRatio: "16:9", model: "veo3_fast" });
   const [campaignData, setCampaignData] = useState<BatchRow[]>([]);
   const [avatars, setAvatars] = useState<AvatarOption[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -103,7 +103,7 @@ export default function BulkWizard() {
           imageUrl: null,
           industry: "General",
           city: "N/A",
-          model: "veo3_fast",
+          model: step2Config.model ?? "veo3_fast",
           aspectRatio: step2Config.aspectRatio ?? "16:9",
           numberOfScenes: sceneCount,
           generationType: "TEXT_2_VIDEO",
@@ -214,6 +214,7 @@ export default function BulkWizard() {
               onLaunch={handleLaunch}
               isSubmitting={isSubmitting}
               sceneCount={sceneCount}
+              model={step2Config.model ?? "veo3_fast"}
             />
           )}
         </AnimatePresence>

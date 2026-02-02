@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY") ?? ""
     );
 
     // Get user from auth header (optional - if not provided, charge for all users)
@@ -39,7 +39,7 @@ serve(async (req) => {
     // This ensures we catch videos that have segments/URLs even if status isn't set correctly
     let query = supabase
       .from("kie_video_generations")
-      .select("id, user_id, initial_status, extended_status, number_of_scenes, video_segments, final_video_url, initial_video_url, extended_video_url, created_at")
+      .select("id, user_id, model, initial_status, extended_status, number_of_scenes, video_segments, final_video_url, initial_video_url, extended_video_url, created_at")
       .order("created_at", { ascending: false })
       .limit(200);
 
@@ -152,9 +152,18 @@ serve(async (req) => {
         // Ensure at least 1 scene
         scenesCompleted = Math.max(1, scenesCompleted);
 
-        // Credit model: 1 segment/scene (~8s) = 1 credit
+        // Model-aware credits (must match src/lib/video-models.ts)
+        const creditsPerSegment: Record<string, number> = {
+          veo3_fast: 1,
+          veo3: 3,
+          sora2_pro_720: 1,
+          sora2_pro_1080: 2,
+          kling_2_6: 2,
+        };
+        const modelId = (gen.model as string) || "veo3_fast";
+        const rate = creditsPerSegment[modelId] ?? 1;
         const actualRenderedMinutes = (scenesCompleted * 8) / 60;
-        const actualCredits = scenesCompleted;
+        const actualCredits = Math.max(1, Math.ceil(scenesCompleted * rate));
 
         console.log(`🎬 Generation ${gen.id.substring(0, 8)}...`);
         console.log(`   Status: initial=${gen.initial_status}, extended=${gen.extended_status}`);

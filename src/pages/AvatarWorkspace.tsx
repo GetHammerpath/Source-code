@@ -205,7 +205,7 @@ export default function AvatarWorkspace() {
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       if (!supabaseUrl || !anonKey) throw new Error("Missing Supabase config");
 
-      const res = await fetch(`${supabaseUrl}/functions/v1/kie-generate-video`, {
+      const res = await fetch(`${supabaseUrl}/functions/v1/video-generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -216,6 +216,7 @@ export default function AvatarWorkspace() {
           generation_id: genRow.id,
           prompt: promptText,
           image_url: "text-to-video",
+          model: "veo3_fast",
           avatar_name: avatar.name,
           industry: "avatar",
           script: scriptPrompt.trim(),

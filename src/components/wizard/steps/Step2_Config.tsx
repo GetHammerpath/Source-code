@@ -14,6 +14,7 @@ import type { BatchRow } from "@/types/bulk";
 import { createEmptyRow, setSegments, setVisualSegments, SCENE_COUNT_MIN, SCENE_COUNT_MAX } from "@/types/bulk";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSupportedBulkModels, getVideoModel } from "@/lib/video-models";
 
 function uuid(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -46,6 +47,7 @@ export interface Step2Config {
   spinnerSceneCount?: number;
   sceneCount?: number; // shared, used by Workbench and Launch
   aspectRatio?: "16:9" | "9:16";
+  model?: string;
 }
 
 const FIRST_MAX_WORDS = 20;  // 8 sec
@@ -621,24 +623,65 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
         </div>
       )}
 
-      {/* Shared: Video format - applies to all strategies */}
-      <div className="space-y-2 rounded-lg border p-4 bg-muted/30 max-w-xs">
-        <Label>Video format</Label>
-        <Select
-          value={config.aspectRatio ?? "16:9"}
-          onValueChange={(v: "16:9" | "9:16") => onConfigChange({ aspectRatio: v })}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="16:9">16:9 (Landscape - YouTube, TV)</SelectItem>
-            <SelectItem value="9:16">9:16 (Portrait - TikTok, Reels)</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          {config.aspectRatio === "9:16" ? "Portrait for TikTok, Instagram Reels, Stories" : "Landscape for YouTube, presentations"}
-        </p>
+      {/* Shared: Video model + format - applies to all strategies */}
+      <div className="flex flex-wrap gap-4">
+        <div className="space-y-2 rounded-lg border p-4 bg-muted/30 max-w-xs">
+          <Label>Video model</Label>
+          <Select
+            value={config.model ?? "veo3_fast"}
+            onValueChange={(v) => onConfigChange({ model: v })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {getSupportedBulkModels().map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.label} ({m.creditsPerSegment} credit{m.creditsPerSegment !== 1 ? "s" : ""}/scene)
+                  {!m.supportsText2Video && " - Image only"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Phase 4: Warning for image-only models */}
+          {(() => {
+            const selectedModel = getVideoModel(config.model ?? "veo3_fast");
+            if (selectedModel && !selectedModel.supportsText2Video) {
+              return (
+                <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-3 py-2 text-xs">
+                  <p className="font-medium text-amber-800 dark:text-amber-200">
+                    {selectedModel.label} requires image input
+                  </p>
+                  <p className="text-amber-700 dark:text-amber-300 mt-0.5">
+                    Each row must have an avatar_id or image_url. Rows without images will use fallback model (Veo).
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
+          <p className="text-xs text-muted-foreground">
+            Quality model costs more per scene.
+          </p>
+        </div>
+        <div className="space-y-2 rounded-lg border p-4 bg-muted/30 max-w-xs">
+          <Label>Video format</Label>
+          <Select
+            value={config.aspectRatio ?? "16:9"}
+            onValueChange={(v: "16:9" | "9:16") => onConfigChange({ aspectRatio: v })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="16:9">16:9 (Landscape - YouTube, TV)</SelectItem>
+              <SelectItem value="9:16">9:16 (Portrait - TikTok, Reels)</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {config.aspectRatio === "9:16" ? "Portrait for TikTok, Instagram Reels, Stories" : "Landscape for YouTube, presentations"}
+          </p>
+        </div>
       </div>
     </motion.div>
   );

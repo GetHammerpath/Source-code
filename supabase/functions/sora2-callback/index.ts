@@ -6,15 +6,42 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Phase 4: Fallback model chain (primary -> fallback)
+const FALLBACK_MODELS: Record<string, string> = {
+  sora2_pro_720: "veo3_fast",
+  sora2_pro_1080: "sora2_pro_720",
+};
+
+// Phase 4: Error types that should trigger fallback
+const FALLBACK_ERROR_PATTERNS = [
+  'CONTENT_POLICY',
+  'rate limit',
+  'too many requests',
+  'provider error',
+  'model unavailable',
+];
+
+// Phase 4: Check if error should trigger fallback
+function shouldTriggerFallback(errorMessage: string): { should: boolean; reason: string } {
+  const lowerError = errorMessage.toLowerCase();
+  for (const pattern of FALLBACK_ERROR_PATTERNS) {
+    if (lowerError.includes(pattern.toLowerCase())) {
+      return { should: true, reason: pattern.replace(/ /g, '_').toLowerCase() };
+    }
+  }
+  return { should: false, reason: '' };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      serviceKey
     );
 
     const payload = await req.json();
@@ -104,7 +131,42 @@ serve(async (req) => {
         ];
       }
       if (errorMessage || successFlag !== 1) {
-        updates.initial_error = `Scene 1 failed: ${errorMessage || 'Unknown error'}`;
+        const errorDetail = errorMessage || 'Unknown error';
+        
+        // Phase 4: Check if we should trigger fallback
+        const currentModel = generation.model || 'sora2_pro_720';
+        const retryCount = generation.retry_count || 0;
+        const { should: shouldFallbackCheck, reason: fallbackReason } = shouldTriggerFallback(errorDetail);
+        const fallbackModel = FALLBACK_MODELS[currentModel];
+        
+        if (shouldFallbackCheck && fallbackModel && retryCount < 2) {
+          console.log(`🔄 Phase 4: Triggering Sora2 fallback from ${currentModel} to ${fallbackModel}`);
+          updates.fallback_model = fallbackModel;
+          updates.fallback_reason = fallbackReason;
+          updates.retry_count = retryCount + 1;
+          updates.original_model = generation.original_model || currentModel;
+          updates.initial_status = 'retrying';
+          updates.initial_error = `Retrying with ${fallbackModel} (${fallbackReason})`;
+          
+          // Trigger fallback after update
+          fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/video-generate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify({
+              generation_id: generation.id,
+              model: fallbackModel,
+              prompt: generation.ai_prompt || generation.scene_prompts?.[0]?.prompt || '',
+              image_url: generation.image_url,
+              aspect_ratio: generation.aspect_ratio || '16:9',
+              is_fallback_retry: true,
+            }),
+          }).catch(err => console.error('❌ Fallback retry error:', err));
+        } else {
+          updates.initial_error = `Scene 1 failed: ${errorDetail}`;
+        }
       }
     } else if (isExtended) {
       updates.extended_status = status;
@@ -190,7 +252,7 @@ serve(async (req) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+              'Authorization': `Bearer ${serviceKey}`
             },
             body: JSON.stringify({
               generation_id: generation.id,
@@ -217,15 +279,81 @@ serve(async (req) => {
           }
         }
       } else if (newSegmentsCount >= numberOfScenes) {
-        // All scenes complete - trigger stitching
-        console.log(`🎉 All ${numberOfScenes} scenes complete! Triggering video combine...`);
+        // All scenes complete - charge credits and trigger stitching
+        console.log(`🎉 All ${numberOfScenes} scenes complete! Charging credits and triggering video combine...`);
         console.log(`📹 Video segments:`, JSON.stringify(updates.video_segments, null, 2));
+
+        // Charge credits (idempotent - skip if already charged)
+        try {
+          const { data: existingTx } = await supabase
+            .from('credit_transactions')
+            .select('id, amount')
+            .eq('type', 'debit')
+            .eq('metadata->>generation_id', generation.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (!existingTx?.length) {
+            const { data: videoJob } = await supabase
+              .from('video_jobs')
+              .select('*')
+              .eq('generation_id', generation.id)
+              .eq('status', 'pending')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            const creditsPerSegment: Record<string, number> = {
+              sora2_pro_720: 1,
+              sora2_pro_1080: 2,
+            };
+            const modelId = (generation.model as string) || 'sora2_pro_720';
+            const rate = creditsPerSegment[modelId] ?? 1;
+            const actualCredits = videoJob?.credits_reserved ?? videoJob?.estimated_credits ?? Math.ceil(numberOfScenes * rate);
+            const actualRenderedMinutes = videoJob?.estimated_minutes ?? (numberOfScenes * (generation.duration || 10)) / 60;
+
+            if (actualCredits > 0) {
+              const { data: balance } = await supabase
+                .from('credit_balance')
+                .select('credits')
+                .eq('user_id', generation.user_id)
+                .single();
+              const currentBalance = balance?.credits ?? 0;
+              const newBalance = Math.max(0, currentBalance - actualCredits);
+
+              await supabase.from('credit_balance').update({ credits: newBalance }).eq('user_id', generation.user_id);
+              await supabase.from('credit_transactions').insert({
+                user_id: generation.user_id,
+                type: 'debit',
+                amount: -actualCredits,
+                balance_after: newBalance,
+                metadata: {
+                  job_id: videoJob?.id,
+                  generation_id: generation.id,
+                  actual_minutes: actualRenderedMinutes,
+                  scenes_completed: numberOfScenes,
+                },
+              });
+              if (videoJob?.id) {
+                await supabase.from('video_jobs').update({
+                  status: 'completed',
+                  credits_charged: actualCredits,
+                  credits_reserved: 0,
+                  completed_at: new Date().toISOString(),
+                }).eq('id', videoJob.id);
+              }
+              console.log(`✅ Charged ${actualCredits} credits for Sora2 generation`);
+            }
+          }
+        } catch (creditErr) {
+          console.error('❌ Error charging Sora2 credits:', creditErr);
+        }
 
         const stitchResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/cloudinary-stitch-videos`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+            'Authorization': `Bearer ${serviceKey}`
           },
           body: JSON.stringify({
             generation_id: generation.id,

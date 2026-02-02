@@ -6,15 +6,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Phase 4: Fallback model chain (primary -> fallback)
+const FALLBACK_MODELS: Record<string, string> = {
+  veo3_fast: "sora2_pro_720",
+  veo3: "veo3_fast",
+  sora2_pro_720: "veo3_fast",
+  sora2_pro_1080: "sora2_pro_720",
+  kling_2_6: "veo3_fast",
+};
+
+// Phase 4: Error types that should trigger fallback
+const FALLBACK_ERROR_PATTERNS = [
+  'CONTENT_POLICY',
+  'AUDIO_FILTERED',
+  'IP_INPUT_IMAGE',
+  'rate limit',
+  'too many requests',
+  'provider error',
+  'model unavailable',
+];
+
+// Phase 4: Check if error should trigger fallback
+function shouldTriggerFallback(errorMessage: string): { should: boolean; reason: string } {
+  const lowerError = errorMessage.toLowerCase();
+  for (const pattern of FALLBACK_ERROR_PATTERNS) {
+    if (lowerError.includes(pattern.toLowerCase())) {
+      return { should: true, reason: pattern.replace(/ /g, '_').toLowerCase() };
+    }
+  }
+  return { should: false, reason: '' };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      serviceKey
     );
 
     const payload = await req.json();
@@ -102,14 +134,65 @@ serve(async (req) => {
         } else if (errorDetail.includes('IP_INPUT_IMAGE')) {
           userMessage = 'Input image was rejected by KIE (IP policy). Use a photo you own, or generate without a reference image (text-to-video).';
         }
-        updates.initial_error = `Generation failed at Kie.ai: ${userMessage}`;
+        
+        // Phase 4: Check if we should trigger fallback
+        const currentModel = generation.model || 'veo3_fast';
+        const retryCount = generation.retry_count || 0;
+        const { should: shouldFallback, reason: fallbackReason } = shouldTriggerFallback(errorDetail);
+        const fallbackModel = FALLBACK_MODELS[currentModel];
+        
+        if (shouldFallback && fallbackModel && retryCount < 2) {
+          console.log(`🔄 Phase 4: Triggering fallback from ${currentModel} to ${fallbackModel} (reason: ${fallbackReason})`);
+          
+          // Update generation with fallback info
+          updates.fallback_model = fallbackModel;
+          updates.fallback_reason = fallbackReason;
+          updates.retry_count = retryCount + 1;
+          updates.original_model = generation.original_model || currentModel;
+          updates.initial_status = 'retrying';
+          updates.initial_error = `Retrying with ${fallbackModel} (${fallbackReason})`;
+          
+          // Trigger fallback generation after updating the record
+          const retryBody = {
+            generation_id: generation.id,
+            model: fallbackModel,
+            prompt: generation.ai_prompt || generation.scene_prompts?.[0]?.prompt || '',
+            image_url: generation.image_url,
+            aspect_ratio: generation.aspect_ratio || '16:9',
+            is_fallback_retry: true,
+            original_model: generation.original_model || currentModel,
+            fallback_reason: fallbackReason,
+          };
+          
+          // Schedule the retry (don't await to avoid callback timeout)
+          fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/video-generate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify(retryBody),
+          }).then(async (retryRes) => {
+            if (!retryRes.ok) {
+              console.error('❌ Fallback retry failed:', await retryRes.text());
+            } else {
+              console.log('✅ Fallback retry triggered successfully');
+            }
+          }).catch(err => {
+            console.error('❌ Fallback retry error:', err);
+          });
+        } else {
+          updates.initial_error = `Generation failed at Kie.ai: ${userMessage}`;
+          updates.initial_status = 'failed';
+        }
+        
         console.error('❌ Initial generation failed:', {
           taskId,
           generation_id: generation.id,
           errorMessage: errorDetail,
-          successFlag
+          successFlag,
+          willFallback: shouldFallback && !!fallbackModel && retryCount < 2,
         });
-        updates.initial_status = 'failed';
       }
     } else if (isExtended) {
       if (isSuccess && videoUrl) {
@@ -147,7 +230,32 @@ serve(async (req) => {
         } else if (errorDetail.includes('IP_INPUT_IMAGE')) {
           userMessage = 'Input image was rejected by KIE (IP policy). Use a photo you own, or generate without a reference image (text-to-video).';
         }
-        updates.extended_error = `Scene ${generation.current_scene}: Generation failed at Kie.ai: ${userMessage}`;
+        
+        // Phase 4: Check if we should trigger fallback for extended scene
+        const currentModel = generation.model || 'veo3_fast';
+        const retryCount = generation.retry_count || 0;
+        const { should: shouldFallback, reason: fallbackReason } = shouldTriggerFallback(errorDetail);
+        const fallbackModel = FALLBACK_MODELS[currentModel];
+        
+        if (shouldFallback && fallbackModel && retryCount < 2) {
+          console.log(`🔄 Phase 4: Triggering fallback for extended scene from ${currentModel} to ${fallbackModel}`);
+          updates.fallback_model = fallbackModel;
+          updates.fallback_reason = fallbackReason;
+          updates.retry_count = retryCount + 1;
+          updates.original_model = generation.original_model || currentModel;
+          updates.extended_status = 'retrying';
+          updates.extended_error = `Retrying scene ${generation.current_scene} with ${fallbackModel}`;
+          
+          // For extended scenes, we'd need to restart from the previous video
+          // This is more complex - for now just mark as failed but log the fallback intent
+          console.warn('⚠️ Extended scene fallback not fully implemented - marking as failed');
+          updates.extended_status = 'failed';
+          updates.extended_error = `Scene ${generation.current_scene}: Failed (${fallbackReason}). Consider restarting with ${fallbackModel}.`;
+        } else {
+          updates.extended_error = `Scene ${generation.current_scene}: Generation failed at Kie.ai: ${userMessage}`;
+          updates.extended_status = 'failed';
+        }
+        
         console.error('❌ Extended generation failed:', {
           taskId,
           generation_id: generation.id,
@@ -155,7 +263,6 @@ serve(async (req) => {
           errorMessage: errorDetail,
           successFlag
         });
-        updates.extended_status = 'failed';
       }
     }
 
@@ -363,11 +470,12 @@ serve(async (req) => {
           }
           
           // Auto-trigger combine (Cloudinary stitch)
+          const stitchServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY');
           const stitchResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/cloudinary-stitch-videos`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+              'Authorization': `Bearer ${stitchServiceKey}`
             },
             body: JSON.stringify({
               generation_id: generation.id,
@@ -513,15 +621,17 @@ serve(async (req) => {
           }
         }
         
-        // Auto-trigger first extend only
-        if (isInitial && (currentSegments.length === 0 || (currentSegments.length === 1 && currentSegments[0].type === 'initial'))) {
+        // Auto-trigger first extend only (skip for Kling - single scene is final)
+        const isKling = generation.model === 'kling_2_6';
+        if (!isKling && isInitial && (currentSegments.length === 0 || (currentSegments.length === 1 && currentSegments[0].type === 'initial'))) {
           console.log('✅ Initial video completed, auto-triggering FIRST extend...');
           
+          const extendServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY');
           const extendResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/kie-extend-video`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+              'Authorization': `Bearer ${extendServiceKey}`
             },
             body: JSON.stringify({
               generation_id: generation.id,

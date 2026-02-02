@@ -7,17 +7,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const ALLOWED_TABLES = ["kie_video_generations", "runway_extend_generations"];
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   let generation_id: string | null = null;
+  let tableNameForError = "kie_video_generations";
 
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
     );
 
     let body: any;
@@ -46,6 +49,19 @@ serve(async (req) => {
 
     const trim = body.trim ?? false;
     const trimSeconds = body.trim_seconds ?? 1;
+    const tableName = (body.table_name as string) || "kie_video_generations";
+    tableNameForError = tableName;
+
+    // Validate table - only allow known generation tables
+    if (!ALLOWED_TABLES.includes(tableName)) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: `Invalid table_name. Must be one of: ${ALLOWED_TABLES.join(", ")}`
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
 
     // Validate trim_seconds is within reasonable range
     if (trim && (trimSeconds < 0.1 || trimSeconds > 5)) {
@@ -65,7 +81,7 @@ serve(async (req) => {
 
     // Get generation record
     const { data: generation, error: fetchError } = await supabase
-      .from('kie_video_generations')
+      .from(tableName)
       .select('*')
       .eq('id', generation_id)
       .single();
@@ -78,6 +94,30 @@ serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    }
+
+    // Verify ownership when called with user JWT (not service role from kie-callback)
+    const authHeader = req.headers.get("Authorization");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY") ?? "";
+    const bearer = authHeader?.replace(/^Bearer\s+/i, "")?.trim() ?? "";
+    const isServiceRole = !!serviceKey && bearer === serviceKey;
+    if (authHeader && !isServiceRole) {
+      const supabaseAuth = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: { user } } = await supabaseAuth.auth.getUser();
+      const genUserId = generation.user_id;
+      if (user && genUserId && genUserId !== user.id) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Not authorized to stitch this video"
+        }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
     }
 
     // Validate segments
@@ -348,7 +388,7 @@ serve(async (req) => {
 
       // Update database with final video URL
       const { error: updateError } = await supabase
-        .from('kie_video_generations')
+        .from(tableName)
         .update({
           final_video_url: finalVideoUrl,
           final_video_status: 'completed',
@@ -410,11 +450,11 @@ serve(async (req) => {
       try {
         const supabase = createClient(
           Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
         );
-        
+        const errTable = ALLOWED_TABLES.includes(tableNameForError) ? tableNameForError : "kie_video_generations";
         await supabase
-          .from('kie_video_generations')
+          .from(errTable)
           .update({
             final_video_status: 'failed',
             final_video_error: errorMessage

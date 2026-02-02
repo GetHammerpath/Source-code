@@ -1,86 +1,80 @@
-# Edge Functions Review
+# Edge Functions Review – Summary
 
-**Review date:** February 2026  
-**Total functions:** 46
+**Date:** 2025-01-29
 
----
+## Overview
 
-## Summary
-
-| Category | Count | Status |
-|----------|-------|--------|
-| Admin | 7 | ✅ All verify admin role, use service role for DB |
-| Video (KIE) | 6 | ✅ Proper auth, callbacks verify_jwt=false |
-| Video (Sora/Sora2) | 6 | ✅ Consistent patterns |
-| Video (Runway) | 4 | ✅ |
-| Bulk / Batch | 4 | ✅ Ownership checks added for retry/resume |
-| Cloudinary | 2 | ✅ Stitch batch verifies ownership |
-| Stripe / Billing | 4 | ✅ Webhook verifies signature |
-| Other | 13 | ✅ |
+All 45 edge functions were reviewed. The following changes were applied.
 
 ---
 
 ## Fixes Applied
 
-### 1. `create-checkout-session` – Service key env
-- **Issue:** Used `SERVICE_ROLE_KEY` while Supabase provides `SUPABASE_SERVICE_ROLE_KEY`
-- **Fix:** Accept both; prefer `SUPABASE_SERVICE_ROLE_KEY`
+### 1. `SERVICE_ROLE_KEY` fallback
 
-### 2. `retry-failed-generations` – Ownership
-- **Issue:** No check that the JWT user owns the batch
-- **Fix:** Ownership check added; 403 if batch belongs to another user
+Functions that only used `SUPABASE_SERVICE_ROLE_KEY` now also check `SERVICE_ROLE_KEY` (e.g. for Supabase projects that use the latter):
 
-### 3. `resume-bulk-batch` – Ownership
-- **Issue:** No ownership check
-- **Fix:** Same ownership check added
+- `bulk-generate-videos`
+- `smart-bulk-generate`
+- `resume-bulk-batch`
+- `retry-failed-generations`
+- `kie-retry-generation`
+- `retroactively-charge-credits`
+- `stripe-webhook`
+- `kie-generate-video`
+- `kie-extend-video`
+- `kie-extend-next`
+- `cloudinary-stitch-batch`
+- `runway-extend-next`
+- `runway-extend-generate`
+- `runway-extend-callback`
+- `handle-n8n-callback`
+- `sora2-callback`
+- `admin-charge-credits`
 
-### 4. `config.toml` – Missing entries
-- **Fix:** Explicit entries for `retry-failed-generations` and `resume-bulk-batch` with `verify_jwt = true`
+### 2. `SUPABASE_URL` safety
 
----
+Removed `!` non-null assertions and added safe fallbacks where `SUPABASE_URL` was used:
 
-## Auth & Security
+- `runway-extend-callback`
+- `runway-extend-next`
+- `runway-extend-generate`
+- `handle-n8n-callback`
+- `bulk-generate-videos`
 
-### verify_jwt = false (callbacks / webhooks)
-- `kie-callback`, `sora-callback`, `sora2-callback`, `runway-extend-callback` – External callbacks
-- `handle-n8n-callback` – n8n webhook
-- `stripe-webhook` – Stripe webhook (signature verified separately)
-- `analyze-image-kie`, `analyze-image-for-request` – Called by other Edge Functions with service key
-- `cloudinary-stitch-videos` – Called by kie-callback
-- `create-checkout-session` – Manual auth in handler; JWT may be sent by client
+### 3. Admin charge credits – model-aware pricing
 
-### verify_jwt = true (user-facing)
-- Admin, video generation, bulk, billing – Require valid JWT
+`admin-charge-credits` now charges based on the generation’s `model`:
 
----
-
-## Patterns Observed
-
-### Strong
-- CORS headers on all functions
-- OPTIONS preflight handled
-- Error handling with JSON responses
-- Admin functions check `user_roles.role === 'admin'`
-- Callbacks use service role for DB
-- stripe-webhook verifies `stripe-signature` before processing
-
-### Minor / Suggestions
-1. **admin-audit-log** – Uses 400 for server errors; 500 might be more appropriate for DB errors
-2. **admin-force-password-reset** – Uses `resetPasswordForEmail`; correct for sending reset link
-3. **Supabase client versions** – Mix of `@2`, `@2.38.4`; consider standardizing to `@2`
+- Fetches `model` from `kie_video_generations`
+- Uses `creditsPerSegment` (e.g. veo3_fast = 1, veo3 = 3) consistent with `src/lib/video-models.ts`
 
 ---
 
-## Config Coverage
+## Functions Already OK (no changes)
 
-All deployed functions have config entries where needed. Unlisted functions use Supabase defaults (`verify_jwt = true`).
+| Function | Notes |
+|----------|-------|
+| `video-generate` | Phase 2 router; routing and env usage are correct |
+| `kie-generate-video` | Auth, API key resolution, ownership checks OK |
+| `kie-callback` | Service role fallback present; credit charging uses `video_jobs` |
+| `cloudinary-stitch-videos` | Ownership check, dynamic `table_name`, SERVICE_ROLE fallback |
+| `create-checkout-session` | Validates env and auth correctly |
+| `stripe-webhook` | Signature verification and idempotency handled |
+| `retroactively-charge-credits` | Model-aware credits via `creditsPerSegment` |
+| `runway-extend-callback` | Passes `table_name` to cloudinary-stitch-videos |
 
 ---
 
-## Deployment
+## Config Notes
 
-All 46 functions deploy successfully. To redeploy:
+- **verify_jwt**: Callbacks (kie, sora, runway, stripe) have `verify_jwt = false` so webhooks work without a user JWT.
+- **CORS**: All functions return suitable CORS headers for browser requests.
 
-```bash
-npx supabase functions deploy
-```
+---
+
+## Recommended Next Steps
+
+1. Deploy the updated functions to Supabase.
+2. Confirm Supabase secrets include `SUPABASE_SERVICE_ROLE_KEY` or `SERVICE_ROLE_KEY`.
+3. Manually test critical flows: checkout, webhook, video generation, and admin charge credits.

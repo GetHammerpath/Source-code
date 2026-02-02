@@ -13,7 +13,7 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const authHeader = req.headers.get('Authorization');
@@ -184,7 +184,7 @@ serve(async (req) => {
       if (updateError) throw updateError;
 
       // Re-trigger via fetch (server-to-server with service role)
-      const genRes = await fetch(`${supabaseUrl}/functions/v1/kie-generate-video`, {
+      const genRes = await fetch(`${supabaseUrl}/functions/v1/video-generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

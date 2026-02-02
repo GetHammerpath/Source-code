@@ -127,11 +127,11 @@ serve(async (req) => {
     );
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
     );
 
     // Allow service role for server-to-server calls (bulk-generate-videos, kie-retry-generation)
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY');
     const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
     const isServiceRole = !!serviceRoleKey && bearer === serviceRoleKey;
 

@@ -3,6 +3,8 @@
  * Studio Access (subscription) + Credits (pay-as-you-go)
  */
 
+import { getVideoModel } from "@/lib/video-models";
+
 // Base cost from provider (can be overridden via env)
 export const KIE_COST_PER_MINUTE = parseFloat(
   import.meta.env.VITE_KIE_COST_PER_MINUTE || "0.20"
@@ -29,6 +31,16 @@ export const MINUTES_PER_CREDIT = 1 / CREDITS_PER_MINUTE;
  */
 export function estimateCreditsForSegments(segments: number): number {
   return Math.max(0, Math.ceil(segments));
+}
+
+/**
+ * Estimate credits for a given model and segment count.
+ * Uses video-models catalog for model-specific rates.
+ */
+export function estimateCreditsForModel(segments: number, modelId: string): number {
+  const model = getVideoModel(modelId);
+  const rate = model?.creditsPerSegment ?? 1;
+  return Math.max(0, Math.ceil(segments * rate));
 }
 
 // Keep these for reference/analytics (not used for default pricing anymore).
@@ -78,5 +90,13 @@ export function estimateCreditsForRenderedMinutes(renderedMinutes: number): numb
  */
 export function estimateCostForRenderedMinutes(renderedMinutes: number): number {
   const credits = estimateCreditsForRenderedMinutes(renderedMinutes);
+  return calculateCreditPrice(credits);
+}
+
+/**
+ * Estimate cost in dollars for a model and segment count.
+ */
+export function estimateCostForModel(segments: number, modelId: string): number {
+  const credits = estimateCreditsForModel(segments, modelId);
   return calculateCreditPrice(credits);
 }

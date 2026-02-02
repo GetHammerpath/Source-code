@@ -28,7 +28,7 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { batch_id, combinations, base_config } = await req.json() as {
@@ -284,7 +284,7 @@ serve(async (req) => {
 
         console.log(`🎥 [Smart Bulk] Starting video generation for ${genRecord.id}...`);
 
-        const generateResponse = await fetch(`${supabaseUrl}/functions/v1/kie-generate-video`, {
+        const generateResponse = await fetch(`${supabaseUrl}/functions/v1/video-generate`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

@@ -35,8 +35,8 @@ serve(async (req) => {
 
     console.log('Extending video for scene:', scene_number, 'generation:', generation_id);
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? '';
     const kieApiToken = Deno.env.get('KIE_AI_API_TOKEN');
 
     if (!kieApiToken) {

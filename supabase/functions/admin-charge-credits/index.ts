@@ -62,7 +62,7 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY") ?? ""
     );
 
     // Resolve user_id from email if provided
@@ -94,7 +94,7 @@ serve(async (req) => {
     if (body.generation_id) {
       const { data: generation, error: genError } = await supabaseAdmin
         .from("kie_video_generations")
-        .select("id, user_id, number_of_scenes, video_segments")
+        .select("id, user_id, model, number_of_scenes, video_segments")
         .eq("id", body.generation_id)
         .single();
 
@@ -112,11 +112,20 @@ serve(async (req) => {
         );
       }
 
-      // Credit model: 1 segment/scene (~8s) = 1 credit
+      // Model-aware credits (must match src/lib/video-models.ts)
+      const creditsPerSegment: Record<string, number> = {
+        veo3_fast: 1,
+        veo3: 3,
+        sora2_pro_720: 1,
+        sora2_pro_1080: 2,
+        kling_2_6: 2,
+      };
       const segments = Array.isArray(generation.video_segments) ? generation.video_segments : [];
       const scenesCompleted = Math.max(segments.length, generation.number_of_scenes || 1, 1);
+      const modelId = (generation.model as string) || "veo3_fast";
+      const rate = creditsPerSegment[modelId] ?? 1;
       const actualRenderedMinutes = (scenesCompleted * 8) / 60;
-      const actualCredits = scenesCompleted;
+      const actualCredits = Math.max(1, Math.ceil(scenesCompleted * rate));
 
       // Get current balance
       const { data: balance, error: balanceError } = await supabaseAdmin
