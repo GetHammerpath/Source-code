@@ -59,7 +59,7 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
     );
 
     const { generation_id, scene_prompt, scene_script, retry } = await req.json();
@@ -86,7 +86,7 @@ serve(async (req) => {
     const currentScene = generation.current_scene || 1;
     const totalScenes = generation.number_of_scenes || 1;
     const duration = generation.duration || 10;
-    const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/sora2-callback`;
+    const callbackUrl = `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/sora2-callback`;
 
     // Get scene data
     const sceneIndex = currentScene - 1;

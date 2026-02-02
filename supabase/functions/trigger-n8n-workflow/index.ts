@@ -19,7 +19,7 @@ serve(async (req) => {
     console.log('Triggering n8n workflow for request:', requestData.request_id);
 
     // Prepare callback URL for n8n to send results back
-    const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/handle-n8n-callback`;
+    const callbackUrl = `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/handle-n8n-callback`;
     
     // Send data to n8n webhook
     const response = await fetch(N8N_WEBHOOK_URL, {

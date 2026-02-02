@@ -26,7 +26,7 @@ serve(async (req) => {
     }
 
     // Allow service role key for server-to-server calls (e.g. from bulk-generate-videos)
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY');
     const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
     const isServiceRole = !!serviceRoleKey && bearer === serviceRoleKey;
 

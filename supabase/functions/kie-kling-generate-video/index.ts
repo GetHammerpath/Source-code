@@ -131,7 +131,7 @@ serve(async (req) => {
       );
     }
 
-    const callbackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback`;
+    const callbackUrl = `${Deno.env.get("SUPABASE_URL") ?? ""}/functions/v1/kie-callback`;
 
     // Kling 2.6: duration 5 or 10 seconds
     const duration = "10";

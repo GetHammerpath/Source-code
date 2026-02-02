@@ -301,7 +301,7 @@ Original context: "${promptContext}..."
       taskId: lastTaskId,
       prompt: safeExtensionPrompt,
       duration: duration,
-      callBackUrl: `${Deno.env.get('SUPABASE_URL')}/functions/v1/kie-callback`,
+      callBackUrl: `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/kie-callback`,
       watermark: generation.watermark || ''
     };
     if (generation.seeds && generation.seeds >= 10000 && generation.seeds <= 99999) {

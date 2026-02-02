@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
     );
 
     const { generation_id } = await req.json();
@@ -63,7 +63,7 @@ serve(async (req) => {
       throw new Error("KIE_AI_API_TOKEN is not configured");
     }
 
-    const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/sora-callback`;
+    const callbackUrl = `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/sora-callback`;
 
     // Call Kie.ai to generate next scene
     const kieResponse = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {

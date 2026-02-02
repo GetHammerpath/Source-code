@@ -65,7 +65,13 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing Authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -98,7 +104,7 @@ serve(async (req) => {
       throw new Error("KIE_AI_API_TOKEN is not configured");
     }
 
-    const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/sora-callback`;
+    const callbackUrl = `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/sora-callback`;
     
     // Prepare shots array - use provided shots or create single shot from prompt
     // Accept multiple formats: visual_prompt + script, prompt, or Scene (old format)

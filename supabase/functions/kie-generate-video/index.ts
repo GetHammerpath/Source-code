@@ -249,7 +249,7 @@ serve(async (req) => {
     console.log('🎬 Starting Kie.ai video generation:', { generation_id, model, aspect_ratio: aspect_ratio || '16:9', generationType, user_id: user.id });
 
     // Prepare callback URL for Kie.ai to send completion notification
-    const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/kie-callback`;
+    const callbackUrl = `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/kie-callback`;
 
     // Voice identity for natural, non-robotic speech delivery
     const voiceIdentityBlock = `VOICE & SPEECH REQUIREMENTS (CRITICAL FOR NATURAL AUDIO):

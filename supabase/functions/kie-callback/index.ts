@@ -165,7 +165,7 @@ serve(async (req) => {
           };
           
           // Schedule the retry (don't await to avoid callback timeout)
-          fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/video-generate`, {
+          fetch(`${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/video-generate`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -471,7 +471,7 @@ serve(async (req) => {
           
           // Auto-trigger combine (Cloudinary stitch)
           const stitchServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY');
-          const stitchResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/cloudinary-stitch-videos`, {
+          const stitchResponse = await fetch(`${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/cloudinary-stitch-videos`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -627,7 +627,7 @@ serve(async (req) => {
           console.log('✅ Initial video completed, auto-triggering FIRST extend...');
           
           const extendServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY');
-          const extendResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/kie-extend-video`, {
+          const extendResponse = await fetch(`${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/kie-extend-video`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

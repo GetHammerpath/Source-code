@@ -1,10 +1,10 @@
 # Edge Functions Review – Summary
 
-**Date:** 2025-01-29
+**Date:** 2025-01-29 (updated 2026-01-29)
 
 ## Overview
 
-All 45 edge functions were reviewed. The following changes were applied.
+All 49 edge functions were reviewed. The following changes were applied.
 
 ---
 
@@ -31,18 +31,44 @@ Functions that only used `SUPABASE_SERVICE_ROLE_KEY` now also check `SERVICE_ROL
 - `handle-n8n-callback`
 - `sora2-callback`
 - `admin-charge-credits`
+- `analyze-image-kie`
+- `sora2-extend-next`
+- `kie-check-status`
+- `fetch-provider-balances`
+- `deduct-kie-credits`
+- `sync-subscription`
+- `sora-extend-next`
+- `sora-callback`
+- `admin-audit-log`
+- `admin-invalidate-sessions`
+- `admin-toggle-role`
+- `admin-adjust-credits`
+- `admin-force-password-reset`
+- `admin-update-provider-settings`
 
 ### 2. `SUPABASE_URL` safety
 
-Removed `!` non-null assertions and added safe fallbacks where `SUPABASE_URL` was used:
+Removed `!` non-null assertions and added `?? ''` fallbacks where `SUPABASE_URL` was used:
 
+- `smart-bulk-generate` – was `Deno.env.get("SUPABASE_URL")!`
+- `resume-bulk-batch` – was `Deno.env.get("SUPABASE_URL")!`
+- `retry-failed-generations` – was `Deno.env.get("SUPABASE_URL")!`
 - `runway-extend-callback`
 - `runway-extend-next`
 - `runway-extend-generate`
 - `handle-n8n-callback`
 - `bulk-generate-videos`
+- All callback URLs in fetch/template strings now use `?? ''` (kie-callback, sora2-callback, kie-generate-video, kie-extend-video, kie-extend-next, kie-kling-generate-video, sora-generate-video, sora2-generate-video, sora-extend-next, sora2-extend-next, trigger-n8n-workflow)
 
-### 3. Admin charge credits – model-aware pricing
+### 3. `sora-generate-video` – Authorization header
+
+- Replaced `req.headers.get('Authorization')!` with explicit null check and 401 response when missing
+
+### 4. `video-generate` – Unused import
+
+- Removed unused `createClient` import (router only forwards to other functions)
+
+### 5. Admin charge credits – model-aware pricing
 
 `admin-charge-credits` now charges based on the generation’s `model`:
 

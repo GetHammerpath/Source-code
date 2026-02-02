@@ -303,7 +303,7 @@ Voice Delivery Notes:
     // Wrap with content policy disclaimer
     const safeFirstPrompt = `${CONTENT_POLICY_DISCLAIMER}${sanitizedPrompt}`;
     // Build callback URL
-    const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/sora2-callback`;
+    const callbackUrl = `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/sora2-callback`;
 
     // Build request payload for sora-2-pro-image-to-video
     const requestPayload = {

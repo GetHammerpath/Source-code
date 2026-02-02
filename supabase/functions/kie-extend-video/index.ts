@@ -75,7 +75,7 @@ Return ONLY the extension prompt, no other text.`
     console.log('📝 Extension prompt:', extensionPrompt);
 
     // Prepare callback URL
-    const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/kie-callback`;
+    const callbackUrl = `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/kie-callback`;
 
     // Call Kie.ai extend endpoint
     const kieResponse = await fetch('https://api.kie.ai/api/v1/veo/extend', {

@@ -61,7 +61,7 @@ serve(async (req) => {
     // Use service role for insert (bypasses RLS; we've already verified admin)
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
     );
 
     // Create audit log entry (target_id is UUID; non-UUIDs like 'kie'/'global' stored in after_json)

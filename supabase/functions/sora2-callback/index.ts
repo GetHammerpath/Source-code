@@ -149,7 +149,7 @@ serve(async (req) => {
           updates.initial_error = `Retrying with ${fallbackModel} (${fallbackReason})`;
           
           // Trigger fallback after update
-          fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/video-generate`, {
+          fetch(`${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/video-generate`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -248,7 +248,7 @@ serve(async (req) => {
           // Call extend function for next scene
           console.log(`🚀 Calling sora2-extend-next for scene ${nextSceneNumber}...`);
           
-          const extendResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/sora2-extend-next`, {
+          const extendResponse = await fetch(`${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/sora2-extend-next`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -349,7 +349,7 @@ serve(async (req) => {
           console.error('❌ Error charging Sora2 credits:', creditErr);
         }
 
-        const stitchResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/cloudinary-stitch-videos`, {
+        const stitchResponse = await fetch(`${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/cloudinary-stitch-videos`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
