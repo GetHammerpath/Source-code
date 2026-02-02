@@ -12,7 +12,24 @@ serve(async (req) => {
   }
 
   try {
-    const { generation_id, initial_task_id } = await req.json();
+    let body: { generation_id?: string; initial_task_id?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid JSON body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const generation_id = body?.generation_id;
+    const initial_task_id = body?.initial_task_id;
+    if (!generation_id || !initial_task_id) {
+      return new Response(JSON.stringify({ success: false, error: 'generation_id and initial_task_id are required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -21,7 +38,10 @@ serve(async (req) => {
 
     const KIE_AI_TOKEN = Deno.env.get('KIE_AI_API_TOKEN');
     if (!KIE_AI_TOKEN) {
-      throw new Error('KIE_AI_API_TOKEN not configured');
+      return new Response(JSON.stringify({ success: false, error: 'KIE_AI_API_TOKEN not configured' }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Get generation record
@@ -32,7 +52,10 @@ serve(async (req) => {
       .single();
 
     if (fetchError || !generation) {
-      throw new Error('Generation not found');
+      return new Response(JSON.stringify({ success: false, error: 'Generation not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('🎬 Extending video for generation:', generation_id);

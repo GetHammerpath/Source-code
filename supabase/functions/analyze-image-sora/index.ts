@@ -48,6 +48,12 @@ For scenes 2 and onwards, simply refer to "the same presenter" or "the professio
 ## RULE 5 - SOLO FOCUS:
 The presenter must be ALONE in every scene - NO other people, groups, or extras.
 
+## RULE 5b - LIGHTING & CAMERA (Phase 1):
+Include explicit lighting (e.g., soft morning light, diffused office lighting, golden hour) and camera style (e.g., static wide shot, subtle handheld feel) in every scene prompt.
+
+## RULE 5c - AVATAR CONSISTENCY CHECKLIST (Phase 1):
+Each scene must mention: same clothing, same hair style, same accessories. Same pose/position continuity from previous scene end. No wardrobe or appearance changes between scenes.
+
 ## RULE 6 - GOOGLE VEO CONTENT POLICY COMPLIANCE (CRITICAL):
 Your prompts and scripts MUST AVOID these categories that trigger video generation rejection:
 

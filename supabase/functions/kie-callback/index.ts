@@ -480,7 +480,7 @@ serve(async (req) => {
             body: JSON.stringify({
               generation_id: generation.id,
               trim: true,
-              trim_seconds: 1
+              trim_seconds: (generation.model && /^veo/i.test(generation.model)) ? 1.5 : 1
             })
           });
 

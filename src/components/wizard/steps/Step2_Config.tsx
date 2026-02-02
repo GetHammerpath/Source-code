@@ -13,8 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import type { BatchRow } from "@/types/bulk";
 import { createEmptyRow, setSegments, setVisualSegments, SCENE_COUNT_MIN, SCENE_COUNT_MAX } from "@/types/bulk";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { ImageTips } from "@/components/forms/ImageTips";
 import { cn } from "@/lib/utils";
-import { getSupportedBulkModels, getVideoModel } from "@/lib/video-models";
+import { getSupportedBulkModels, getVideoModel, MODEL_RECOMMENDATIONS } from "@/lib/video-models";
 
 function uuid(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -661,8 +662,9 @@ export function Step2_Config({ strategy, config, existingRows = [], onConfigChan
             return null;
           })()}
           <p className="text-xs text-muted-foreground">
-            Quality model costs more per scene.
+            {MODEL_RECOMMENDATIONS[config.model ?? "veo3_fast"] ?? "Quality model costs more per scene."}
           </p>
+          <ImageTips className="mt-2" />
         </div>
         <div className="space-y-2 rounded-lg border p-4 bg-muted/30 max-w-xs">
           <Label>Video format</Label>

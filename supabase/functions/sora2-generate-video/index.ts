@@ -212,7 +212,10 @@ THIS EXACT PERSON with these EXACT clothing and features must appear in this sce
     }
 
     // Voice identity for natural, non-robotic speech delivery
-    const voiceIdentityPrefix = `VOICE & SPEECH REQUIREMENTS (CRITICAL FOR NATURAL AUDIO):
+    // Scene 1 establishes the voice - subsequent scenes must match this exactly for consistency
+    const voiceIdentityPrefix = `VOICE & SPEECH REQUIREMENTS (CRITICAL - ESTABLISHES VOICE FOR ALL SCENES):
+
+VOICE FINGERPRINT: This scene establishes ${avatar_name}'s voice. All subsequent scenes MUST use this EXACT same voice - same pitch, timbre, accent, and tone. Consistency across scenes is mandatory.
 
 VOICE CHARACTER - ${avatar_name}'s voice must be:
 - Tone: Warm, confident, and genuinely conversational - like speaking to a trusted colleague

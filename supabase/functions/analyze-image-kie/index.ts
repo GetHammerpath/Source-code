@@ -169,10 +169,17 @@ CRITICAL - Avatar & Visual Consistency:
 ${backgroundSceneNote ? `
 SCENE/BACKGROUND REFERENCE: The user provided a separate background or scene image. Describe the setting, environment, lighting, and atmosphere in each scene to match a professional ${industry} context in ${city} that would pair well with the spokesperson (e.g. office, jobsite, storefront).` : ''}
 
+LIGHTING & CAMERA (MANDATORY):
+Include explicit lighting (e.g., soft morning light, diffused office lighting, golden hour) and camera style (e.g., static wide shot, subtle handheld feel) in every scene prompt. Be specific and consistent across all scenes.
+
+TRANSITION PROTOCOL (CRITICAL - Phase 2):
+- **Scene 1 ending**: Describe the EXACT final pose. Example: "Scene 1 ends with ${avatar_name} standing neutral, weight on right foot, arms at sides, facing 3/4 toward camera, hands visible."
+- **Scenes 2+ opening**: Start with "Continuing from previous frame - ${avatar_name} in the SAME pose (weight on right foot, arms at sides), now [action]..." Match the previous scene's ending pose exactly before any new action.
+
 SEAMLESS TRANSITION REQUIREMENTS (CRITICAL):
 Each scene must be designed for perfect video-to-video flow:
 
-✓ **Scene Endings**: Describe the final position, camera angle, and action that leads into the next scene
+✓ **Scene Endings**: Describe the EXACT final position, camera angle, and action that leads into the next scene
 ✓ **Scene Beginnings**: Match the previous scene's ending position/angle/lighting exactly
 ✓ **Motion Continuity**: Actions should flow naturally (e.g., Scene 1 ends walking toward door → Scene 2 begins entering door)
 ✓ **Visual Bridges**: Use environmental/lighting consistency to connect scenes
@@ -182,8 +189,9 @@ AVATAR SCRIPT REQUIREMENTS (NEW - CRITICAL):
 Each scene needs compelling DIALOGUE that ${avatar_name} speaks directly to camera/viewer:
 
 **Script Guidelines (CRITICAL - strict word limits):**
-- **Scene 1**: Max 20 words (~8 seconds). Hook with problem/pain point.
-- **Scenes 2+**: Max 17 words each (~7 seconds). Solution benefits, then CTA.
+- **Scene 1**: Max 22 words (~8 seconds). Hook with problem/pain point.
+- **Scenes 2+**: Max 19 words each (~7 seconds). Solution benefits, then CTA.
+- **Pacing**: Allow natural pauses. Avoid cramming too many words. Slight emphasis on key phrases.
 - **Tone**: Conversational, authentic, NOT robotic or overly formal
 - **Industry-specific**: Use ${industry} terminology naturally
 - **Marketing Structure**:
@@ -231,7 +239,7 @@ DIGITAL MARKETING STRUCTURE (${number_of_scenes} scenes):
 - **ENDING TRANSITION**: Describe ${avatar_name}'s final position/action that leads into Scene 2
 - Example ending: "Camera follows ${avatar_name} as they turn toward [next location], setting up the next scene"
 
-**Scene 2-${number_of_scenes - 1} (Solution/Action) - 7 seconds each (max 17 words per script):**
+**Scene 2-${number_of_scenes - 1} (Solution/Action) - 7 seconds each (max 19 words per script):**
 - **OPENING TRANSITION**: "Seamlessly continue from the previous scene. ${avatar_name} (same professional appearance) now [picks up where we left off]"
 - **SOLO FOCUS**: ${avatar_name} working ALONE - no additional people, clients, or team members
 - Solution: Show the process, service, transformation in ${industry} with ${avatar_name} as sole focus
@@ -239,7 +247,7 @@ DIGITAL MARKETING STRUCTURE (${number_of_scenes} scenes):
 - Maintain avatar consistency and visual style
 - **ENDING TRANSITION**: Position ${avatar_name} for the next scene with clear motion/position continuity
 
-**Scene ${number_of_scenes} (Result/CTA) - 7 seconds (max 17 words):**
+**Scene ${number_of_scenes} (Result/CTA) - 7 seconds (max 19 words):**
 - **OPENING TRANSITION**: "Continue seamlessly from Scene ${number_of_scenes - 1}. ${avatar_name} (same person) now completes the journey"
 - **SOLO FOCUS**: ${avatar_name} ALONE - no groups, no additional people, no crowds
 - Result: Show ${avatar_name} individually expressing satisfaction, success, transformation
@@ -250,19 +258,23 @@ DIGITAL MARKETING STRUCTURE (${number_of_scenes} scenes):
 
 MANDATORY PROMPT ELEMENTS FOR EACH SCENE:
 
+0. **Avatar Consistency Checklist** (every scene): Same clothing, same hair style, same accessories. Same pose/position continuity from previous scene end. No wardrobe or appearance changes between scenes.
+
 1. **Avatar Consistency Block** (start of every prompt):
    "Show ${avatar_name}, a professional ${industry} expert in polished business attire, maintaining identical appearance throughout"
 
 2. **Transition Entry** (scenes 2+):
    "Seamlessly continuing from the previous video, ${avatar_name} now [action]. Match the lighting, camera angle, and ${avatar_name}'s position from where the last scene ended"
 
-3. **Core Action** (middle):
+3. **Visual Direction** (each scene): "LIGHTING: [consistent style - e.g., soft key light from left, fill from right]. CAMERA: [static medium shot / slight handheld / locked wide]. COMPOSITION: [avatar position in frame - center, rule of thirds]."
+
+4. **Core Action** (middle):
    "[8 seconds of specific marketing-focused action in ${industry} context in ${city}]"
 
-4. **Transition Exit** (scenes 1 to N-1):
+5. **Transition Exit** (scenes 1 to N-1):
    "The scene concludes with ${avatar_name} [specific ending position/action that leads into next scene], setting up a smooth transition"
 
-5. **Technical Details**:
+6. **Technical Details**:
    - Lighting consistency across transitions
    - Camera angle matching at transition points
    - Motion continuity (no abrupt stops/starts)
@@ -279,18 +291,25 @@ TONE & CINEMATIC STYLE:
 - Consistent lighting and color grading across scenes
 - Natural motion flow (walking, turning, gesturing continues across scene boundaries)
 
-Return EXACTLY ${number_of_scenes} prompts in this JSON format. CRITICAL: "script" must be spoken dialogue only. Scene 1 script: max 20 words. Scene 2+ scripts: max 17 words each.
+Return EXACTLY ${number_of_scenes} prompts in this JSON format. CRITICAL: "script" must be spoken dialogue only. Scene 1 script: max 22 words. Scene 2+ scripts: max 19 words each.
+Include optional "lighting", "camera_style", "ending_pose" (for scenes 1 to N-1) when they add clarity.
 {
   "scenes": [
     {
       "scene_number": 1,
-      "prompt": "Show ${avatar_name}, a professional ${industry} expert in polished business attire, [8-second hook/problem action] in ${industry} in ${city}. [Lighting and camera details]. Scene ends with ${avatar_name} [transition position] leading smoothly into the next scene.",
-      "script": "Spoken dialogue only, max 20 words. Hook addressing viewer's problem."
+      "prompt": "Show ${avatar_name}, a professional ${industry} expert in polished business attire, [8-second hook/problem action] in ${industry} in ${city}. [Lighting and camera details]. Scene ends with ${avatar_name} [exact ending pose: e.g. standing neutral, weight on right foot, arms at sides] leading smoothly into the next scene.",
+      "script": "Spoken dialogue only, max 22 words. Hook addressing viewer's problem.",
+      "lighting": "e.g. soft morning light, diffused office lighting",
+      "camera_style": "e.g. static medium shot, locked wide",
+      "ending_pose": "e.g. standing neutral, weight on right foot, arms at sides, facing 3/4 toward camera"
     },
     {
       "scene_number": 2,
-      "prompt": "Seamlessly continuing from the previous scene, ${avatar_name} (same professional appearance maintained) now [solution action]. Match the position and lighting from where Scene 1 ended. [7-second dynamic action]. Scene concludes with ${avatar_name} [transition setup for Scene 3].",
-      "script": "Spoken dialogue only, max 17 words. Solution-focused."
+      "prompt": "Continuing from previous frame - ${avatar_name} in the SAME pose, now [solution action]. Match the position and lighting from where Scene 1 ended. [7-second dynamic action]. Scene concludes with ${avatar_name} [transition setup for Scene 3].",
+      "script": "Spoken dialogue only, max 19 words. Solution-focused.",
+      "lighting": "same as scene 1",
+      "camera_style": "same as scene 1",
+      "ending_pose": "e.g. [specific pose for next scene]"
     }
   ]
 }

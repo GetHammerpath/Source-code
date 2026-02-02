@@ -21,6 +21,8 @@ const VideoGenerationCard = ({ generation, onRefresh, onDuplicate }: VideoGenera
   const [extending, setExtending] = useState(false);
   const [stitching, setStitching] = useState(false);
   const [trimSeconds, setTrimSeconds] = useState<number>(1);
+  const [colorPreset, setColorPreset] = useState<string>('neutral');
+  const [audioNormalize, setAudioNormalize] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [showRetryModal, setShowRetryModal] = useState(false);
 
@@ -83,7 +85,9 @@ const VideoGenerationCard = ({ generation, onRefresh, onDuplicate }: VideoGenera
       const requestBody = { 
         generation_id: generationId, 
         trim: true,
-        trim_seconds: trimSeconds
+        trim_seconds: trimSeconds,
+        color_preset: colorPreset,
+        audio_normalize: audioNormalize
       };
       console.log('🎬 Frontend: Sending request to cloudinary-stitch-videos:', requestBody);
       
@@ -446,21 +450,45 @@ const VideoGenerationCard = ({ generation, onRefresh, onDuplicate }: VideoGenera
                 )}
 
                 {generation.video_segments?.length >= 2 && (
-                  <div className="flex items-center gap-2 w-full pt-2 border-t">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-muted-foreground whitespace-nowrap">
-                        Trim:
+                  <div className="flex flex-col gap-3 w-full pt-2 border-t">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-2" title="Trim removes overlap between scenes for smoother transitions. 1s recommended.">
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">
+                          Trim:
+                        </label>
+                        <input
+                          type="number"
+                          min="0.5"
+                          max="3"
+                          step="0.5"
+                          value={trimSeconds}
+                          onChange={(e) => setTrimSeconds(parseFloat(e.target.value))}
+                          className="w-16 px-2 py-1 text-sm border rounded-md"
+                        />
+                        <span className="text-xs text-muted-foreground">sec</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">Look:</label>
+                        <select
+                          value={colorPreset}
+                          onChange={(e) => setColorPreset(e.target.value)}
+                          className="h-8 px-2 text-sm border rounded-md"
+                        >
+                          <option value="neutral">Neutral</option>
+                          <option value="warm">Warm</option>
+                          <option value="cool">Cool</option>
+                          <option value="high_contrast">High Contrast</option>
+                        </select>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={audioNormalize}
+                          onChange={(e) => setAudioNormalize(e.target.checked)}
+                          className="rounded"
+                        />
+                        <span className="text-muted-foreground">Normalize audio</span>
                       </label>
-                      <input
-                        type="number"
-                        min="0.5"
-                        max="3"
-                        step="0.5"
-                        value={trimSeconds}
-                        onChange={(e) => setTrimSeconds(parseFloat(e.target.value))}
-                        className="w-16 px-2 py-1 text-sm border rounded-md"
-                      />
-                      <span className="text-xs text-muted-foreground">sec</span>
                     </div>
                     <Button
                       onClick={() => handleStitchWithTrim(generation.id)}

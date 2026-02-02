@@ -143,9 +143,12 @@ serve(async (req) => {
   } catch (error: unknown) {
     console.error('Error adjusting credits:', error);
     const msg = error instanceof Error ? error.message : 'Failed to adjust credits';
+    let status = 500;
+    if (/no authorization header|unauthorized/i.test(msg)) status = 401;
+    else if (/only admins|missing required|invalid type|insufficient credits/i.test(msg)) status = 400;
     return new Response(
       JSON.stringify({ error: msg }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

@@ -63,7 +63,10 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('No authorization header');
+      return new Response(JSON.stringify({ success: false, error: 'No authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabase = createClient(
@@ -74,7 +77,10 @@ serve(async (req) => {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      throw new Error('Unauthorized');
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Verify user is admin
@@ -85,7 +91,10 @@ serve(async (req) => {
       .single();
 
     if (!roleData || roleData.role !== 'admin') {
-      throw new Error('Only admins can fetch provider balances');
+      return new Response(JSON.stringify({ success: false, error: 'Only admins can fetch provider balances' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Get API keys from environment (KIE only)
@@ -159,7 +168,7 @@ serve(async (req) => {
     const msg = error instanceof Error ? error.message : 'Failed to fetch provider balances';
     return new Response(
       JSON.stringify({ success: false, error: msg }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

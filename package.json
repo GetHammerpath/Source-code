@@ -14,6 +14,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:checkout": "node --env-file=.env scripts/test-checkout.mjs",
+    "test:edge-functions": "node --env-file=.env scripts/test-edge-functions.mjs",
     "sync:subscription": "node --env-file=.env scripts/sync-subscription.mjs",
     "set:stripe-customer": "node --env-file=.env scripts/set-stripe-customer-id.mjs",
     "redeploy": "node --env-file=.env scripts/trigger-vercel-deploy.mjs",

@@ -278,6 +278,20 @@ serve(async (req) => {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error('create-checkout-session error:', errorMessage);
 
+    // Return 401 for auth errors
+    if (/no authorization header|unauthorized/i.test(errorMessage)) {
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (/invalid json body/i.test(errorMessage)) {
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     let helpful = errorMessage;
     if (errorMessage.includes('STRIPE_SECRET_KEY') || errorMessage.includes('Missing required')) {
       helpful = `${errorMessage}\n\nSet secrets in Supabase Dashboard → Settings → Edge Functions → Secrets`;

@@ -5,12 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ~2.5 words/sec for natural spoken pace
+// ~2.5 words/sec for natural spoken pace. Phase 1: relaxed limits (22/19) for less rushed delivery.
 const WORDS_PER_SECOND = 2.5;
 const FIRST_SEGMENT_SECONDS = 8;
 const OTHER_SEGMENT_SECONDS = 7;
-const FIRST_SEGMENT_MAX_WORDS = Math.floor(FIRST_SEGMENT_SECONDS * WORDS_PER_SECOND); // 20
-const OTHER_SEGMENT_MAX_WORDS = Math.floor(OTHER_SEGMENT_SECONDS * WORDS_PER_SECOND);  // 17
+const FIRST_SEGMENT_MAX_WORDS = 22;  // was 20 - slightly relaxed for natural pacing
+const OTHER_SEGMENT_MAX_WORDS = 19;  // was 17 - slightly relaxed for natural pacing
 
 function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;

@@ -79,7 +79,23 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { generation_id, scene_prompt } = await req.json();
+    let body: { generation_id?: string; scene_prompt?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { generation_id, scene_prompt } = body;
+
+    if (!generation_id) {
+      return new Response(
+        JSON.stringify({ error: 'generation_id is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log('📥 Manual extend request for generation:', generation_id);
 
@@ -91,20 +107,29 @@ serve(async (req) => {
       .single();
 
     if (fetchError || !generation) {
-      throw new Error('Generation not found');
+      return new Response(
+        JSON.stringify({ error: 'Generation not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Validate that we have segments and last one is completed
     const segments = generation.video_segments || [];
     if (segments.length === 0) {
-      throw new Error('No video segments found');
+      return new Response(
+        JSON.stringify({ error: 'No video segments found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get the last task ID from the most recent segment
     const lastTaskId = generation.extended_task_id || generation.initial_task_id;
     
     if (!lastTaskId) {
-      throw new Error('No previous task ID found');
+      return new Response(
+        JSON.stringify({ error: 'No previous task ID found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('📋 Current segments:', segments.length);
@@ -121,12 +146,12 @@ serve(async (req) => {
     console.log(`⏱️ Scene ${generation.current_scene} duration: ${duration} seconds`);
 
     // Voice continuity requirements for consistent audio across scenes
-    const voiceContinuityBlock = `CRITICAL - VOICE IDENTITY (MANDATORY):
-You are EXTENDING an existing video. The source video already has a voice. Your new segment MUST use the EXACT SAME voice:
-- REPLICATE the voice from the video you are extending - same pitch, timbre, accent, and tone
-- Match the speaking pace and rhythm established in the source video
-- NO new voice - this is the SAME person continuing to speak
-- Listen to the source video's voice character and match it precisely
+    const voiceContinuityBlock = `CRITICAL - VOICE/AUDIO IDENTITY (MANDATORY):
+You are EXTENDING an existing video. The source video ALREADY HAS a synthesized voice. Your extended segment MUST use the EXACT SAME voice - NO exceptions:
+- AUDIO CARRYOVER: The extended segment continues from the source video. Use the IDENTICAL voice - same pitch, timbre, accent, tone, and vocal characteristics
+- The source video establishes the voice. Your extension MUST replicate it exactly - this is the SAME person, SAME voice
+- DO NOT generate a new or different voice. The voice is already established in the video you are extending
+- Match the speaking pace, rhythm, and energy established in the source video precisely
 
 VOICE CHARACTER - ${generation.avatar_name}'s voice must be:
 - Tone: Warm, confident, conversational - NOT robotic or monotone
@@ -147,6 +172,8 @@ NATURAL SPEECH:
 ✓ Warm smile in voice
 ✓ Natural breath between sentences
 ✓ Contractions (don't, we're, you'll)
+
+VISUAL CHECK (Phase 2): Same clothing, same hairstyle, same accessories as established in Scene 1. No wardrobe or appearance changes between scenes.
 
 `;
 
@@ -304,9 +331,18 @@ Original context: "${promptContext}..."
       callBackUrl: `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/kie-callback`,
       watermark: generation.watermark || ''
     };
-    if (generation.seeds && generation.seeds >= 10000 && generation.seeds <= 99999) {
-      extendPayload.seeds = generation.seeds;
+    // Always pass seed for voice/visual consistency - use stored seed or derive from generation_id
+    let seedToUse = generation.seeds;
+    if (typeof seedToUse === 'number' && seedToUse >= 10000 && seedToUse <= 99999) {
+      console.log(`✅ Using stored seed ${seedToUse} for voice/visual consistency`);
+    } else if (typeof seedToUse !== 'number' || seedToUse < 10000 || seedToUse > 99999) {
+      const seedNum = Math.abs(
+        Array.from(generation_id).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+      );
+      seedToUse = (seedNum % 90000) + 10000;
+      console.log(`⚠️ Using derived seed ${seedToUse} for voice consistency (stored seed missing or invalid)`);
     }
+    extendPayload.seeds = seedToUse;
     const kieResponse = await fetch('https://api.kie.ai/api/v1/veo/extend', {
       method: 'POST',
       headers: {

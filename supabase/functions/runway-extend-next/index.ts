@@ -24,14 +24,29 @@ serve(async (req) => {
   }
 
   try {
-    const {
-      generation_id,
-      previous_task_id,
-      scene_number,
-      scene_prompt,
-      scene_script,
-      scene_camera
-    } = await req.json();
+    let body: { generation_id?: string; previous_task_id?: string; scene_number?: number; scene_prompt?: string; scene_script?: string; scene_camera?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid JSON body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const generation_id = body?.generation_id;
+    const previous_task_id = body?.previous_task_id;
+    const scene_number = body?.scene_number;
+    const scene_prompt = body?.scene_prompt;
+    const scene_script = body?.scene_script;
+    const scene_camera = body?.scene_camera;
+
+    if (!generation_id || !previous_task_id || scene_number == null) {
+      return new Response(JSON.stringify({ success: false, error: 'generation_id, previous_task_id, and scene_number are required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     console.log('Extending video for scene:', scene_number, 'generation:', generation_id);
 
@@ -40,7 +55,10 @@ serve(async (req) => {
     const kieApiToken = Deno.env.get('KIE_AI_API_TOKEN');
 
     if (!kieApiToken) {
-      throw new Error('KIE_AI_API_TOKEN is not configured');
+      return new Response(JSON.stringify({ success: false, error: 'KIE_AI_API_TOKEN is not configured' }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -53,7 +71,10 @@ serve(async (req) => {
       .single();
 
     if (fetchError || !generation) {
-      throw new Error('Generation not found');
+      return new Response(JSON.stringify({ success: false, error: 'Generation not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Sanitize prompt/script to avoid Google Veo policy violations

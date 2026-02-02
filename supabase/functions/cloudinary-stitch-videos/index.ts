@@ -49,7 +49,20 @@ serve(async (req) => {
 
     const trim = body.trim ?? false;
     const trimSeconds = body.trim_seconds ?? 1;
+    const colorPreset = (body.color_preset as string) || 'neutral';
+    const audioNormalize = body.audio_normalize ?? false;
     const tableName = (body.table_name as string) || "kie_video_generations";
+
+    const VALID_COLOR_PRESETS = ['neutral', 'warm', 'cool', 'high_contrast'];
+    if (!VALID_COLOR_PRESETS.includes(colorPreset)) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: `Invalid color_preset. Must be one of: ${VALID_COLOR_PRESETS.join(', ')}`
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     tableNameForError = tableName;
 
     // Validate table - only allow known generation tables
@@ -77,6 +90,8 @@ serve(async (req) => {
     console.log('🎬 Cloudinary stitch request for generation:', generation_id);
     console.log('🎬 Trim mode:', trim);
     console.log('🎬 Trim seconds:', trimSeconds);
+    console.log('🎬 Color preset:', colorPreset);
+    console.log('🎬 Audio normalize:', audioNormalize);
     console.log('🎬 Request body:', JSON.stringify(body, null, 2));
 
     // Get generation record
@@ -373,7 +388,33 @@ serve(async (req) => {
       
       // Construct the full transformation URL
       // Scene 0 (base segment) has no transformations - it's used as-is
-      const transformationString = transformations.join('/');
+      let transformationString = transformations.join('/');
+
+      // Phase 7: Post-processing - color presets and audio normalization
+      const postProcessParts: string[] = [];
+      if (audioNormalize) {
+        postProcessParts.push('e_volume:auto');
+      }
+      if (colorPreset && colorPreset !== 'neutral') {
+        switch (colorPreset) {
+          case 'warm':
+            postProcessParts.push('e_saturation:115,e_contrast:105');
+            break;
+          case 'cool':
+            postProcessParts.push('e_saturation:90,e_contrast:105');
+            break;
+          case 'high_contrast':
+            postProcessParts.push('e_contrast:120');
+            break;
+          default:
+            break;
+        }
+      }
+      if (postProcessParts.length > 0) {
+        transformationString = postProcessParts.join('/') + '/' + transformationString;
+        console.log('🎬 Post-processing applied:', { colorPreset, audioNormalize, parts: postProcessParts });
+      }
+
       const finalVideoUrl = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/${transformationString}/${baseSegment}.mp4`;
 
       console.log('🎥 Final video URL:', finalVideoUrl);

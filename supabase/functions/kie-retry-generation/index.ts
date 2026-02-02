@@ -24,7 +24,25 @@ serve(async (req) => {
       });
     }
 
-    const { generation_id, edited_prompt, edited_script } = await req.json();
+    let body: { generation_id?: string; edited_prompt?: string; edited_script?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid JSON body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const generation_id = body?.generation_id;
+    const edited_prompt = body?.edited_prompt;
+    const edited_script = body?.edited_script;
+    if (!generation_id) {
+      return new Response(JSON.stringify({ success: false, error: 'generation_id is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     console.log('🔄 Retry request for generation:', generation_id);
     console.log('📝 Edited prompt provided:', !!edited_prompt);
@@ -38,7 +56,10 @@ serve(async (req) => {
       .single();
 
     if (fetchError || !generation) {
-      throw new Error('Generation not found');
+      return new Response(JSON.stringify({ success: false, error: 'Generation not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // When called from client (user JWT), verify ownership

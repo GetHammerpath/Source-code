@@ -57,14 +57,30 @@ serve(async (req) => {
   }
 
   try {
+    let body: { generation_id?: string; scene_prompt?: string; scene_script?: string; retry?: boolean };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid JSON body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const generation_id = body?.generation_id;
+    if (!generation_id) {
+      return new Response(JSON.stringify({ success: false, error: 'generation_id is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { generation_id, scene_prompt, scene_script, retry } = await req.json();
-
-    console.log('📥 Sora2 extend request:', { generation_id, retry });
+    console.log('📥 Sora2 extend request:', { generation_id, retry: body?.retry });
 
     // Get generation record
     const { data: generation, error: fetchError } = await supabase
@@ -74,13 +90,19 @@ serve(async (req) => {
       .single();
 
     if (fetchError || !generation) {
-      throw new Error('Generation not found');
+      return new Response(JSON.stringify({ success: false, error: 'Generation not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Get API key
     const KIE_AI_API_TOKEN = Deno.env.get('KIE_AI_API_TOKEN');
     if (!KIE_AI_API_TOKEN) {
-      throw new Error('KIE_AI_API_TOKEN not configured');
+      return new Response(JSON.stringify({ success: false, error: 'KIE_AI_API_TOKEN not configured' }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const currentScene = generation.current_scene || 1;
@@ -93,21 +115,21 @@ serve(async (req) => {
     const currentSceneData = generation.scene_prompts?.[sceneIndex] || {};
     const previousSceneData = sceneIndex > 0 ? generation.scene_prompts?.[sceneIndex - 1] : null;
     
-    const scenePrompt = scene_prompt || currentSceneData.prompt || '';
-    const script = scene_script || currentSceneData.script || '';
+    const scenePrompt = body?.scene_prompt || currentSceneData.prompt || '';
+    const script = body?.scene_script || currentSceneData.script || '';
     const connectsFromPrevious = previousSceneData?.connects_to_next || '';
     
     // Get avatar identity prefix stored from first scene generation
     const avatarIdentityPrefix = generation.avatar_identity_prefix || '';
     
     // Voice continuity requirements for consistent audio across scenes
-    const voiceContinuityBlock = `CRITICAL - VOICE IDENTITY (MANDATORY FOR SCENE ${currentScene}):
-This is a CONTINUATION. The voice MUST be identical to Scene 1:
-- REPLICATE the exact voice from previous scenes - same pitch, timbre, accent, tone
-- Same speaking pace and rhythm as established in Scene 1
-- Same warmth and energy level throughout
-- This is the SAME person - NO new voice, NO voice changes
-- Match the source video's voice character precisely
+    // Note: Sora 2 generates each scene from the same reference image. Strong prompt instructions help the model maintain voice consistency.
+    const voiceContinuityBlock = `CRITICAL - SINGLE VOICE IDENTITY (MANDATORY FOR SCENE ${currentScene}):
+This scene uses the SAME reference image as Scene 1. The voice MUST be IDENTICAL across all scenes:
+- SAME VOICE AS SCENE 1: Use the EXACT SAME synthesized voice - same pitch, timbre, accent, tone, and vocal characteristics
+- This is the SAME person from the same reference image - ONE voice identity for the entire video
+- DO NOT generate a different voice. Replicate Scene 1's voice precisely - same warmth, same pace, same energy
+- Consistency is critical: the viewer must hear ONE continuous speaker, not multiple voices
 
 VOICE CHARACTER - ${generation.avatar_name}'s voice must be:
 - Tone: Warm, confident, conversational - NOT robotic or monotone
@@ -130,6 +152,8 @@ NATURAL SPEECH PATTERNS:
 ✓ Conversational contractions (don't, we're, you'll)
 
 NO ON-SCREEN TEXT: NO captions, subtitles, text overlays, signs, or visible written words. Dialogue is audio only.
+
+VISUAL CHECK (Phase 2): Same clothing, same hairstyle, same accessories as established in Scene 1. No wardrobe or appearance changes between scenes.
 
 `;
 
@@ -363,11 +387,13 @@ ${sceneType} Scene Voice Notes:
 
   } catch (error) {
     console.error('❌ Error in sora2-extend-next:', error);
+    const msg = error instanceof Error ? error.message : 'Extension failed';
+    const isClientError = msg.includes('Generation not found') || msg.includes('generation_id');
     return new Response(JSON.stringify({
       success: false,
-      error: error instanceof Error ? error.message : 'Extension failed'
+      error: msg
     }), {
-      status: 500,
+      status: isClientError ? 404 : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }

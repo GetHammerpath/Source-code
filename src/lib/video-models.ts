@@ -92,6 +92,15 @@ export const VIDEO_MODELS: VideoModel[] = [
   },
 ];
 
+/** Phase 4: Model-specific recommendations for UI tooltips */
+export const MODEL_RECOMMENDATIONS: Record<string, string> = {
+  veo3_fast: "Best for drafts and internal use. Faster, lower cost.",
+  veo3: "Best for hero content, demos, client-facing videos. Higher fidelity.",
+  sora2_pro_720: "Good balance of quality and speed. Image input required.",
+  sora2_pro_1080: "Best for social/marketing. High resolution. Image input required.",
+  kling_2_6: "Single-scene only. Strong for image-to-video. Image input required.",
+};
+
 export function getVideoModel(modelId: string): VideoModel | undefined {
   return VIDEO_MODELS.find((m) => m.id === modelId);
 }

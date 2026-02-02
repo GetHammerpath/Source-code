@@ -71,6 +71,12 @@ Your prompts and scripts MUST AVOID these categories that trigger video generati
 
 IMPORTANT: If the story_idea contains any problematic content, REPHRASE it professionally.
 
+## RULE 5b - LIGHTING & CAMERA (Phase 1):
+Include explicit lighting (e.g., soft morning light, diffused office lighting, golden hour) and camera style (e.g., static wide shot, subtle handheld feel) in every scene prompt.
+
+## RULE 5c - AVATAR CONSISTENCY CHECKLIST (Phase 1):
+Each scene must mention: same clothing, same hair style, same accessories. Same pose/position continuity from previous scene end. No wardrobe or appearance changes between scenes.
+
 ## RULE 6 - NO ON-SCREEN TEXT (MANDATORY):
 - NO captions, subtitles, or text overlays in any scene
 - NO visible text, titles, or graphics with words

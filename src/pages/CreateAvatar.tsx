@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ArrowLeft, Lock, Loader2, User } from "lucide-react";
+import { ImageTips } from "@/components/forms/ImageTips";
 import { buildPrompts } from "@/lib/nano-banana-prompt-builder";
 
 const CreateAvatar = () => {
@@ -222,7 +223,10 @@ const CreateAvatar = () => {
 
           {generatedUrls.length > 0 && (
             <div className="space-y-3 pt-2">
-              <Label className="text-sm font-medium">Pick an avatar</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Pick an avatar</Label>
+                <ImageTips />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 {generatedUrls.map((url) => (
                   <button

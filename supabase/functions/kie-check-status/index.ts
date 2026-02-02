@@ -150,10 +150,22 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { generation_id } = await req.json();
+    let body: { generation_id?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { generation_id } = body;
 
     if (!generation_id) {
-      throw new Error('generation_id is required');
+      return new Response(
+        JSON.stringify({ error: 'generation_id is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get the generation record
@@ -165,7 +177,10 @@ serve(async (req) => {
 
     if (fetchError || !generation) {
       console.error('❌ Generation not found:', generation_id);
-      throw new Error('Generation record not found');
+      return new Response(
+        JSON.stringify({ error: 'Generation record not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const kieToken = Deno.env.get('KIE_AI_API_TOKEN');

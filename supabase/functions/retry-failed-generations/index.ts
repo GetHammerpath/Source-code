@@ -16,9 +16,22 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { batch_id } = (await req.json()) as { batch_id: string };
+    let body: { batch_id?: string };
+    try {
+      body = (await req.json()) as { batch_id?: string };
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const batch_id = body?.batch_id;
     if (!batch_id) {
-      throw new Error("batch_id is required");
+      return new Response(JSON.stringify({ error: "batch_id is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Verify batch exists and user owns it (when JWT present)
@@ -55,7 +68,10 @@ serve(async (req) => {
       .eq("batch_id", batch_id);
 
     if (linkError || !batchGens?.length) {
-      throw new Error(`No generations found for batch: ${linkError?.message || "empty"}`);
+      return new Response(
+        JSON.stringify({ error: `No generations found for batch: ${linkError?.message || "empty"}` }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const genIds = batchGens.map((r) => r.generation_id);
@@ -68,7 +84,10 @@ serve(async (req) => {
       .or("initial_status.eq.failed,final_video_status.eq.failed");
 
     if (fetchError) {
-      throw new Error(`Failed to fetch generations: ${fetchError.message}`);
+      return new Response(
+        JSON.stringify({ error: `Failed to fetch generations: ${fetchError.message}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const toRetry = failedGens || [];

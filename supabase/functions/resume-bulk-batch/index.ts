@@ -50,9 +50,22 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { batch_id } = (await req.json()) as { batch_id: string };
+    let body: { batch_id?: string };
+    try {
+      body = (await req.json()) as { batch_id?: string };
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const batch_id = body?.batch_id;
     if (!batch_id) {
-      throw new Error("batch_id is required");
+      return new Response(JSON.stringify({ error: "batch_id is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Fetch batch with metadata
@@ -63,7 +76,10 @@ serve(async (req) => {
       .single();
 
     if (batchError || !batch) {
-      throw new Error(`Failed to fetch batch: ${batchError?.message}`);
+      return new Response(JSON.stringify({ error: `Batch not found: ${batchError?.message || "No batch"}` }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Verify user owns batch (when JWT present)
@@ -83,7 +99,10 @@ serve(async (req) => {
     }
 
     if (!batch.is_paused && batch.status !== "paused_for_review") {
-      throw new Error(`Batch is not paused. Status: ${batch.status}`);
+      return new Response(JSON.stringify({ error: `Batch is not paused. Status: ${batch.status}` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const meta = (batch.metadata || {}) as {
@@ -94,14 +113,20 @@ serve(async (req) => {
 
     const baseConfig = meta.base_config;
     if (!baseConfig) {
-      throw new Error("Batch metadata missing base_config. Cannot resume.");
+      return new Response(JSON.stringify({ error: "Batch metadata missing base_config. Cannot resume." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const useRows = Array.isArray(meta.input_rows) && meta.input_rows.length > 0;
     const items = useRows ? meta.input_rows! : (meta.input_combinations || []);
 
     if (items.length === 0) {
-      throw new Error("No input rows or combinations in batch metadata.");
+      return new Response(JSON.stringify({ error: "No input rows or combinations in batch metadata." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Get existing variation indices
@@ -375,8 +400,9 @@ serve(async (req) => {
   } catch (error: unknown) {
     console.error("❌ Error in resume-bulk-batch:", error);
     const msg = error instanceof Error ? error.message : "Unknown error";
+    const isValidation = msg.includes("batch_id") || msg.includes("base_config") || msg.includes("input rows");
     return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
+      status: isValidation ? 400 : 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

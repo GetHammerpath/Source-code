@@ -12,12 +12,28 @@ serve(async (req) => {
   }
 
   try {
+    let body: { generation_id?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const generation_id = body?.generation_id;
+    if (!generation_id) {
+      return new Response(JSON.stringify({ error: 'generation_id is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
     );
-
-    const { generation_id } = await req.json();
 
     console.log('🎬 Processing next scene for generation:', generation_id);
 
@@ -30,7 +46,10 @@ serve(async (req) => {
 
     if (fetchError || !generation) {
       console.error('❌ Generation not found:', generation_id);
-      throw new Error('Generation not found');
+      return new Response(JSON.stringify({ error: 'Generation not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const currentScene = generation.current_scene || 1;
@@ -52,7 +71,10 @@ serve(async (req) => {
 
     if (!nextSceneData) {
       console.error('❌ Next scene prompt not found for scene', nextScene);
-      throw new Error(`Scene ${nextScene} prompt not found`);
+      return new Response(JSON.stringify({ error: `Scene ${nextScene} prompt not found` }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const scenePrompt = nextSceneData.prompt || nextSceneData.Scene;
@@ -60,7 +82,10 @@ serve(async (req) => {
 
     const KIE_API_TOKEN = Deno.env.get("KIE_AI_API_TOKEN");
     if (!KIE_API_TOKEN) {
-      throw new Error("KIE_AI_API_TOKEN is not configured");
+      return new Response(JSON.stringify({ error: 'KIE_AI_API_TOKEN is not configured' }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const callbackUrl = `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/sora-callback`;
@@ -157,9 +182,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Error in sora-extend-next:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isClientError = errorMessage.includes('Generation not found') || errorMessage.includes('generation_id') || errorMessage.includes('prompt not found');
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: isClientError ? 404 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

@@ -18,6 +18,8 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
   const [extending, setExtending] = useState<string | null>(null);
   const [stitching, setStitching] = useState<string | null>(null);
   const [trimSeconds, setTrimSeconds] = useState<number>(1);
+  const [colorPreset, setColorPreset] = useState<string>('neutral');
+  const [audioNormalize, setAudioNormalize] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
 
   useEffect(() => {
@@ -132,7 +134,10 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
 
       const requestBody = { 
         generation_id: generationId, 
-        trim: false 
+        trim: true,
+        trim_seconds: 1,
+        color_preset: colorPreset,
+        audio_normalize: audioNormalize
       };
       console.log('🎬 Frontend: Sending request to cloudinary-stitch-videos:', requestBody);
       
@@ -228,7 +233,9 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
         body: JSON.stringify({ 
           generation_id: generationId, 
           trim: true, 
-          trim_seconds: trimSeconds 
+          trim_seconds: trimSeconds,
+          color_preset: colorPreset,
+          audio_normalize: audioNormalize
         }),
       });
 
@@ -443,24 +450,54 @@ const VideoGenerationsList = ({ userId, onDuplicate }: VideoGenerationsListProps
                 {/* Cloudinary Smooth Merge */}
                 {gen.video_segments?.length >= 2 && (
                   <div className="space-y-2 w-full">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <label htmlFor={`trim-${gen.id}`} className="text-sm font-medium mb-1 block">
-                          Trim Duration (seconds)
+                    <p className="text-xs text-muted-foreground">
+                      Trim for smoother transitions (recommended) or use full segment length.
+                    </p>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-wrap items-end gap-4">
+                        <div className="flex-1 min-w-[120px]">
+                          <label htmlFor={`trim-${gen.id}`} className="text-sm font-medium mb-1 block">
+                            Trim Duration (seconds)
+                          </label>
+                          <input
+                            id={`trim-${gen.id}`}
+                            type="number"
+                            min="0.5"
+                            max="3"
+                            step="0.5"
+                            value={trimSeconds}
+                            onChange={(e) => setTrimSeconds(parseFloat(e.target.value))}
+                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Trim removes the overlap between scenes for smoother transitions. 1s is recommended.
+                          </p>
+                        </div>
+                        <div>
+                          <label htmlFor={`look-${gen.id}`} className="text-sm font-medium mb-1 block">
+                            Color Look
+                          </label>
+                          <select
+                            id={`look-${gen.id}`}
+                            value={colorPreset}
+                            onChange={(e) => setColorPreset(e.target.value)}
+                            className="flex h-9 min-w-[140px] rounded-md border border-input bg-background px-3 py-1 text-sm"
+                          >
+                            <option value="neutral">Neutral</option>
+                            <option value="warm">Warm</option>
+                            <option value="cool">Cool</option>
+                            <option value="high_contrast">High Contrast</option>
+                          </select>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer pb-1">
+                          <input
+                            type="checkbox"
+                            checked={audioNormalize}
+                            onChange={(e) => setAudioNormalize(e.target.checked)}
+                            className="rounded"
+                          />
+                          <span className="text-sm">Normalize audio</span>
                         </label>
-                        <input
-                          id={`trim-${gen.id}`}
-                          type="number"
-                          min="0.5"
-                          max="3"
-                          step="0.5"
-                          value={trimSeconds}
-                          onChange={(e) => setTrimSeconds(parseFloat(e.target.value))}
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Removes first X seconds from each segment for smoother transitions
-                        </p>
                       </div>
                       <Button
                         onClick={() => handleStitchWithTrim(gen.id)}

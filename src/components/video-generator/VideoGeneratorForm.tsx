@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Sparkles, Video, Wand2, Image, FileText, ArrowRight, ArrowLeft, Check, Type, AlertCircle, CreditCard } from "lucide-react";
 import SinglePhotoSelector from "@/components/forms/SinglePhotoSelector";
+import { ImageTips } from "@/components/forms/ImageTips";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import ProgressSteps from "./ProgressSteps";
@@ -16,7 +17,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCredits } from "@/hooks/useCredits";
 import { checkCredits, reserveCredits } from "@/lib/billing/credits";
 import { estimateCreditsForModel, estimateCreditsForRenderedMinutes, PRICE_PER_CREDIT, calculateCreditPrice } from "@/lib/billing/pricing";
-import { getSupportedStudioModels } from "@/lib/video-models";
+import { getSupportedStudioModels, getVideoModel, MODEL_RECOMMENDATIONS } from "@/lib/video-models";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface VideoGeneratorFormProps {
@@ -583,9 +584,9 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {generationMode === 'image'
+                {MODEL_RECOMMENDATIONS[formData.model] ?? (generationMode === 'image'
                   ? 'Image mode uses Veo 3.1 Fast only.'
-                  : 'Quality model costs more per scene.'}
+                  : 'Quality model costs more per scene.')}
               </p>
             </div>
             <div className="space-y-2 rounded-lg border p-4 bg-muted/30 max-w-xs">
@@ -668,6 +669,7 @@ const VideoGeneratorForm = ({ userId }: VideoGeneratorFormProps) => {
                   ? "Optional. Use as scene or setting reference alongside your avatar."
                   : "Upload or pick a photo. Use a high-resolution image with good lighting for best results."}
               </p>
+              <ImageTips className="mt-1" />
             </div>
           )}
 
