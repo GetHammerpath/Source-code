@@ -320,13 +320,13 @@ Voice Delivery Notes:
       console.log(`⚠️ Kie API: REFERENCE_2_VIDEO only supports veo3_fast. Using veo3_fast instead of ${effectiveModel}.`);
     }
 
-    // Build request payload - conditionally include imageUrls based on generation type
+    // Build request payload - Kie API expects aspect_ratio (snake_case) per docs
     const requestPayload: Record<string, unknown> = {
       prompt: safePrompt,
       model: useModel,
       watermark: watermark || '',
       callBackUrl: callbackUrl,
-      aspectRatio,
+      aspect_ratio: aspectRatio,
       seeds: seed,
       enableFallback: false,
       enableTranslation: true,

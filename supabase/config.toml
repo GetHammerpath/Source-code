@@ -1,4 +1,4 @@
-project_id = "cpfsthischimiwxwuhow"
+project_id = "wzpswnuteisyxxwlnqrn"
 
 [functions.analyze-image-for-request]
 verify_jwt = false
@@ -99,8 +99,9 @@ verify_jwt = true
 [functions.resume-bulk-batch]
 verify_jwt = true
 
+# Allow service-role key from bulk-generate-videos and other server callers (service key is not a JWT)
 [functions.video-generate]
-verify_jwt = true
+verify_jwt = false
 
 [functions.kie-kling-generate-video]
 verify_jwt = true
