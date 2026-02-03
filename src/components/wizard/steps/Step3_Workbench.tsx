@@ -199,7 +199,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                             value={val}
                             onChange={(e) => updateRow(virtualRow.index, setSegmentValue(row, i, e.target.value))}
                             placeholder={showVisualContext ? "Spoken dialogue..." : "..."}
-                            className="min-h-[72px] text-sm resize-y border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 placeholder:text-slate-400"
+                            className="min-h-[72px] text-sm resize-y border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 placeholder:text-slate-400 !text-foreground"
                             rows={3}
                           />
                         </div>
@@ -210,7 +210,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                               value={visualVal}
                               onChange={(e) => updateRow(virtualRow.index, setVisualValue(row, i, e.target.value))}
                               placeholder="Scene description..."
-                              className="min-h-[72px] text-sm resize-y border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 placeholder:text-slate-400"
+                              className="min-h-[72px] text-sm resize-y border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 placeholder:text-slate-400 !text-foreground"
                               rows={3}
                             />
                           </div>
