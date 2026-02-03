@@ -171,7 +171,9 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
       generation:kie_video_generations(
         id,
         initial_status,
+        extended_status,
         final_video_status,
+        current_scene,
         initial_video_url,
         extended_video_url,
         final_video_url,
@@ -183,15 +185,17 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
     .order("variation_index", { ascending: true });
 
   const total = batch.total_variations ?? 0;
-  const completed = batch.completed_variations ?? 0;
-  const failed = batch.failed_variations ?? 0;
-  const progress = total > 0 ? Math.round(((completed + failed) / total) * 100) : 0;
-  const pending = Math.max(0, total - completed - failed);
-
   const batchSceneCount = Math.max(1, batch.number_of_scenes ?? 1);
   const videos = (linkData || []).map((link: Record<string, unknown>) => {
     const gen = (link.generation as Record<string, unknown>) || {};
-    const status = (gen.final_video_status as string) || (gen.initial_status as string) || "pending";
+    const numScenesForGen = Math.max(batchSceneCount, (gen.number_of_scenes as number) ?? 1, 1);
+    const isMultiScene = numScenesForGen > 1;
+    // For multi-scene: consider extended_status; video is complete only when final_video_url exists
+    const status =
+      (gen.final_video_status as string) ||
+      (isMultiScene ? (gen.extended_status as string) : null) ||
+      (gen.initial_status as string) ||
+      "pending";
     const videoUrl =
       (gen.final_video_url as string) || (gen.initial_video_url as string) || null;
     const segments = (gen.video_segments as Array<{ url?: string; video_url?: string }>) || [];
@@ -205,14 +209,18 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
         (i === 0 ? (gen.initial_video_url as string) || null : null) ||
         (i === 1 ? (gen.extended_video_url as string) || null : null) ||
         (numScenes === 1 ? videoUrl : null);
-      scenes.push({
-        url: url || null,
-        status: url ? "completed" : i === 0 ? status : "pending",
-      });
+      const currentScene = (gen.current_scene as number) ?? 1;
+      const sceneStatus = url
+        ? "completed"
+        : i === 0
+          ? status
+          : i + 1 === currentScene && (gen.extended_status as string) === "generating"
+            ? "generating"
+            : "pending";
+      scenes.push({ url: url || null, status: sceneStatus });
     }
     if (scenes.length === 0 && videoUrl) scenes.push({ url: videoUrl, status });
     const finalUrl = (gen.final_video_url as string) || null;
-    const isMultiScene = numScenes > 1;
     // For multi-scene: only use stitched URL; single-scene: initial is the full video
     const downloadUrl = isMultiScene ? finalUrl : (finalUrl || videoUrl);
     return {
@@ -225,6 +233,12 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
       scenes,
     };
   });
+
+  // Compute completed/failed from actual video data (batch columns are never updated)
+  const completed = videos.filter((v) => v.status === "completed" && v.video_url).length;
+  const failed = videos.filter((v) => v.status === "failed").length;
+  const pending = Math.max(0, total - completed - failed);
+  const progress = total > 0 ? Math.round(((completed + failed) / total) * 100) : 0;
 
   const avgSecPerVideo = 60;
   const time_remaining_estimate_sec =

@@ -77,6 +77,32 @@ export default function BatchDetails() {
 
   useInterval(fetchStatus, id ? POLL_INTERVAL_MS : null);
 
+  // Poll kie-check-status for in-progress generations (safety net if callbacks are delayed)
+  useEffect(() => {
+    if (!id || !status?.videos) return;
+    const inProgress = status.videos.filter(
+      (v) =>
+        v.status === "generating" ||
+        v.status === "processing" ||
+        v.status === "pending"
+    );
+    if (inProgress.length === 0) return;
+    const interval = setInterval(async () => {
+      for (const v of inProgress) {
+        if (v.id) {
+          try {
+            await supabase.functions.invoke("kie-check-status", {
+              body: { generation_id: v.id },
+            });
+          } catch {
+            // Ignore poll errors
+          }
+        }
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [id, status?.videos]);
+
   const handleResume = async () => {
     if (!id) return;
     setResuming(true);
