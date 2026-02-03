@@ -72,34 +72,91 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
     );
 
+    const body = await req.json();
     const {
-      user_id,
-      image_url,
+      generation_id: bodyGenerationId,
+      prompt: bodyPrompt,
+      script: bodyScript,
+      user_id: bodyUserId,
+      image_url: bodyImageUrl,
       industry,
       avatar_name,
       city,
       story_idea,
-      scene_prompts,
+      scene_prompts: bodyScenePrompts,
       aspect_ratio,
       watermark,
       duration,
       image_analysis,
       model
-    } = await req.json();
+    } = body;
 
-    console.log('📥 Sora2 Latest generation request:', {
-      user_id,
-      industry,
-      avatar_name,
-      city,
-      scene_count: scene_prompts?.length,
-      aspect_ratio,
-      duration
-    });
+    let user_id: string;
+    let image_url: string;
+    let scene_prompts: Array<{ scene_number: number; prompt: string; script?: string }>;
+    let generation: { id: string; user_id: string; image_url: string | null; scene_prompts: unknown; ai_prompt: string | null; industry: string; avatar_name: string; city: string; story_idea: string | null; number_of_scenes: number; aspect_ratio: string; [key: string]: unknown };
 
-    // Validate required fields
-    if (!user_id || !image_url || !scene_prompts?.length) {
-      throw new Error('Missing required fields: user_id, image_url, scene_prompts');
+    // Existing-generation path (bulk / video-generate): use record created by bulk-generate-videos
+    if (bodyGenerationId) {
+      const { data: existing, error: fetchError } = await supabase
+        .from('kie_video_generations')
+        .select('id, user_id, image_url, scene_prompts, ai_prompt, industry, avatar_name, city, story_idea, number_of_scenes, aspect_ratio')
+        .eq('id', bodyGenerationId)
+        .single();
+      if (fetchError || !existing) {
+        console.error('❌ Generation not found:', bodyGenerationId, fetchError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Generation not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      user_id = existing.user_id;
+      image_url = (bodyImageUrl ?? existing.image_url ?? '').toString();
+      if (!image_url || image_url === 'text-only-mode') {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Sora 2 requires an image (image-to-video). Use a model like veo3_fast for text-only, or provide an image.',
+            error_type: 'INVALID_PARAMS',
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const existingScenes = (existing.scene_prompts as Array<{ scene_number: number; prompt: string; script?: string }>) || [];
+      if (existingScenes.length > 0) {
+        scene_prompts = existingScenes;
+      } else {
+        const promptText = (bodyPrompt ?? existing.ai_prompt ?? '').toString().trim();
+        if (!promptText) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Missing prompt for generation' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        scene_prompts = [{ scene_number: 1, prompt: promptText, script: (bodyScript ?? '').toString() }];
+      }
+      generation = { ...existing, image_url, scene_prompts } as typeof generation;
+      console.log('📥 Sora2 existing-generation (bulk/video-generate):', { generation_id: bodyGenerationId, user_id, scene_count: scene_prompts.length });
+    } else {
+      // New-generation path (Studio / Sora2 Latest UI)
+      if (!bodyUserId || !bodyImageUrl || !bodyScenePrompts?.length) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Missing required fields: user_id, image_url, scene_prompts' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      user_id = bodyUserId;
+      image_url = bodyImageUrl;
+      scene_prompts = bodyScenePrompts;
+      console.log('📥 Sora2 Latest generation request:', {
+        user_id,
+        industry,
+        avatar_name,
+        city,
+        scene_count: scene_prompts?.length,
+        aspect_ratio,
+        duration
+      });
     }
 
     // Credit check (model-aware, must match src/lib/video-models.ts)
@@ -131,6 +188,14 @@ serve(async (req) => {
     const validDurations = [10, 15, 25];
     const validDuration = validDurations.includes(duration) ? duration : 10;
 
+    // Existing-generation path: mark as generating so UI updates immediately; new path creates record below
+    if (bodyGenerationId) {
+      await supabase
+        .from('kie_video_generations')
+        .update({ initial_status: 'generating' })
+        .eq('id', generation.id);
+    }
+
     // Build avatar identity prefix from image analysis for consistent appearance across scenes
     let avatarIdentityPrefix = '';
     if (image_analysis) {
@@ -158,52 +223,53 @@ THIS EXACT PERSON with these EXACT clothing and features must appear in this sce
 
     console.log('🎭 Built avatar identity prefix:', avatarIdentityPrefix.substring(0, 200) + '...');
 
-    // Create generation record with avatar identity prefix
-    const { data: generation, error: insertError } = await supabase
-      .from('kie_video_generations')
-      .insert({
+    // New-generation path only: create record and reserve credits (existing path uses record from bulk)
+    if (!bodyGenerationId) {
+      const { data: insertedGen, error: insertError } = await supabase
+        .from('kie_video_generations')
+        .insert({
+          user_id,
+          image_url,
+          industry,
+          avatar_name,
+          city,
+          story_idea,
+          ai_prompt: scene_prompts[0]?.prompt || '',
+          scene_prompts,
+          number_of_scenes: scene_prompts.length,
+          current_scene: 1,
+          is_multi_scene: scene_prompts.length > 1,
+          aspect_ratio,
+          watermark: watermark || null,
+          duration: validDuration,
+          sora_model: 'sora-2-pro-image-to-video',
+          model: modelId,
+          initial_status: 'generating',
+          video_segments: [],
+          avatar_identity_prefix: avatarIdentityPrefix
+        })
+        .select()
+        .single();
+
+      if (insertError || !insertedGen) {
+        console.error('❌ Failed to create generation record:', insertError);
+        throw new Error('Failed to create generation record');
+      }
+      generation = insertedGen as typeof generation;
+      console.log('📝 Created generation record:', generation.id);
+
+      const estimatedMinutes = (scene_prompts.length * (validDuration || 10)) / 60;
+      await supabase.from('video_jobs').insert({
         user_id,
-        image_url,
-        industry,
-        avatar_name,
-        city,
-        story_idea,
-        ai_prompt: scene_prompts[0]?.prompt || '',
-        scene_prompts,
-        number_of_scenes: scene_prompts.length,
-        current_scene: 1,
-        is_multi_scene: scene_prompts.length > 1,
-        aspect_ratio,
-        watermark: watermark || null,
-        duration: validDuration,
-        sora_model: 'sora-2-pro-image-to-video',
-        model: modelId,
-        initial_status: 'generating',
-        video_segments: [],
-        avatar_identity_prefix: avatarIdentityPrefix // Store for use in subsequent scenes
-      })
-      .select()
-      .single();
-
-    if (insertError || !generation) {
-      console.error('❌ Failed to create generation record:', insertError);
-      throw new Error('Failed to create generation record');
+        generation_id: generation.id,
+        provider: 'kie-sora2',
+        estimated_minutes: estimatedMinutes,
+        estimated_credits: requiredCredits,
+        credits_reserved: requiredCredits,
+        status: 'pending',
+        metadata: { model: modelId, scene_count: scene_prompts.length },
+      });
     }
-
-    console.log('📝 Created generation record:', generation.id);
-
-    // Reserve credits (create video_job)
-    const estimatedMinutes = (scene_prompts.length * (validDuration || 10)) / 60;
-    await supabase.from('video_jobs').insert({
-      user_id,
-      generation_id: generation.id,
-      provider: 'kie-sora2',
-      estimated_minutes: estimatedMinutes,
-      estimated_credits: requiredCredits,
-      credits_reserved: requiredCredits,
-      status: 'pending',
-      metadata: { model: modelId, scene_count: scene_prompts.length },
-    });
 
     // Get API key
     const KIE_AI_API_TOKEN = Deno.env.get('KIE_AI_API_TOKEN');
