@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus } from "lucide-react";
 import { AvatarSelector, type AvatarOption } from "../AvatarSelector";
 import type { BatchRow } from "@/types/bulk";
-import { getRowScriptStatus, getSegments, setSegments, getVisualSegments, setVisualSegments, createEmptyRow } from "@/types/bulk";
+import { getSegments, setSegments, getVisualSegments, setVisualSegments, createEmptyRow } from "@/types/bulk";
 import { cn } from "@/lib/utils";
 
 const ROW_HEIGHT = 110;
@@ -58,11 +58,6 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
     [rows, onChange]
   );
 
-  const invalidRow = (row: BatchRow) => {
-    const hasAvatar = !!(row.avatar_id || row.avatar_name);
-    const { hasScript } = getRowScriptStatus(row, n);
-    return !hasAvatar || !hasScript;
-  };
 
   const getSegmentValue = (row: BatchRow, i: number): string => {
     const segs = getSegments(row, n);
@@ -132,7 +127,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
         <div>
           <h2 className="text-2xl font-bold mb-2">Review your production queue</h2>
           <p className="text-muted-foreground">
-            Edit any cell. Rows with missing data will be highlighted.
+            Edit any cell.
           </p>
         </div>
         <Button type="button" variant="outline" size="sm" onClick={addRow} className="gap-2 shrink-0">
@@ -172,14 +167,10 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
           {virtualRows.map((virtualRow) => {
             const row = rows[virtualRow.index];
             if (!row) return null;
-            const invalid = invalidRow(row);
             return (
               <div
                 key={row.id}
-                className={cn(
-                  "absolute left-0 flex items-stretch border-b min-w-max",
-                  invalid && "bg-red-50/50 dark:bg-red-950/20"
-                )}
+                className="absolute left-0 flex items-stretch border-b min-w-max"
                 style={{
                   height: rowH,
                   top: virtualRow.start + HEADER_HEIGHT,
@@ -194,7 +185,6 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                     value={row.avatar_id || row.avatar_name || ""}
                     onChange={(id, name) => updateRow(virtualRow.index, { avatar_id: id, avatar_name: name })}
                     avatars={avatars}
-                    invalid={!row.avatar_id && !row.avatar_name}
                   />
                 </div>
                 {Array.from({ length: displayN }, (_, i) => {
