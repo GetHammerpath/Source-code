@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus } from "lucide-react";
 import { AvatarSelector, type AvatarOption } from "../AvatarSelector";
 import type { BatchRow } from "@/types/bulk";
-import { getRowScriptStatus, getSegments, setSegments, getVisualSegments, setVisualSegments, createEmptyRow, countWords, segmentWordLimit } from "@/types/bulk";
+import { getRowScriptStatus, getSegments, setSegments, getVisualSegments, setVisualSegments, createEmptyRow } from "@/types/bulk";
 import { cn } from "@/lib/utils";
 
 const ROW_HEIGHT = 110;
@@ -60,8 +60,8 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
 
   const invalidRow = (row: BatchRow) => {
     const hasAvatar = !!(row.avatar_id || row.avatar_name);
-    const { hasScript, fitsLimits } = getRowScriptStatus(row, n);
-    return !hasAvatar || !hasScript || !fitsLimits;
+    const { hasScript } = getRowScriptStatus(row, n);
+    return !hasAvatar || !hasScript;
   };
 
   const getSegmentValue = (row: BatchRow, i: number): string => {
@@ -133,7 +133,6 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
           <h2 className="text-2xl font-bold mb-2">Review your production queue</h2>
           <p className="text-muted-foreground">
             Edit any cell. Rows with missing data will be highlighted.
-            Scene 1: 8 sec (~20 words). Scenes 2+: 7 sec (~17 words each).
           </p>
         </div>
         <Button type="button" variant="outline" size="sm" onClick={addRow} className="gap-2 shrink-0">
@@ -201,8 +200,6 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                 {Array.from({ length: displayN }, (_, i) => {
                   const val = getSegmentValue(row, i);
                   const visualVal = showVisualContext ? getVisualValue(row, i) : "";
-                  const wordCount = countWords(val);
-                  const overLimit = wordCount > 0 && wordCount > segmentWordLimit(i);
                   return (
                     <div key={i} className={cn("flex-1 px-3 py-2 flex flex-col gap-3", showVisualContext ? "min-w-[280px]" : "min-w-[160px]")}>
                       <div className="flex flex-col gap-3">
@@ -212,10 +209,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                             value={val}
                             onChange={(e) => updateRow(virtualRow.index, setSegmentValue(row, i, e.target.value))}
                             placeholder={showVisualContext ? "Spoken dialogue..." : "..."}
-                            className={cn(
-                              "min-h-[72px] text-sm resize-y border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 placeholder:text-slate-400",
-                              overLimit && "!text-red-600 dark:!text-red-400"
-                            )}
+                            className="min-h-[72px] text-sm resize-y border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 placeholder:text-slate-400"
                             rows={3}
                           />
                         </div>

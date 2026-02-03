@@ -18,8 +18,8 @@ interface Step4_LaunchProps {
 function getValidRows(rows: BatchRow[], sceneCount: number): BatchRow[] {
   return rows.filter((r) => {
     const hasAvatar = !!(r.avatar_id || r.avatar_name);
-    const { hasScript, fitsLimits } = getRowScriptStatus(r, sceneCount);
-    return hasAvatar && hasScript && fitsLimits;
+    const { hasScript } = getRowScriptStatus(r, sceneCount);
+    return hasAvatar && hasScript;
   });
 }
 
