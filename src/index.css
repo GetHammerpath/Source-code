@@ -172,6 +172,24 @@ All colors MUST be HSL.
     scroll-behavior: smooth;
   }
 
+  /* Workbench script/visual cells: never show red validation styling */
+  .workbench-script-cell,
+  .workbench-script-cell:focus-within,
+  .workbench-script-cell textarea {
+    border-color: hsl(220 13% 91%) !important;
+  }
+  .dark .workbench-script-cell,
+  .dark .workbench-script-cell:focus-within,
+  .dark .workbench-script-cell textarea {
+    border-color: hsl(220 13% 20%) !important;
+  }
+  .workbench-script-cell textarea {
+    color: hsl(220 13% 18%) !important;
+  }
+  .dark .workbench-script-cell textarea {
+    color: hsl(220 14% 96%) !important;
+  }
+
   /* Respect reduced motion */
   @media (prefers-reduced-motion: reduce) {
     *,

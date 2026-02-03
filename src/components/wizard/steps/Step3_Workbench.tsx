@@ -193,7 +193,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                   return (
                     <div key={i} className={cn("flex-1 px-3 py-2 flex flex-col gap-3", showVisualContext ? "min-w-[280px]" : "min-w-[160px]")}>
                       <div className="flex flex-col gap-3">
-                        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 p-3 shadow-sm transition-shadow hover:shadow focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40">
+                        <div className="workbench-script-cell rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 p-3 shadow-sm transition-shadow hover:shadow focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40">
                           <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Script</label>
                           <Textarea
                             value={val}
@@ -204,7 +204,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                           />
                         </div>
                         {showVisualContext && (
-                          <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 p-3 shadow-sm transition-shadow hover:shadow focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40">
+                          <div className="workbench-script-cell rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 p-3 shadow-sm transition-shadow hover:shadow focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40">
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Visual</label>
                             <Textarea
                               value={visualVal}
