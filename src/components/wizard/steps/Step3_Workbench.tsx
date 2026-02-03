@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus } from "lucide-react";
 import { AvatarSelector, type AvatarOption } from "../AvatarSelector";
 import type { BatchRow } from "@/types/bulk";
-import { getRowScriptStatus, getSegments, setSegments, getVisualSegments, setVisualSegments, createEmptyRow } from "@/types/bulk";
+import { getRowScriptStatus, getSegments, setSegments, getVisualSegments, setVisualSegments, createEmptyRow, countWords, segmentWordLimit } from "@/types/bulk";
 import { cn } from "@/lib/utils";
 
 const ROW_HEIGHT = 110;
@@ -201,6 +201,8 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                 {Array.from({ length: displayN }, (_, i) => {
                   const val = getSegmentValue(row, i);
                   const visualVal = showVisualContext ? getVisualValue(row, i) : "";
+                  const wordCount = countWords(val);
+                  const overLimit = wordCount > 0 && wordCount > segmentWordLimit(i);
                   return (
                     <div key={i} className={cn("flex-1 px-3 py-2 flex flex-col gap-3", showVisualContext ? "min-w-[280px]" : "min-w-[160px]")}>
                       <div className="flex flex-col gap-3">
@@ -212,7 +214,7 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
                             placeholder={showVisualContext ? "Spoken dialogue..." : "..."}
                             className={cn(
                               "min-h-[72px] text-sm resize-y border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 placeholder:text-slate-400",
-                              batchRowToScript(row, n).length > 500 && "!text-red-600 dark:!text-red-400"
+                              overLimit && "!text-red-600 dark:!text-red-400"
                             )}
                             rows={3}
                           />
