@@ -22,6 +22,8 @@ export interface BatchRow {
 const SEGMENT_KEYS = ["segment1", "segment2", "segment3", "segment4", "segment5"] as const;
 const VISUAL_SEGMENT_KEYS = ["visual_segment1", "visual_segment2", "visual_segment3", "visual_segment4", "visual_segment5"] as const;
 const MAX_SCENES = 1000;
+export const FIRST_SEGMENT_MAX_WORDS = 22;
+export const OTHER_SEGMENT_MAX_WORDS = 19;
 
 /** Build script from segments 1..sceneCount (1-1000). */
 export function batchRowToScript(row: BatchRow, sceneCount: number = 3): string {
@@ -29,6 +31,23 @@ export function batchRowToScript(row: BatchRow, sceneCount: number = 3): string 
   const segs = getSegments(row, n);
   const parts = segs.slice(0, n).filter((s) => s?.trim());
   return parts.join("\n\n").trim() || (row.segment1 || "");
+}
+
+export function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+export function segmentWordLimit(index: number): number {
+  return index === 0 ? FIRST_SEGMENT_MAX_WORDS : OTHER_SEGMENT_MAX_WORDS;
+}
+
+export function getRowScriptStatus(row: BatchRow, sceneCount: number): { hasScript: boolean; fitsLimits: boolean } {
+  const n = Math.min(Math.max(1, sceneCount), MAX_SCENES);
+  const segs = getSegments(row, n).slice(0, n);
+  const wordCounts = segs.map((s) => countWords(s || ""));
+  const hasScript = wordCounts.some((count) => count > 0);
+  const fitsLimits = wordCounts.every((count, i) => count === 0 || count <= segmentWordLimit(i));
+  return { hasScript, fitsLimits };
 }
 
 export function createEmptyRow(): BatchRow {

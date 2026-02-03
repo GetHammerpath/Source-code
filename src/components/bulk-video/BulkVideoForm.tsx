@@ -156,16 +156,24 @@ const BulkVideoForm = ({ userId, onBatchCreated }: BulkVideoFormProps) => {
 
       const result = await Promise.race([
         invokePromise,
-        new Promise<{ error: Error | null }>((resolve) =>
+        new Promise<{ error: Error | null; data?: { started?: number; failed?: number } }>((resolve) =>
           setTimeout(() => resolve({ error: null }), 8000)
         ),
       ]);
       const funcError = result && typeof result === "object" && "error" in result ? result.error : null;
       if (funcError) throw funcError;
 
+      const data = result && typeof result === "object" && "data" in result ? (result as { data?: { started?: number; failed?: number } }).data : undefined;
+      const started = data?.started;
+      const failed = data?.failed;
+      const description =
+        started !== undefined && failed !== undefined
+          ? `${started} started, ${failed} failed.${failed > 0 ? " Check the batch page for error details." : ""}`
+          : `Creating ${combinations.length} video variations`;
       toast({
         title: "Bulk generation started!",
-        description: `Creating ${combinations.length} video variations`,
+        description,
+        ...(failed != null && failed > 0 && { variant: "destructive" }),
       });
 
       onBatchCreated(batch.id);

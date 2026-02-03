@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus } from "lucide-react";
 import { AvatarSelector, type AvatarOption } from "../AvatarSelector";
 import type { BatchRow } from "@/types/bulk";
-import { batchRowToScript, getSegments, setSegments, getVisualSegments, setVisualSegments, createEmptyRow } from "@/types/bulk";
+import { getRowScriptStatus, getSegments, setSegments, getVisualSegments, setVisualSegments, createEmptyRow } from "@/types/bulk";
 import { cn } from "@/lib/utils";
 
 const ROW_HEIGHT = 110;
@@ -60,10 +60,8 @@ export function Step3_Workbench({ rows, onChange, avatars, sceneCount = 3, showV
 
   const invalidRow = (row: BatchRow) => {
     const hasAvatar = !!(row.avatar_id || row.avatar_name);
-    const script = batchRowToScript(row, n);
-    const hasScript = !!script.trim();
-    const scriptOk = script.length <= 500;
-    return !hasAvatar || !hasScript || !scriptOk;
+    const { hasScript, fitsLimits } = getRowScriptStatus(row, n);
+    return !hasAvatar || !hasScript || !fitsLimits;
   };
 
   const getSegmentValue = (row: BatchRow, i: number): string => {

@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Beaker, Rocket, AlertTriangle } from "lucide-react";
 import type { BatchRow } from "@/types/bulk";
-import { batchRowToScript } from "@/types/bulk";
+import { getRowScriptStatus } from "@/types/bulk";
 import { cn } from "@/lib/utils";
 import { estimateCreditsForModel, calculateCreditPrice } from "@/lib/billing/pricing";
 import { getVideoModel, getFallbackModel } from "@/lib/video-models";
@@ -18,8 +18,8 @@ interface Step4_LaunchProps {
 function getValidRows(rows: BatchRow[], sceneCount: number): BatchRow[] {
   return rows.filter((r) => {
     const hasAvatar = !!(r.avatar_id || r.avatar_name);
-    const script = batchRowToScript(r, sceneCount);
-    return hasAvatar && script.trim() && script.length <= 500;
+    const { hasScript, fitsLimits } = getRowScriptStatus(r, sceneCount);
+    return hasAvatar && hasScript && fitsLimits;
   });
 }
 

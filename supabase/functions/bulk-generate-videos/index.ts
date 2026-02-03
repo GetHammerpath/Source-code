@@ -412,9 +412,10 @@ serve(async (req) => {
             .eq("id", genRecord.id);
         };
 
+        console.log(`📡 video-generate response for ${genRecord.id}: ${generateResponse.status}`);
         if (!generateResponse.ok) {
           const errorText = await generateResponse.text();
-          console.error(`❌ Video generation failed for ${genRecord.id}:`, errorText);
+          console.error(`❌ Video generation failed for ${genRecord.id} (${generateResponse.status}):`, errorText);
           let errMsg = errorText;
           try {
             const parsed = JSON.parse(errorText) as { error?: string };

@@ -63,6 +63,9 @@ export interface BatchStatus {
 
 export interface LaunchResult {
   batch_id: string;
+  /** When the function returns within the timeout, we get counts to show the user */
+  started?: number;
+  failed?: number;
 }
 
 function toRowsPayload(rows: LaunchRow[]) {
@@ -145,7 +148,7 @@ export async function launchBatch(
   // Wait briefly for immediate errors (e.g. auth, bad payload), then return so user can navigate.
   const result = await Promise.race([
     invokePromise,
-    new Promise<{ error: Error | null }>((resolve) =>
+    new Promise<{ error: Error | null; data?: { started?: number; failed?: number } }>((resolve) =>
       setTimeout(() => resolve({ error: null }), 8000)
     ),
   ]);
@@ -153,7 +156,12 @@ export async function launchBatch(
   const funcError = result && typeof result === "object" && "error" in result ? result.error : null;
   if (funcError) throw funcError;
 
-  return { batch_id: batch.id };
+  const data = result && typeof result === "object" && "data" in result ? (result as { data?: { started?: number; failed?: number } }).data : undefined;
+  return {
+    batch_id: batch.id,
+    ...(data?.started !== undefined && { started: data.started }),
+    ...(data?.failed !== undefined && { failed: data.failed }),
+  };
 }
 
 export async function getBatchStatus(batchId: string): Promise<BatchStatus | null> {

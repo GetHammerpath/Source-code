@@ -9,8 +9,9 @@ verify_jwt = false
 [functions.analyze-image-kie]
 verify_jwt = false
 
+# Accept service-role when called from video-generate (bulk flow)
 [functions.kie-generate-video]
-verify_jwt = true
+verify_jwt = false
 
 [functions.kie-callback]
 verify_jwt = false
@@ -45,8 +46,9 @@ verify_jwt = false
 [functions.sora-extend-next]
 verify_jwt = false
 
+# Accept service-role when called from video-generate (bulk flow)
 [functions.sora2-generate-video]
-verify_jwt = true
+verify_jwt = false
 
 [functions.sora2-callback]
 verify_jwt = false
@@ -103,5 +105,6 @@ verify_jwt = true
 [functions.video-generate]
 verify_jwt = false
 
+# Accept service-role when called from video-generate (bulk flow)
 [functions.kie-kling-generate-video]
-verify_jwt = true
+verify_jwt = false

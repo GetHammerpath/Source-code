@@ -66,3 +66,16 @@ Look for red errors or our `❌` log lines. That will show whether the failure i
 | Error: "Generation not found" | Callback or DB lookup issue | Check Edge Function logs for kie-callback / sora2-callback |
 
 After deploying and setting the token, create a **new** batch or new video; old stuck rows may still show the previous error until you retry.
+
+---
+
+## 6. Still not working? Get the exact error
+
+1. **Open the batch page** (e.g. `/batch/<batch-id>`) and wait for it to load (or poll).
+2. **Find a video row** that shows **Failed** (red badge). Under it you should see a **red error message** (e.g. "KIE_AI_API_TOKEN not configured", "Insufficient credits", "AI prompt generation failed: …").
+3. **Copy that message** and either:
+   - Fix the cause (add the token, add credits, fix script/prompt), or
+   - Open **Supabase Dashboard → Edge Functions → Logs** and search for that text in **bulk-generate-videos**, **video-generate**, **kie-generate-video**, or **sora2-generate-video** to see the full stack/context.
+4. If **no** video shows Failed and all stay on "Processing":
+   - Check **bulk-generate-videos** logs for the batch start (e.g. "Starting bulk generation for batch …"). If you don’t see it, the frontend may not be calling the function (e.g. auth or CORS).
+   - Check **video-generate** and **kie-generate-video** (or **sora2-generate-video**) logs for each generation; the first error there is usually the root cause.

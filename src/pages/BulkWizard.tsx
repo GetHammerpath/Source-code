@@ -112,9 +112,18 @@ export default function BulkWizard() {
         strategy ?? "csv"
       );
 
+      const started = result.started ?? null;
+      const failed = result.failed ?? null;
+      const desc =
+        started !== null && failed !== null
+          ? `${started} started, ${failed} failed.${failed > 0 ? " Check the batch page for error details." : ""}`
+          : isTestRun
+            ? "Generating first 3 videos"
+            : `Creating ${valid.length} videos`;
       toast({
         title: isTestRun ? "Test run started!" : "Bulk generation started!",
-        description: isTestRun ? "Generating first 3 videos" : `Creating ${valid.length} videos`,
+        description: desc,
+        ...(failed != null && failed > 0 && { variant: "destructive" as const }),
       });
 
       navigate(`/batch/${result.batch_id}`);
