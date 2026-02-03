@@ -56,6 +56,8 @@ export interface BatchStatus {
     scene_count: number;
     thumbnail_url?: string | null;
     scenes: Array<{ url: string | null; status: string }>;
+    /** Error message when generation failed (e.g. from video-generate or Kie callback) */
+    initial_error?: string | null;
   }>;
 }
 
@@ -178,7 +180,8 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
         extended_video_url,
         final_video_url,
         video_segments,
-        number_of_scenes
+        number_of_scenes,
+        initial_error
       )
     `)
     .eq("batch_id", batchId)
@@ -231,6 +234,7 @@ export async function getBatchStatus(batchId: string): Promise<BatchStatus | nul
       final_video_url: finalUrl,
       scene_count: numScenes,
       scenes,
+      initial_error: (gen.initial_error as string) || null,
     };
   });
 

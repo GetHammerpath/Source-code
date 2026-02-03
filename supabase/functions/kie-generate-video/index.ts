@@ -311,10 +311,19 @@ Voice Delivery Notes:
     );
     const seed = (seedNum % 90000) + 10000;
 
+    // Kie.ai: REFERENCE_2_VIDEO (image-to-video) only supports veo3_fast, not veo3 Quality. Use Fast for this mode so the request succeeds.
+    const effectiveModel = (model || 'veo3_fast');
+    const useModel = (generationType === 'REFERENCE_2_VIDEO' && effectiveModel === 'veo3')
+      ? 'veo3_fast'
+      : effectiveModel;
+    if (useModel !== effectiveModel) {
+      console.log(`⚠️ Kie API: REFERENCE_2_VIDEO only supports veo3_fast. Using veo3_fast instead of ${effectiveModel}.`);
+    }
+
     // Build request payload - conditionally include imageUrls based on generation type
     const requestPayload: Record<string, unknown> = {
       prompt: safePrompt,
-      model: model || 'veo3_fast',
+      model: useModel,
       watermark: watermark || '',
       callBackUrl: callbackUrl,
       aspectRatio,

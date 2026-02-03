@@ -354,6 +354,11 @@ const BulkVideoForm = ({ userId, onBatchCreated }: BulkVideoFormProps) => {
                             <SelectItem value="veo3">Veo3 Quality</SelectItem>
                           </SelectContent>
                         </Select>
+                        {generationMode === "image" && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Image mode uses Fast (provider does not support Quality for image-to-video).
+                          </p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

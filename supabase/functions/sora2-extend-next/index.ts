@@ -108,6 +108,15 @@ serve(async (req) => {
     const currentScene = generation.current_scene || 1;
     const totalScenes = generation.number_of_scenes || 1;
     const duration = generation.duration || 10;
+    if (!generation.image_url || generation.image_url === 'text-only-mode') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Sora 2 extend requires an image_url on the generation record (image-to-video).',
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     const callbackUrl = `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/sora2-callback`;
 
     // Get scene data

@@ -188,11 +188,14 @@ serve(async (req) => {
     const validDurations = [10, 15, 25];
     const validDuration = validDurations.includes(duration) ? duration : 10;
 
-    // Existing-generation path: mark as generating so UI updates immediately; new path creates record below
+    // Existing-generation path: mark as generating and set sora_model so callback/orchestration can identify Sora2 jobs
     if (bodyGenerationId) {
       await supabase
         .from('kie_video_generations')
-        .update({ initial_status: 'generating' })
+        .update({
+          initial_status: 'generating',
+          sora_model: 'sora-2-pro-image-to-video',
+        })
         .eq('id', generation.id);
     }
 

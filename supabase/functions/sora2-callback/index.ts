@@ -44,7 +44,16 @@ serve(async (req) => {
       serviceKey
     );
 
-    const payload = await req.json();
+    let payload: unknown;
+    try {
+      payload = await req.json();
+    } catch {
+      console.error('❌ Invalid JSON in callback body');
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     console.log('📥 Sora2 callback received:', JSON.stringify(payload, null, 2));
 
     // Handle both direct and nested formats
@@ -85,11 +94,11 @@ serve(async (req) => {
       throw new Error('No taskId in callback payload');
     }
 
-    // Find the generation record by task ID (could be initial or extended)
+    // Find the generation record by task ID (initial or extended). Do not filter by sora_model
+    // so bulk-created records (which may not have sora_model set) are found.
     const { data: generations, error: findError } = await supabase
       .from('kie_video_generations')
       .select('*')
-      .eq('sora_model', 'sora-2-pro-image-to-video')
       .or(`initial_task_id.eq.${taskId},extended_task_id.eq.${taskId}`)
       .limit(1);
 

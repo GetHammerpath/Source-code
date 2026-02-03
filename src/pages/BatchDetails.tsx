@@ -458,6 +458,11 @@ export default function BatchDetails() {
                             Stitch first for smooth download
                           </p>
                         )}
+                        {v.status === "failed" && v.initial_error && (
+                          <p className="text-xs text-destructive mt-0.5 max-w-[200px]" title={v.initial_error}>
+                            {v.initial_error}
+                          </p>
+                        )}
                         {v.video_url && (
                           <div className="flex flex-col gap-1">
                             <a

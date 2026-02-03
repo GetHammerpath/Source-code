@@ -402,25 +402,49 @@ serve(async (req) => {
           }),
         });
 
+        const updateGenFailed = async (errorMessage: string) => {
+          await supabase
+            .from("kie_video_generations")
+            .update({
+              initial_status: "failed",
+              initial_error: errorMessage,
+            })
+            .eq("id", genRecord.id);
+        };
+
         if (!generateResponse.ok) {
           const errorText = await generateResponse.text();
           console.error(`❌ Video generation failed for ${genRecord.id}:`, errorText);
+          let errMsg = errorText;
+          try {
+            const parsed = JSON.parse(errorText) as { error?: string };
+            if (parsed?.error) errMsg = parsed.error;
+          } catch {
+            // use raw text
+          }
+          await updateGenFailed(errMsg || "Video generation request failed");
           failCount++;
           continue;
         }
 
-        const generateData = await generateResponse.json();
+        const generateData = await generateResponse.json() as { success?: boolean; error?: string; task_id?: string };
         if (generateData.success) {
           console.log(`✅ Video generation started for ${genRecord.id}, task_id: ${generateData.task_id}`);
           successCount++;
         } else {
           console.error(`❌ Video generation error for ${genRecord.id}:`, generateData.error);
+          await updateGenFailed((generateData.error as string) || "Video generation failed");
           failCount++;
         }
 
         await new Promise((resolve) => setTimeout(resolve, 2000));
       } catch (err) {
         console.error(`❌ Failed to process generation ${gen.generation_id}:`, err);
+        const errMsg = err instanceof Error ? err.message : "Unexpected error starting video generation";
+        await supabase
+          .from("kie_video_generations")
+          .update({ initial_status: "failed", initial_error: errMsg })
+          .eq("id", gen.generation_id);
         failCount++;
       }
     }
